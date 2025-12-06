@@ -1,0 +1,100 @@
+# Registry of all data sources for BrandClave Aggregator
+
+social_sources:
+  reddit:
+    enabled: true
+    api_type: "praw"  # Python Reddit API Wrapper
+    subreddits:
+      - "hotels"
+      - "travel"
+      - "solotravel"
+      - "luxurytravel"
+    frequency: "hourly"
+    priority: "high"
+
+  tiktok:
+    enabled: false  # Requires approved API access
+    api_type: "official"
+    hashtags:
+      - "#hoteltok"
+      - "#luxuryhotel"
+      - "#boutiquehotel"
+    frequency: "daily"
+    priority: "medium"
+
+  instagram:
+    enabled: false  # Requires Meta Business API
+    api_type: "official"
+    hashtags:
+      - "#boutiquehotel"
+      - "#hoteldesign"
+      - "#luxurytravel"
+    frequency: "daily"
+    priority: "medium"
+
+review_sources:
+  tripadvisor:
+    enabled: true
+    scraping_method: "selenium"
+    rate_limit: 100  # requests per hour
+    regions:
+      - "north_america"
+      - "europe"
+      - "asia"
+    frequency: "daily"
+    priority: "high"
+
+  booking:
+    enabled: true
+    scraping_method: "requests"
+    rate_limit: 50
+    frequency: "daily"
+    priority: "high"
+
+  google_reviews:
+    enabled: true
+    api_type: "places"
+    frequency: "daily"
+    priority: "medium"
+
+news_sources:
+  hospitalitynet:
+    enabled: true
+    type: "rss"
+    url: "https://www.hospitalitynet.org/news.rss"
+    frequency: "hourly"
+    priority: "high"
+    categories:
+      - "development"
+      - "brand_news"
+      - "trends"
+
+  skift:
+    enabled: true
+    type: "scraper"
+    url: "https://skift.com/hospitality/"
+    scraping_method: "beautifulsoup"
+    frequency: "every_6_hours"
+    priority: "high"
+
+  hotelnewsnow:
+    enabled: true
+    type: "scraper"
+    url: "https://www.hotelnewsnow.com/"
+    scraping_method: "beautifulsoup"
+    frequency: "every_6_hours"
+    priority: "medium"
+
+property_sources:
+  direct_website:
+    enabled: true
+    scraping_method: "playwright"  # For JS-heavy sites
+    timeout: 30
+    screenshot: true
+    extract:
+      - "hero_text"
+      - "amenities"
+      - "room_descriptions"
+      - "pricing"
+      - "images"
+      - "location_info"

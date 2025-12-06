@@ -1,0 +1,70 @@
+# Scraping configuration for BrandClave Aggregator
+
+global_settings:
+  max_concurrent_requests: 5
+  request_timeout: 30  # seconds
+  retry_attempts: 3
+  retry_backoff: 2  # exponential backoff multiplier
+  respect_robots_txt: true
+
+user_agents:
+  default: "BrandClave-Aggregator/1.0 (Research Bot; +https://brandclave.com/bot)"
+  desktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+
+rate_limiting:
+  default:
+    requests_per_minute: 10
+    requests_per_hour: 100
+    requests_per_day: 1000
+
+  aggressive:
+    requests_per_minute: 30
+    requests_per_hour: 500
+    requests_per_day: 5000
+
+  conservative:
+    requests_per_minute: 5
+    requests_per_hour: 50
+    requests_per_day: 500
+
+delays:
+  between_requests:
+    min: 2  # seconds
+    max: 5  # seconds
+  between_pages:
+    min: 3
+    max: 8
+  on_error:
+    min: 10
+    max: 30
+
+selenium_config:
+  headless: true
+  window_size: "1920,1080"
+  page_load_timeout: 30
+  implicit_wait: 10
+  download_images: false
+
+playwright_config:
+  headless: true
+  viewport:
+    width: 1920
+    height: 1080
+  timeout: 30000
+  user_agent: "desktop"
+  javascript_enabled: true
+
+proxy_settings:
+  enabled: false
+  rotation: false
+  providers: []
+  # Example:
+  # - type: "residential"
+  #   url: "http://proxy-provider.com:8080"
+
+storage:
+  raw_html: true
+  screenshots: false
+  max_content_size: 5242880  # 5MB in bytes
+  compression: true
