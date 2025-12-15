@@ -166,14 +166,14 @@ This structure cleanly separates data, logic, APIs, and ops, and is easy to exte
 
 A structured development plan from MVP to full system.
 
-### Phase 1 — Core Foundations
+### Phase 1 — Core Foundations (COMPLETE)
 
 **Goal**: System skeleton + minimal ingestion + schemas
 
 **Tech Stack:**
 - Database: SQLite + ChromaDB (local development)
 - Embeddings: Mistral Embed API with local sentence-transformers fallback
-- First scraper: HospitalityNet RSS
+- First scraper: Skift RSS (HospitalityNet deprecated)
 
 **Deliverables:**
 
@@ -201,33 +201,30 @@ A structured development plan from MVP to full system.
 
 5. **Scraper Infrastructure** (`ingestion/`)
    - `base_scraper.py` - Abstract base class with rate limiting, retry logic, robots.txt checking
-   - `news/hospitalitynet_rss.py` - First RSS scraper
+   - `news/skift_rss.py` - Hospitality news RSS scraper
 
 6. **Scripts** (`scripts/`)
    - `init_db.py` - Initialize SQLite + ChromaDB
    - `run_crawlers.py` - CLI to run scrapers
-
-**Success Criteria:**
-- `conda activate brandclave && pip install -r requirements.txt` works
-- `python scripts/init_db.py` creates database + vector store
-- `python scripts/run_crawlers.py --source hospitalitynet` fetches and processes articles
-- Articles stored with sentiment scores and embeddings
+   - `check_db.py` - Database statistics
 
 **Output**: Database populated with raw items + simple processing pipeline.
 
-### Phase 2 — Social Pulse MVP (Weeks 3–5)
+### Phase 2 — Social Pulse MVP (COMPLETE)
 
 **Goal**: first working trend signal engine
 
-- Add first social source (Reddit or TikTok via 3rd-party API)
-- Implement clustering of embeddings by region/time
-- Compute trend strength metrics
-- Compute simple white-space score (demand vs supply proxy)
-- Auto-generate trend name + "Why it matters"
-- Build `/api/social-pulse` endpoint
-- Connect to BrandClave UI (cards + filters)
+**Implemented:**
+- Reddit scraper (old.reddit.com JSON endpoints, no API key required)
+- YouTube search scraper (no API key required)
+- HDBSCAN clustering of embeddings by semantic similarity
+- Trend strength metrics (volume, engagement, sentiment delta)
+- White-space scoring (demand vs supply imbalance)
+- Mistral LLM for trend names and "Why it matters" generation
+- `/api/social-pulse` endpoint with filtering
+- Semantic search endpoint
 
-**Output**: A working Social Pulse screen with real data.
+**Output**: Working Social Pulse API returning real trend data.
 
 ### Phase 3 — Hotelier Bets MVP (Weeks 5–7)
 
@@ -267,13 +264,38 @@ A structured development plan from MVP to full system.
 
 **Output**: A production-grade intelligence engine supporting global hospitality markets.
 
+## Current Status
+
+### Phase 1 - Core Foundations (COMPLETE)
+- SQLite + ChromaDB database layer
+- Mistral Embed API for embeddings
+- Skift RSS scraper (HospitalityNet deprecated)
+- NLP pipeline with sentiment analysis and language detection
+- Base scraper infrastructure with rate limiting
+
+### Phase 2 - Social Pulse MVP (COMPLETE)
+- Reddit scraper (old.reddit.com JSON endpoints, no API key)
+- YouTube search scraper (no API key)
+- HDBSCAN clustering for trend detection
+- Trend scoring (strength, white-space, engagement)
+- Mistral LLM for trend names and "Why it matters" generation
+- FastAPI endpoints for Social Pulse
+
+**Current Data:**
+- 552 content items scraped
+- 70 items processed with embeddings
+- 3 trend clusters identified
+
+### Phase 3 - Hotelier Bets MVP (IN PROGRESS)
+- Next: News source expansion and move extraction
+
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.11+
-- Docker & Docker Compose
-- PostgreSQL with pgvector extension
+- Conda (recommended) or virtualenv
+- Mistral API key (for embeddings and LLM)
 
 ### Installation
 
@@ -282,25 +304,66 @@ A structured development plan from MVP to full system.
 git clone <your-repo-url>
 cd Brandclave
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Create conda environment
+conda env create -f environment.yml
+conda activate brandclave
 
-# Install dependencies
+# Or use pip
 pip install -r requirements.txt
 
 # Set up environment variables
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your MISTRAL_API_KEY
 
-# Start database
-docker-compose up -d
+# Initialize database
+python scripts/init_db.py
 
-# Run migrations
-python scripts/run_migrations.py
+# Run scrapers
+python scripts/run_crawlers.py --all
+
+# Process content with NLP pipeline
+python scripts/run_crawlers.py --process
+
+# Generate trends
+python scripts/run_crawlers.py --trends
 
 # Start the API server
 uvicorn api.main:app --reload
+```
+
+### API Endpoints
+
+```
+GET  /                           - API info
+GET  /health                     - Health check
+GET  /api/social-pulse           - List trend signals
+GET  /api/social-pulse/{id}      - Single trend detail
+POST /api/social-pulse/search/semantic - Semantic search
+POST /api/social-pulse/generate  - Trigger trend generation
+```
+
+### CLI Commands
+
+```bash
+# List available scrapers
+python scripts/run_crawlers.py --list
+
+# Run specific scraper
+python scripts/run_crawlers.py --source reddit
+python scripts/run_crawlers.py --source youtube
+python scripts/run_crawlers.py --source skift
+
+# Run all scrapers
+python scripts/run_crawlers.py --all
+
+# Process unprocessed content
+python scripts/run_crawlers.py --process --limit 100
+
+# Generate trends
+python scripts/run_crawlers.py --trends --days 30
+
+# Check database stats
+python scripts/check_db.py
 ```
 
 ### Running Tests
