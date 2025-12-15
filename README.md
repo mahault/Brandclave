@@ -166,21 +166,52 @@ This structure cleanly separates data, logic, APIs, and ops, and is easy to exte
 
 A structured development plan from MVP to full system.
 
-### Phase 1 — Core Foundations (Weeks 1–2)
+### Phase 1 — Core Foundations
 
-**Goal**: system skeleton + minimal ingestion + schemas
+**Goal**: System skeleton + minimal ingestion + schemas
 
-- Set up repo, directory structure, poetry/pipenv environment
-- Implement core data models (RawContent, TrendSignal, HotelierMove)
-- Stand up Postgres + vector search (pgvector)
-- Implement first 2 scrapers:
-  - One news scraper (HospitalityNet RSS)
-  - One review scraper (TripAdvisor or Booking)
-- Build minimal NLP pipeline:
-  - Language detection
-  - Sentiment analysis
-  - Text clean-up
-  - Basic embeddings
+**Tech Stack:**
+- Database: SQLite + ChromaDB (local development)
+- Embeddings: Mistral Embed API with local sentence-transformers fallback
+- First scraper: HospitalityNet RSS
+
+**Deliverables:**
+
+1. **Dependencies & Environment**
+   - `requirements.txt` with all dependencies
+   - `.env.example` for configuration
+   - Updated `environment.yml` for conda
+
+2. **Data Models** (`data_models/`)
+   - `raw_content.py` - RawContent schema (id, source, url, title, content, author, published_at, scraped_at, metadata, embedding_id)
+   - `trend_signal.py` - TrendSignal schema
+   - `hotelier_move.py` - HotelierMove schema
+   - `property_features.py` - Property extraction schema
+   - `embeddings.py` - Embedding utilities
+
+3. **Database Layer** (`db/`)
+   - `database.py` - SQLite connection setup, session management
+   - `models.py` - SQLAlchemy models (raw_content, trend_signals, hotelier_moves, processing_jobs)
+   - `vector_store.py` - ChromaDB wrapper for vector search
+
+4. **NLP Pipeline** (`processing/`)
+   - `cleaning.py` - HTML cleanup, text normalization
+   - `nlp_pipeline.py` - Orchestrator: language detection (langdetect), sentiment (TextBlob), embeddings (Mistral/local)
+   - `configs/nlp.yaml` - Model configuration
+
+5. **Scraper Infrastructure** (`ingestion/`)
+   - `base_scraper.py` - Abstract base class with rate limiting, retry logic, robots.txt checking
+   - `news/hospitalitynet_rss.py` - First RSS scraper
+
+6. **Scripts** (`scripts/`)
+   - `init_db.py` - Initialize SQLite + ChromaDB
+   - `run_crawlers.py` - CLI to run scrapers
+
+**Success Criteria:**
+- `conda activate brandclave && pip install -r requirements.txt` works
+- `python scripts/init_db.py` creates database + vector store
+- `python scripts/run_crawlers.py --source hospitalitynet` fetches and processes articles
+- Articles stored with sentiment scores and embeddings
 
 **Output**: Database populated with raw items + simple processing pipeline.
 

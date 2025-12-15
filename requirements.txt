@@ -1,0 +1,29 @@
+# BrandClave Aggregator Dependencies
+
+# Core
+pydantic>=2.0
+python-dotenv>=1.0.0
+
+# Database
+sqlalchemy>=2.0
+chromadb>=0.4.0
+
+# Scraping
+httpx>=0.25.0
+beautifulsoup4>=4.12.0
+feedparser>=6.0.0
+lxml>=4.9.0
+
+# NLP
+mistralai>=1.0.0
+langdetect>=1.0.9
+textblob>=0.17.0
+sentence-transformers>=2.2.0  # Local fallback for embeddings
+hdbscan>=0.8.33  # Clustering for trend detection
+
+# API
+fastapi>=0.109.0
+uvicorn>=0.27.0
+
+# Utilities
+pyyaml>=6.0
