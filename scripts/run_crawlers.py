@@ -16,8 +16,12 @@ load_dotenv()
 
 # Available scrapers
 SCRAPERS = {
+    # News
     "hospitalitynet": "ingestion.news.hospitalitynet_rss.HospitalityNetScraper",
     "skift": "ingestion.news.skift_rss.SkiftScraper",
+    # Social
+    "reddit": "ingestion.social.reddit_scraper.RedditScraper",
+    "youtube": "ingestion.social.youtube_scraper.YouTubeScraper",
 }
 
 
@@ -87,6 +91,25 @@ def run_nlp_pipeline(limit: int = 100) -> dict:
     return run_pipeline(limit=limit)
 
 
+def generate_trends(days_back: int = 30, save: bool = True) -> dict:
+    """Generate Social Pulse trends from content.
+
+    Args:
+        days_back: Days of content to analyze
+        save: Whether to save to database
+
+    Returns:
+        Generation summary
+    """
+    from services.social_pulse import generate_social_pulse
+
+    trends = generate_social_pulse(days_back=days_back, save=save)
+    return {
+        "trends_generated": len(trends),
+        "saved": save,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="BrandClave Aggregator CLI - Run scrapers and NLP pipeline"
@@ -120,6 +143,19 @@ def main():
         "--list",
         action="store_true",
         help="List available scrapers",
+    )
+    parser.add_argument(
+        "--trends",
+        "-t",
+        action="store_true",
+        help="Generate Social Pulse trends from content",
+    )
+    parser.add_argument(
+        "--days",
+        "-d",
+        type=int,
+        default=30,
+        help="Days of content for trend generation (default: 30)",
     )
     parser.add_argument(
         "--verbose",
@@ -160,7 +196,13 @@ def main():
         pipeline_result = run_nlp_pipeline(limit=args.limit)
         print(f"\nPipeline result: {pipeline_result}")
 
-    if not (args.source or args.all or args.process or args.list):
+    # Generate trends
+    if args.trends:
+        logging.info(f"Generating trends (days_back: {args.days})")
+        trend_result = generate_trends(days_back=args.days)
+        print(f"\nTrend generation result: {trend_result}")
+
+    if not (args.source or args.all or args.process or args.list or args.trends):
         parser.print_help()
 
 
