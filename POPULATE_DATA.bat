@@ -7,8 +7,10 @@ echo  ============================================
 echo    BrandClave - Populate Demo Data
 echo  ============================================
 echo.
-echo  This will scrape content and generate insights.
-echo  It may take 10-15 minutes.
+echo  This will scrape content from 15+ sources
+echo  and generate AI insights.
+echo.
+echo  Takes about 15-20 minutes.
 echo.
 pause
 
@@ -49,62 +51,70 @@ if %errorlevel% neq 0 (
 
 echo.
 echo  ============================================
-echo   Step 1/5: Scraping News (Skift)
+echo   STEP 1: Scraping News Sources
 echo  ============================================
 echo.
-python scripts/run_crawlers.py --source skift -v
-if %errorlevel% neq 0 echo [WARNING] Skift scraper had issues
+
+echo [1/12] Skift...
+python scripts/run_crawlers.py --source skift
+echo [2/12] Hotel Dive...
+python scripts/run_crawlers.py --source hoteldive
+echo [3/12] Hotel Management...
+python scripts/run_crawlers.py --source hotelmanagement
+echo [4/12] PhocusWire...
+python scripts/run_crawlers.py --source phocuswire
+echo [5/12] Travel Weekly...
+python scripts/run_crawlers.py --source travelweekly
+echo [6/12] Hospitality Net...
+python scripts/run_crawlers.py --source hospitalitynet
+echo [7/12] Hotel News Resource...
+python scripts/run_crawlers.py --source hotelnewsresource
+echo [8/12] Boutique Hotelier...
+python scripts/run_crawlers.py --source boutiquehotelier
+echo [9/12] Hotel Tech Report...
+python scripts/run_crawlers.py --source hoteltechreport
 
 echo.
 echo  ============================================
-echo   Step 2/5: Scraping Social (Reddit)
+echo   STEP 2: Scraping Social Sources
 echo  ============================================
 echo.
-python scripts/run_crawlers.py --source reddit -v
-if %errorlevel% neq 0 echo [WARNING] Reddit scraper had issues
+
+echo [10/12] Reddit...
+python scripts/run_crawlers.py --source reddit
+echo [11/12] YouTube...
+python scripts/run_crawlers.py --source youtube
 
 echo.
 echo  ============================================
-echo   Step 3/5: Scraping Social (YouTube)
+echo   STEP 3: Processing Content
 echo  ============================================
 echo.
-python scripts/run_crawlers.py --source youtube -v
-if %errorlevel% neq 0 echo [WARNING] YouTube scraper had issues
+
+echo [12/12] Running NLP Pipeline...
+python scripts/run_crawlers.py --process --limit 300
 
 echo.
 echo  ============================================
-echo   Step 4/5: Processing with NLP Pipeline
+echo   STEP 4: Generating Intelligence
 echo  ============================================
 echo.
-python scripts/run_crawlers.py --process --limit 200 -v
-if %errorlevel% neq 0 echo [WARNING] NLP pipeline had issues
 
-echo.
-echo  ============================================
-echo   Step 5/5: Generating Insights
-echo  ============================================
-echo.
 echo Generating Social Pulse trends...
-python scripts/run_crawlers.py --trends --days 30 -v
-if %errorlevel% neq 0 echo [WARNING] Trend generation had issues
+python scripts/run_crawlers.py --trends --days 30
 
-echo.
 echo Extracting Hotelier Bets moves...
-python scripts/run_crawlers.py --moves --days 30 --limit 50 -v
-if %errorlevel% neq 0 echo [WARNING] Move extraction had issues
+python scripts/run_crawlers.py --moves --days 30 --limit 100
 
-echo.
 echo Scanning sample property...
-python scripts/run_crawlers.py --scan "https://acehotel.com/new-york/" -v
-if %errorlevel% neq 0 echo [WARNING] Property scan had issues
+python scripts/run_crawlers.py --scan "https://acehotel.com/new-york/"
 
 echo.
 echo  ============================================
 echo.
 echo   Data population complete!
 echo.
-echo   Now run START_DEMO.bat to see your data
-echo   in the dashboard.
+echo   Run START_DEMO.bat to see your dashboard.
 echo.
 echo  ============================================
 echo.

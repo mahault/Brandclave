@@ -459,6 +459,81 @@ async def dashboard():
         }
         .btn-outline:hover { background: #e94560; color: white; }
 
+        /* City Desires */
+        .desire-theme {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .desire-theme h3 { margin-bottom: 8px; font-size: 1.2em; }
+        .desire-theme p { opacity: 0.95; line-height: 1.5; margin-bottom: 12px; }
+        .desire-scores {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .desire-scores span {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+        .opportunity-card {
+            background: linear-gradient(135deg, #5f27cd 0%, #341f97 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .opportunity-card h3 { margin-bottom: 10px; }
+        .concept-card {
+            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .concept-card h3 { margin-bottom: 8px; font-size: 1.1em; }
+        .concept-card .rationale { opacity: 0.95; font-size: 0.95em; line-height: 1.5; }
+        .segment-badge {
+            display: inline-block;
+            background: rgba(0,0,0,0.2);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 3px;
+        }
+        .city-summary {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .city-summary h2 { margin-bottom: 15px; }
+        .city-summary .summary-metrics {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .city-summary .summary-metric {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 15px 25px;
+            border-radius: 10px;
+        }
+        .city-summary .summary-metric .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .city-summary .summary-metric .label {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
         /* Loading */
         .loading {
             text-align: center;
@@ -496,6 +571,7 @@ async def dashboard():
     <div class="container">
         <div class="tabs">
             <button class="tab active" onclick="showSection('overview')">Overview</button>
+            <button class="tab" onclick="showSection('citydesires')">City Desires</button>
             <button class="tab" onclick="showSection('trends')">Social Pulse</button>
             <button class="tab" onclick="showSection('moves')">Hotelier Bets</button>
             <button class="tab" onclick="showSection('properties')">Demand Scan</button>
@@ -542,6 +618,46 @@ async def dashboard():
                 <h2><span class="icon">🎯</span> Latest Hotelier Move</h2>
                 <div id="latest-move">
                     <div class="loading"><div class="spinner"></div>Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- City Desires Section -->
+        <div id="citydesires" class="section">
+            <div class="card">
+                <h2><span class="icon">🌆</span> City Desires - What Travelers Want</h2>
+                <p style="color:#666;margin-bottom:20px;">Type a city to discover unmet traveler needs and white space opportunities</p>
+
+                <div style="display:flex;gap:10px;margin-bottom:25px;flex-wrap:wrap;">
+                    <input type="text" id="city-input" placeholder="Enter city name..."
+                           style="flex:1;min-width:200px;padding:12px 15px;border:2px solid #e0e0e0;border-radius:8px;font-size:1em;outline:none;"
+                           onkeypress="if(event.key==='Enter')analyzeCity()">
+                    <input type="text" id="country-input" placeholder="Country (optional)"
+                           style="width:150px;padding:12px 15px;border:2px solid #e0e0e0;border-radius:8px;font-size:1em;outline:none;"
+                           onkeypress="if(event.key==='Enter')analyzeCity()">
+                    <button class="btn" onclick="analyzeCity()">Analyze City</button>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <span style="color:#888;font-size:0.9em;margin-right:10px;">Popular:</span>
+                    <button onclick="analyzeCity('Lisbon','Portugal')" class="btn-outline btn" style="padding:6px 12px;font-size:0.85em;margin:3px;">Lisbon</button>
+                    <button onclick="analyzeCity('Barcelona','Spain')" class="btn-outline btn" style="padding:6px 12px;font-size:0.85em;margin:3px;">Barcelona</button>
+                    <button onclick="analyzeCity('Tokyo','Japan')" class="btn-outline btn" style="padding:6px 12px;font-size:0.85em;margin:3px;">Tokyo</button>
+                    <button onclick="analyzeCity('Bali','Indonesia')" class="btn-outline btn" style="padding:6px 12px;font-size:0.85em;margin:3px;">Bali</button>
+                    <button onclick="analyzeCity('Paris','France')" class="btn-outline btn" style="padding:6px 12px;font-size:0.85em;margin:3px;">Paris</button>
+                </div>
+
+                <div id="city-results">
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <p>Enter a city name to discover what travelers want but can't find</p>
+                        <div class="hint">
+                            This scrapes Reddit, YouTube, and travel forums to identify:<br>
+                            • Top unmet desires and frustrations<br>
+                            • Underserved traveler segments<br>
+                            • White space opportunities for hotels
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -655,7 +771,7 @@ async def dashboard():
                     fetch('/api/social-pulse?limit=10').then(r => r.json()).catch(() => ({trends: []})),
                     fetch('/api/hotelier-bets?limit=10').then(r => r.json()).catch(() => ({moves: []})),
                     fetch('/api/demand-scan?limit=5').then(r => r.json()).catch(() => ({properties: []})),
-                    fetch('/api/monitoring/content?limit=10').then(r => r.json()).catch(() => ({items: []})),
+                    fetch('/api/monitoring/content?limit=50').then(r => r.json()).catch(() => ({items: []})),
                     fetch('/api/monitoring/scrapers').then(r => r.json()).catch(() => []),
                 ]);
 
@@ -756,17 +872,86 @@ async def dashboard():
         }
 
         function renderTrend(t) {
+            // Ensure we have a meaningful name
+            let trendName = t.name || t.trend_name || '';
+            if (!trendName || trendName.toLowerCase().includes('unnamed') || trendName.toLowerCase().includes('untitled')) {
+                // Try to generate from topics or description
+                if (t.topics && t.topics.length > 0) {
+                    trendName = t.topics.slice(0, 3).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') + ' Trend';
+                } else if (t.description) {
+                    trendName = truncate(t.description, 40) + ' Trend';
+                } else {
+                    trendName = 'Hospitality Trend #' + (Math.floor(Math.random() * 1000));
+                }
+            }
+
+            const sourceCount = t.volume || (t.source_content_ids ? t.source_content_ids.length : 0);
+            const hasClickableSources = t.id && t.source_content_ids && t.source_content_ids.length > 0;
+
             return `
                 <div class="trend-card">
-                    <h3>${t.trend_name || 'Unnamed Trend'}</h3>
-                    <p>${t.description || t.why_it_matters || 'No description available'}</p>
+                    <h3>${trendName}</h3>
+                    <p>${t.description || t.why_it_matters || 'Emerging trend in the hospitality space.'}</p>
                     <div class="trend-meta">
-                        <span>Strength: ${t.strength_label || t.trend_strength || 'N/A'}</span>
+                        <span>Strength: ${t.strength_label || (t.strength_score ? Math.round(t.strength_score * 100) + '%' : 'N/A')}</span>
                         ${t.region ? `<span>Region: ${t.region}</span>` : ''}
-                        ${t.content_count ? `<span>${t.content_count} sources</span>` : ''}
+                        ${hasClickableSources ?
+                            `<span class="sources-link" onclick="showTrendSources('${t.id}')" style="cursor:pointer;text-decoration:underline;">${sourceCount} sources (click to view)</span>` :
+                            (sourceCount ? `<span>${sourceCount} sources</span>` : '')}
                     </div>
                 </div>
             `;
+        }
+
+        // Show sources modal for a trend
+        async function showTrendSources(trendId) {
+            try {
+                const response = await fetch(`/api/social-pulse/${trendId}/sources`);
+                if (!response.ok) throw new Error('Failed to load sources');
+
+                const data = await response.json();
+
+                // Create modal
+                const modal = document.createElement('div');
+                modal.id = 'sources-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;display:flex;justify-content:center;align-items:center;';
+                modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+                const content = document.createElement('div');
+                content.style.cssText = 'background:white;padding:30px;border-radius:12px;max-width:800px;max-height:80vh;overflow-y:auto;width:90%;';
+
+                let sourcesHtml = `
+                    <h2 style="margin-bottom:20px;">Sources for: ${data.trend_name}</h2>
+                    <p style="color:#666;margin-bottom:20px;">${data.total} source(s) contributed to this trend</p>
+                `;
+
+                if (data.sources && data.sources.length > 0) {
+                    sourcesHtml += data.sources.map(s => `
+                        <div style="border-left:4px solid #667eea;padding:15px;margin:10px 0;background:#f8f9fa;border-radius:0 8px 8px 0;">
+                            <h4 style="margin-bottom:8px;">
+                                ${s.url ? `<a href="${s.url}" target="_blank" style="color:#667eea;text-decoration:none;">${truncate(s.title || 'Untitled', 60)}</a>` : truncate(s.title || 'Untitled', 60)}
+                            </h4>
+                            <p style="color:#555;font-size:0.9em;margin-bottom:8px;">${truncate(s.content_preview || '', 200)}</p>
+                            <div style="font-size:0.8em;color:#888;">
+                                <span style="background:#e94560;color:white;padding:2px 8px;border-radius:4px;margin-right:10px;">${s.source}</span>
+                                ${s.author ? `by ${s.author}` : ''}
+                                ${s.published_at ? ` • ${new Date(s.published_at).toLocaleDateString()}` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    sourcesHtml += '<p style="text-align:center;color:#888;padding:20px;">No sources available</p>';
+                }
+
+                sourcesHtml += '<button onclick="this.closest(\'#sources-modal\').remove()" style="margin-top:20px;padding:10px 20px;background:#e94560;color:white;border:none;border-radius:6px;cursor:pointer;">Close</button>';
+
+                content.innerHTML = sourcesHtml;
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+
+            } catch (error) {
+                alert('Failed to load sources: ' + error.message);
+            }
         }
 
         function renderMove(m) {
@@ -784,12 +969,31 @@ async def dashboard():
         }
 
         function renderProperty(p) {
+            // Ensure we have a meaningful property name
+            let propertyName = p.name || p.property_name || '';
+            if (!propertyName || propertyName.toLowerCase().includes('unknown') || propertyName.toLowerCase().includes('untitled')) {
+                // Try to extract from URL
+                if (p.url) {
+                    try {
+                        const url = new URL(p.url);
+                        let domain = url.hostname.replace('www.', '');
+                        let name = domain.split('.')[0];
+                        name = name.replace(/-/g, ' ').replace(/_/g, ' ');
+                        propertyName = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') + ' Property';
+                    } catch (e) {
+                        propertyName = 'Scanned Property';
+                    }
+                } else {
+                    propertyName = 'Analyzed Property';
+                }
+            }
+
             return `
                 <div class="property-card">
-                    <h3>${p.property_name || 'Unknown Property'}</h3>
-                    <div class="type">${p.property_type || 'Hotel'} ${p.price_segment ? '• ' + p.price_segment : ''}</div>
+                    <h3>${propertyName}</h3>
+                    <div class="type">${p.property_type || 'Hotel'} ${p.price_segment && p.price_segment !== 'unknown' ? '• ' + p.price_segment : ''}</div>
                     ${p.demand_fit_score ? `<div class="property-score">Demand Fit: ${(p.demand_fit_score * 100).toFixed(0)}%</div>` : ''}
-                    ${p.positioning_statement ? `<p>${truncate(p.positioning_statement, 200)}</p>` : ''}
+                    ${p.brand_positioning ? `<p>${truncate(p.brand_positioning, 200)}</p>` : (p.positioning_statement ? `<p>${truncate(p.positioning_statement, 200)}</p>` : '')}
                     ${p.themes && p.themes.length > 0 ? `
                         <div class="property-themes">
                             ${p.themes.slice(0, 5).map(t => `<span>${t}</span>`).join('')}
@@ -825,6 +1029,179 @@ async def dashboard():
                     </div>
                 </div>
             `;
+        }
+
+        // City Desires functions
+        async function analyzeCity(city, country) {
+            // Get values from inputs if not provided
+            if (!city) {
+                city = document.getElementById('city-input').value.trim();
+                country = document.getElementById('country-input').value.trim();
+            }
+
+            if (!city) {
+                alert('Please enter a city name');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('city-results');
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing ${city}${country ? ', ' + country : ''}...</p>
+                    <p style="font-size:0.85em;margin-top:10px;color:#888;">This may take 30-60 seconds as we scrape Reddit, YouTube, and travel forums</p>
+                </div>
+            `;
+
+            try {
+                const url = `/api/city-desires/quick?city=${encodeURIComponent(city)}${country ? '&country=' + encodeURIComponent(country) : ''}`;
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`Analysis failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+                renderCityResults(data);
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">❌</div>
+                        <p>Failed to analyze city: ${error.message}</p>
+                        <div class="hint">
+                            Make sure the API server is running and try again.
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderCityResults(data) {
+            const resultsDiv = document.getElementById('city-results');
+
+            // Build HTML
+            let html = `
+                <div class="city-summary">
+                    <h2>🌆 ${data.city}${data.country ? ', ' + data.country : ''}</h2>
+                    <div class="summary-metrics">
+                        <div class="summary-metric">
+                            <div class="value">${data.total_signals || 0}</div>
+                            <div class="label">Signals Found</div>
+                        </div>
+                        <div class="summary-metric">
+                            <div class="value">${data.total_sources || 0}</div>
+                            <div class="label">Sources</div>
+                        </div>
+                        <div class="summary-metric">
+                            <div class="value">${((data.avg_frustration || 0) * 100).toFixed(0)}%</div>
+                            <div class="label">Avg Frustration</div>
+                        </div>
+                        <div class="summary-metric">
+                            <div class="value">${(data.top_desires || []).length}</div>
+                            <div class="label">Desire Themes</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // White Space Opportunities
+            const whiteSpace = data.white_space_opportunities || [];
+            if (whiteSpace.length > 0) {
+                html += `
+                    <h3 style="color:white;margin:20px 0 10px;">🎯 White Space Opportunities</h3>
+                `;
+                whiteSpace.forEach(opp => {
+                    html += `<div class="opportunity-card"><h3>${opp}</h3></div>`;
+                });
+            }
+
+            // Top Desires
+            const desires = data.top_desires || [];
+            if (desires.length > 0) {
+                html += `
+                    <h3 style="color:white;margin:20px 0 10px;">🔥 Top Unmet Desires</h3>
+                `;
+                desires.slice(0, 5).forEach(d => {
+                    html += `
+                        <div class="desire-theme">
+                            <h3>${d.theme_name || 'Unnamed Theme'}</h3>
+                            <p>${d.description || ''}</p>
+                            <div class="desire-scores">
+                                <span>Intensity: ${((d.intensity_score || 0) * 100).toFixed(0)}%</span>
+                                <span>Frustration: ${((d.frustration_score || 0) * 100).toFixed(0)}%</span>
+                                <span>Opportunity: ${((d.opportunity_score || 0) * 100).toFixed(0)}%</span>
+                                <span>${d.frequency || 0} mentions</span>
+                            </div>
+                            ${d.segments && d.segments.length > 0 ? `
+                                <div style="margin-top:10px;">
+                                    ${d.segments.map(s => `<span class="segment-badge">${s}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            // Underserved Segments
+            const underserved = data.underserved_segments || [];
+            if (underserved.length > 0) {
+                html += `
+                    <h3 style="color:white;margin:20px 0 10px;">👥 Underserved Segments</h3>
+                    <div class="card" style="padding:15px;">
+                        ${underserved.map(s => `<span class="badge badge-warning" style="margin:3px;">${s}</span>`).join('')}
+                    </div>
+                `;
+            }
+
+            // Concept Lanes
+            const concepts = data.concept_lanes || [];
+            if (concepts.length > 0) {
+                html += `
+                    <h3 style="color:white;margin:20px 0 10px;">💡 Recommended Hotel Concepts</h3>
+                `;
+                concepts.forEach(c => {
+                    html += `
+                        <div class="concept-card">
+                            <h3>${c.concept || 'New Concept'}</h3>
+                            <p class="rationale">${c.rationale || ''}</p>
+                            ${c.target_segments && c.target_segments.length > 0 ? `
+                                <div style="margin-top:10px;">
+                                    <strong style="font-size:0.85em;">Target:</strong>
+                                    ${c.target_segments.map(s => `<span class="segment-badge">${s}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            ${c.key_features && c.key_features.length > 0 ? `
+                                <div style="margin-top:8px;">
+                                    <strong style="font-size:0.85em;">Features:</strong>
+                                    ${c.key_features.map(f => `<span class="segment-badge">${f}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            ${c.opportunity_score ? `
+                                <div style="margin-top:10px;">
+                                    <span style="background:rgba(255,255,255,0.3);padding:5px 12px;border-radius:15px;font-size:0.9em;">
+                                        Opportunity Score: ${(c.opportunity_score * 100).toFixed(0)}%
+                                    </span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            // Empty state if no results
+            if (desires.length === 0 && whiteSpace.length === 0) {
+                html += `
+                    <div class="empty-state" style="margin-top:20px;">
+                        <div class="icon">🤷</div>
+                        <p>No desire signals found for this city</p>
+                        <div class="hint">
+                            Try a more popular tourist destination or check the spelling
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsDiv.innerHTML = html;
         }
 
         // Load data on page load

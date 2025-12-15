@@ -33,6 +33,7 @@ class TrendResponse(BaseModel):
     audience_segment: str
     topics: list[str]
     sample_quotes: list[str]
+    source_content_ids: list[str] = []
     first_seen: Optional[str]
     last_updated: Optional[str]
 
@@ -202,6 +203,57 @@ async def generate_trends(
     except Exception as e:
         logger.error(f"Generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/social-pulse/{trend_id}/sources")
+async def get_trend_sources(trend_id: str, limit: int = Query(20, ge=1, le=100)):
+    """Get the source content items that formed this trend.
+
+    Returns list of content items with URLs that can be clicked.
+    """
+    from db.models import RawContentModel
+
+    db = SessionLocal()
+    try:
+        # Get the trend
+        trend = db.query(TrendSignalModel).filter(
+            TrendSignalModel.id == trend_id
+        ).first()
+
+        if not trend:
+            raise HTTPException(status_code=404, detail="Trend not found")
+
+        # Get source content IDs
+        content_ids = trend.source_content_ids or []
+
+        if not content_ids:
+            return {"sources": [], "total": 0, "trend_name": trend.name}
+
+        # Fetch the content items
+        content_items = db.query(RawContentModel).filter(
+            RawContentModel.id.in_(content_ids)
+        ).limit(limit).all()
+
+        return {
+            "sources": [
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "url": item.url,
+                    "source": item.source,
+                    "source_type": item.source_type,
+                    "author": item.author,
+                    "published_at": item.published_at.isoformat() if item.published_at else None,
+                    "content_preview": item.content[:300] if item.content else None,
+                }
+                for item in content_items
+            ],
+            "total": len(content_items),
+            "trend_name": trend.name,
+        }
+
+    finally:
+        db.close()
 
 
 @router.get("/social-pulse/regions")

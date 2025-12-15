@@ -90,13 +90,14 @@ async def root():
     """Root endpoint."""
     return {
         "name": "BrandClave Aggregator API",
-        "version": "0.5.0",
+        "version": "0.6.0",
         "endpoints": {
             "health": "/health",
             "docs": "/docs",
             "social_pulse": "/api/social-pulse",
             "hotelier_bets": "/api/hotelier-bets",
             "demand_scan": "/api/demand-scan",
+            "city_desires": "/api/city-desires",
             "scheduler": "/api/scheduler/status",
             "monitoring": "/api/monitoring/dashboard",
         },
@@ -107,12 +108,14 @@ async def root():
 from api.routes.social_pulse import router as social_pulse_router
 from api.routes.hotelier_bets import router as hotelier_bets_router
 from api.routes.demand_scan import router as demand_scan_router
+from api.routes.city_desires import router as city_desires_router
 from api.routes.scheduler import router as scheduler_router
 from api.routes.monitoring import router as monitoring_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
 app.include_router(demand_scan_router, prefix="/api", tags=["Demand Scan"])
+app.include_router(city_desires_router, prefix="/api", tags=["City Desires"])
 app.include_router(scheduler_router, prefix="/api", tags=["Scheduler"])
 app.include_router(monitoring_router, prefix="/api", tags=["Monitoring"])
 

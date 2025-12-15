@@ -87,6 +87,11 @@ class SocialPulseService:
         if not content_items:
             return None
 
+        # Skip clusters that are just list articles (e.g., "Top 10 trends for 2025")
+        if self._is_list_cluster(content_items):
+            logger.debug(f"Skipping list-style cluster {cluster.cluster_id}")
+            return None
+
         # Calculate metrics
         metrics = self.scorer.calculate_metrics(content_items)
 
@@ -126,9 +131,15 @@ class SocialPulseService:
         # Determine audience segment
         audience_segment = self._extract_audience_segment(content_items, insights.get("topics", []))
 
+        # Ensure we have a meaningful name
+        trend_name = insights.get("name", "").strip()
+        if not trend_name or trend_name.lower() in ["unnamed trend", "untitled", ""]:
+            # Generate name from cluster data
+            trend_name = self._generate_fallback_name(content_items, cluster)
+
         return {
             "cluster_id": str(cluster.cluster_id),
-            "name": insights.get("name", "Unnamed Trend"),
+            "name": trend_name,
             "description": insights.get("description", ""),
             "why_it_matters": insights.get("why_it_matters", ""),
             "strength_score": metrics.strength_score,
@@ -144,6 +155,40 @@ class SocialPulseService:
             "metrics": get_metrics_dict(metrics),
         }
 
+    def _is_list_cluster(self, content_items: list[dict]) -> bool:
+        """Check if cluster is just aggregated list articles.
+
+        Args:
+            content_items: Content items in cluster
+
+        Returns:
+            True if this looks like a list aggregation, not a real trend
+        """
+        list_indicators = [
+            "top 10", "top 5", "top 20", "best 10", "best 5",
+            "trends for 2024", "trends for 2025", "trends in 2024", "trends in 2025",
+            "things to", "ways to", "tips for", "guide to",
+            "list of", "roundup", "compilation"
+        ]
+
+        titles = [item.get("title", "").lower() for item in content_items]
+        list_count = 0
+
+        for title in titles:
+            if any(indicator in title for indicator in list_indicators):
+                list_count += 1
+
+        # If more than half the cluster is list-style content, skip it
+        if list_count > len(content_items) / 2:
+            return True
+
+        # Check if all content is from the same source (likely just one article)
+        sources = set(item.get("source", "") for item in content_items)
+        if len(sources) == 1 and len(content_items) < 5:
+            return True
+
+        return False
+
     def _fallback_insights(self, content_items: list[dict]) -> dict:
         """Generate fallback insights without LLM.
 
@@ -157,27 +202,100 @@ class SocialPulseService:
         titles = [item.get("title", "") for item in content_items if item.get("title")]
         words = " ".join(titles).lower().split()
 
-        # Simple word frequency
+        # Simple word frequency - exclude years and list indicators
         word_freq = {}
-        stop_words = {"the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or", "is", "are", "was", "were"}
+        stop_words = {
+            "the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or",
+            "is", "are", "was", "were", "this", "that", "what", "how", "why",
+            "when", "where", "who", "best", "top", "list", "guide", "tips",
+            "2024", "2025", "2026", "trends", "trend", "things", "ways"
+        }
         for word in words:
             word = word.strip(".,!?\"'()[]")
-            if len(word) > 3 and word not in stop_words:
+            if len(word) > 3 and word not in stop_words and not word.isdigit():
                 word_freq[word] = word_freq.get(word, 0) + 1
 
         # Top words as topics
         top_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
         topics = [w[0] for w in top_words]
 
-        # Generate name from top words
-        name = " ".join(topics[:3]).title() if topics else "Emerging Trend"
+        # Generate a descriptive name from topics - avoid generic list titles
+        if topics and len(topics) >= 2:
+            # Create meaningful combination
+            name = f"{topics[0].title()} & {topics[1].title()} in Hospitality"
+        elif topics:
+            name = f"{topics[0].title()} Hospitality Movement"
+        else:
+            # Use source types or content hints to generate a name
+            sources = set(item.get("source", "") for item in content_items)
+            if "reddit" in sources:
+                name = "Traveler Discussion Pattern"
+            elif "youtube" in sources:
+                name = "Video Content Movement"
+            else:
+                name = f"Emerging Hospitality Signal ({len(content_items)} sources)"
+
+        # Generate a meaningful description from the actual content
+        sample_content = " ".join(
+            item.get("content", "")[:200] for item in content_items[:3]
+        )
+        if sample_content and len(sample_content) > 50:
+            # Extract a snippet as description
+            description = f"Discussion around {', '.join(topics[:3]) if topics else 'hospitality topics'}. Based on {len(content_items)} content sources."
+        else:
+            description = f"Pattern identified from {len(content_items)} social mentions."
 
         return {
             "name": name,
-            "description": f"Trend based on {len(content_items)} social mentions.",
-            "why_it_matters": "This emerging topic shows growing interest in the hospitality space.",
+            "description": description,
+            "why_it_matters": "This emerging topic shows growing interest in the hospitality space and may indicate shifting consumer preferences.",
             "topics": topics,
         }
+
+    def _generate_fallback_name(self, content_items: list[dict], cluster: Cluster) -> str:
+        """Generate a fallback trend name when LLM fails.
+
+        Args:
+            content_items: List of content dicts
+            cluster: Cluster object
+
+        Returns:
+            Meaningful trend name
+        """
+        # Try to extract from titles
+        titles = [item.get("title", "") for item in content_items[:5] if item.get("title")]
+
+        if titles:
+            # Use first meaningful title, cleaned up
+            first_title = titles[0][:50].strip()
+            if len(first_title) > 10:
+                # Clean up and format as trend name
+                return f"{first_title}... Trend"
+
+        # Extract keywords from content
+        all_text = " ".join(
+            item.get("title", "") + " " + item.get("content", "")[:200]
+            for item in content_items[:5]
+        ).lower()
+
+        # Look for hospitality-specific themes
+        themes = {
+            "wellness": ["wellness", "spa", "meditation", "yoga", "health"],
+            "luxury": ["luxury", "premium", "five star", "exclusive", "high-end"],
+            "budget": ["budget", "affordable", "cheap", "hostel", "backpacker"],
+            "sustainable": ["sustainable", "eco", "green", "environment"],
+            "digital nomad": ["remote work", "digital nomad", "workation", "coworking"],
+            "boutique": ["boutique", "design", "unique", "artisan"],
+            "family travel": ["family", "kids", "children", "family-friendly"],
+            "solo travel": ["solo", "solo travel", "alone", "single traveler"],
+        }
+
+        for theme_name, keywords in themes.items():
+            if any(kw in all_text for kw in keywords):
+                return f"{theme_name.title()} Travel Trend"
+
+        # Use cluster size as a last resort
+        return f"Travel Discussion Cluster ({cluster.size} sources)"
 
     def _extract_region(self, content_items: list[dict]) -> str | None:
         """Extract geographic region from content.
@@ -353,6 +471,7 @@ class SocialPulseService:
             "audience_segment": model.audience_segment,
             "topics": model.topics or [],
             "sample_quotes": model.sample_quotes or [],
+            "source_content_ids": model.source_content_ids or [],
             "first_seen": model.first_seen.isoformat() if model.first_seen else None,
             "last_updated": model.last_updated.isoformat() if model.last_updated else None,
         }

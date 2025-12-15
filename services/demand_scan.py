@@ -69,10 +69,15 @@ class DemandScanService:
         advantages = self._identify_competitive_advantages(features, trends)
         recommendations = self._generate_recommendations(features, gaps, opportunities)
 
+        # Ensure we have a property name
+        property_name = features.get("name")
+        if not property_name:
+            property_name = self._extract_name_from_url(url)
+
         # Build final result
         result = {
             "url": url,
-            "name": features.get("name"),
+            "name": property_name,
             "property_type": features.get("property_type", "hotel"),
             "brand_positioning": features.get("brand_positioning"),
             "tagline": features.get("tagline"),
@@ -97,6 +102,48 @@ class DemandScanService:
         }
 
         return result
+
+    def _extract_name_from_url(self, url: str) -> str:
+        """Extract a property name from the URL.
+
+        Args:
+            url: Property website URL
+
+        Returns:
+            Property name extracted from URL
+        """
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # Remove common prefixes
+        domain = domain.replace("www.", "")
+
+        # Extract the main domain name
+        parts = domain.split(".")
+        if parts:
+            # Get the main name (usually first or second part)
+            name = parts[0]
+
+            # Handle subdomains
+            if name in ["hotel", "hotels", "resort", "booking"]:
+                if len(parts) > 1:
+                    name = parts[1]
+
+            # Clean up and format
+            name = name.replace("-", " ").replace("_", " ")
+
+            # Capitalize words
+            name = " ".join(word.capitalize() for word in name.split())
+
+            # Add context if it looks like a hotel
+            if not any(word.lower() in ["hotel", "resort", "inn", "lodge", "suites"] for word in name.split()):
+                return f"{name} Property"
+
+            return name
+
+        return "Analyzed Property"
 
     def _get_regional_trends(self, region: str | None) -> list[dict]:
         """Load trends, optionally filtered by region.

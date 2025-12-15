@@ -14,15 +14,34 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Available scrapers
+# Available scrapers (23 total)
 SCRAPERS = {
-    # News
-    "hospitalitynet": "ingestion.news.hospitalitynet_rss.HospitalityNetScraper",
+    # News - Primary Sources (13)
     "skift": "ingestion.news.skift_rss.SkiftScraper",
-    # Social
+    "hospitalitynet": "ingestion.news.hospitalitynet_rss.HospitalityNetScraper",
+    "hoteldive": "ingestion.news.hospitality_news.HotelDiveScraper",
+    "hotelmanagement": "ingestion.news.hospitality_news.HotelManagementScraper",
+    "phocuswire": "ingestion.news.hospitality_news.PhocusWireScraper",
+    "travelweekly": "ingestion.news.hospitality_news.TravelWeeklyScraper",
+    "hotelnewsresource": "ingestion.news.hospitality_news.HotelNewsResourceScraper",
+    "traveldailynews": "ingestion.news.hospitality_news.TravelDailyNewsScraper",
+    "businesstravelnews": "ingestion.news.hospitality_news.BusinessTravelNewsScraper",
+    "boutiquehotelier": "ingestion.news.hospitality_news.BoutiqueHotelierScraper",
+    "hotelonline": "ingestion.news.hospitality_news.HotelOnlineScraper",
+    "hoteltechreport": "ingestion.news.hospitality_news.HotelTechReportScraper",
+    "tophotelnews": "ingestion.news.hospitality_news.TopHotelNewsScraper",
+    # News - Research & Insights (6)
+    "siteminder": "ingestion.news.hospitality_news.SiteMinderScraper",
+    "ehlinsights": "ingestion.news.hospitality_news.EHLInsightsScraper",
+    "cbrehotels": "ingestion.news.hospitality_news.CBREHotelsScraper",
+    "cushmanwakefield": "ingestion.news.hospitality_news.CushmanWakefieldScraper",
+    "costar": "ingestion.news.hospitality_news.CoStarScraper",
+    "traveldaily": "ingestion.news.hospitality_news.TravelDailyScraper",
+    # Social (3)
     "reddit": "ingestion.social.reddit_scraper.RedditScraper",
     "youtube": "ingestion.social.youtube_scraper.YouTubeScraper",
-    # Reviews
+    "quora": "ingestion.social.quora_scraper.QuoraScraper",
+    # Reviews (2)
     "tripadvisor": "ingestion.reviews.tripadvisor_scraper.TripAdvisorScraper",
     "booking": "ingestion.reviews.booking_scraper.BookingScraper",
 }
