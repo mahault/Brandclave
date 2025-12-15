@@ -22,6 +22,9 @@ SCRAPERS = {
     # Social
     "reddit": "ingestion.social.reddit_scraper.RedditScraper",
     "youtube": "ingestion.social.youtube_scraper.YouTubeScraper",
+    # Reviews
+    "tripadvisor": "ingestion.reviews.tripadvisor_scraper.TripAdvisorScraper",
+    "booking": "ingestion.reviews.booking_scraper.BookingScraper",
 }
 
 

@@ -32,32 +32,39 @@ That's it! The browser will open automatically to the API docs.
 
 ### What to Show Investors
 
-The browser opens to http://localhost:8000/docs - an interactive API explorer.
+The browser opens to the **Monitoring Dashboard** - a real-time view of the system.
 
 **Demo Flow:**
 
-1. **Social Pulse** - Click "GET /api/social-pulse" → "Try it out" → "Execute"
+1. **Dashboard** (opens automatically) - http://localhost:8000/api/monitoring/dashboard
+   - Shows system health at a glance
+   - Content metrics, scraper status, recent activity
+   - Auto-refreshes every 30 seconds
+
+2. **Social Pulse** - Go to http://localhost:8000/docs → "GET /api/social-pulse" → "Try it out" → "Execute"
    - Shows AI-detected travel trends from Reddit & YouTube
    - Real data: trend names, descriptions, "why it matters"
    - Example: "Digital Nomad Coliving Spaces" trend
 
-2. **Hotelier Bets** - Click "GET /api/hotelier-bets" → "Try it out" → "Execute"
+3. **Hotelier Bets** - Click "GET /api/hotelier-bets" → "Try it out" → "Execute"
    - Shows strategic moves extracted from hospitality news
    - AI identifies: company, move type, market impact
    - Example: "Marriott Acquires Boutique Hotel Group"
 
-3. **Demand Scan** - Click "POST /api/demand-scan" → "Try it out" → Enter a hotel URL → "Execute"
+4. **Demand Scan** - Click "POST /api/demand-scan" → "Try it out" → Enter a hotel URL → "Execute"
    - Analyzes any hotel website instantly
    - Extracts: property type, themes, amenities, positioning
    - Shows: demand fit score, experience gaps, recommendations
    - Example URL: `https://acehotel.com/new-york/`
 
 **Talking Points:**
-- "This is real data scraped from Reddit, YouTube, and Skift news"
+- "This is real data scraped from Reddit, YouTube, TripAdvisor, Booking.com, and Skift news"
 - "AI automatically clusters conversations into trends"
 - "Each trend includes 'why it matters' for hotel strategists"
 - "We extract strategic moves from news articles automatically"
 - "Demand Scan analyzes any hotel website in seconds - instant competitive intelligence"
+- "The dashboard shows real-time system health and scraper status"
+- "Automated scheduling keeps data fresh without manual intervention"
 
 ### To Stop
 
@@ -331,18 +338,19 @@ A structured development plan from MVP to full system.
 
 **Output**: Full pipeline from property URL → insights → recommendations.
 
-### Phase 5 — Scaling, Reliability & Expansion (Ongoing)
+### Phase 5 — Scaling, Reliability & Expansion (COMPLETE)
 
 **Goal**: robustness, accuracy, geographic expansion
 
-- Add more markets, more scrapers, more languages
-- Improve trend scoring (e.g., engagement time derivatives, anomaly detection)
-- Build supply-side database (OTA listings, hotel categories, density)
-- Add A/B evaluation on accuracy of trend and move extraction
-- Introduce caching + rate limiting + error resilience
-- Implement unified scheduler + monitoring dashboard
+**Implemented:**
+- **Redis Caching Layer**: HTTP response caching, embedding caching, API response caching with graceful degradation
+- **Review Scrapers**: TripAdvisor and Booking.com scrapers with conservative rate limiting
+- **APScheduler Integration**: Background scheduling with SQLite job persistence, configurable intervals per source
+- **Monitoring Dashboard**: Real-time system metrics, scraper status, error tracking, HTML dashboard with auto-refresh
+- **Scheduler API**: Job management endpoints (list, add, remove, pause, resume, run now)
+- **Health Monitoring**: Comprehensive health checks for database, cache, and scheduler
 
-**Output**: A production-grade intelligence engine supporting global hospitality markets.
+**Output**: A production-grade intelligence engine with automated scheduling and real-time monitoring.
 
 ## Current Status
 
@@ -377,15 +385,14 @@ A structured development plan from MVP to full system.
 - FastAPI endpoints for Demand Scan
 - CLI command for property scanning
 
-**Current Data:**
-- 552 content items scraped
-- 70 items processed with embeddings
-- 3 trend clusters identified
-- 1 hotelier move extracted
-- 1 property analyzed
-
-### Phase 5 - Scaling & Expansion (NEXT)
-- More markets, scrapers, and languages
+### Phase 5 - Scaling & Expansion (COMPLETE)
+- Redis caching with graceful degradation (works without Redis)
+- TripAdvisor scraper (conservative rate limiting)
+- Booking.com scraper (conservative rate limiting)
+- APScheduler with SQLite job persistence
+- Monitoring dashboard with auto-refresh
+- Scheduler API for job management
+- Health monitoring endpoints
 
 ## Getting Started
 
@@ -455,6 +462,27 @@ GET  /api/demand-scan            - List scanned properties
 GET  /api/demand-scan/{id}       - Single property detail
 GET  /api/demand-scan/property-types - List property types
 GET  /api/demand-scan/price-segments - List price segments
+
+# Monitoring (System Status)
+GET  /api/monitoring/health      - Comprehensive health check
+GET  /api/monitoring/metrics     - System metrics
+GET  /api/monitoring/scrapers    - All scraper metrics
+GET  /api/monitoring/scrapers/{source} - Single scraper metrics
+GET  /api/monitoring/errors      - Recent job errors
+GET  /api/monitoring/activity    - Recent activity summary
+GET  /api/monitoring/dashboard   - HTML monitoring dashboard
+
+# Scheduler (Job Management)
+GET  /api/scheduler/status       - Scheduler status
+GET  /api/scheduler/jobs         - List all scheduled jobs
+GET  /api/scheduler/jobs/{id}    - Single job detail
+POST /api/scheduler/jobs         - Add a new job
+DELETE /api/scheduler/jobs/{id}  - Remove a job
+POST /api/scheduler/jobs/{id}/pause  - Pause a job
+POST /api/scheduler/jobs/{id}/resume - Resume a job
+POST /api/scheduler/jobs/{id}/run    - Run job immediately
+POST /api/scheduler/start        - Start the scheduler
+POST /api/scheduler/stop         - Stop the scheduler
 ```
 
 ### CLI Commands
@@ -467,6 +495,8 @@ python scripts/run_crawlers.py --list
 python scripts/run_crawlers.py --source reddit
 python scripts/run_crawlers.py --source youtube
 python scripts/run_crawlers.py --source skift
+python scripts/run_crawlers.py --source tripadvisor
+python scripts/run_crawlers.py --source booking
 
 # Run all scrapers
 python scripts/run_crawlers.py --all

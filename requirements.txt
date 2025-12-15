@@ -27,3 +27,7 @@ uvicorn>=0.27.0
 
 # Utilities
 pyyaml>=6.0
+
+# Phase 5: Caching & Scheduling
+redis>=4.0.0
+APScheduler>=3.10.0

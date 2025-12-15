@@ -35,8 +35,15 @@ social_sources:
 review_sources:
   tripadvisor:
     enabled: true
-    scraping_method: "selenium"
-    rate_limit: 100  # requests per hour
+    scraping_method: "httpx"  # Use httpx with conservative rate limiting
+    rate_limit: 50  # requests per hour (very conservative)
+    delay_min: 10  # seconds between requests
+    delay_max: 20
+    max_reviews_per_hotel: 50
+    default_hotels:
+      # Top hotels in key markets for initial data collection
+      - "g60763-d93450"   # Example: The Plaza, NYC
+      - "g187147-d197572" # Example: Ritz Paris
     regions:
       - "north_america"
       - "europe"
@@ -46,13 +53,19 @@ review_sources:
 
   booking:
     enabled: true
-    scraping_method: "requests"
-    rate_limit: 50
+    scraping_method: "httpx"
+    rate_limit: 75  # requests per hour
+    delay_min: 8
+    delay_max: 15
+    max_reviews_per_property: 50
+    default_properties:
+      # Top properties for initial data collection
+      - "hotel/us/example-nyc"
     frequency: "daily"
     priority: "high"
 
   google_reviews:
-    enabled: true
+    enabled: false  # Requires API key
     api_type: "places"
     frequency: "daily"
     priority: "medium"

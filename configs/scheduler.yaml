@@ -1,0 +1,56 @@
+# Scheduler Configuration for BrandClave Aggregator
+
+scheduler:
+  enabled: true
+  timezone: "UTC"
+  max_workers: 3  # Limit concurrent scrapers
+
+jobs:
+  # News sources - frequent updates
+  hospitalitynet:
+    enabled: true
+    interval_minutes: 60  # Every hour
+    priority: high
+
+  skift:
+    enabled: true
+    interval_minutes: 360  # Every 6 hours
+    priority: high
+
+  # Social sources - moderate frequency
+  reddit:
+    enabled: true
+    interval_minutes: 120  # Every 2 hours
+    priority: medium
+
+  youtube:
+    enabled: true
+    interval_minutes: 720  # Every 12 hours
+    priority: medium
+
+  # Review sources - daily (conservative rate limiting)
+  tripadvisor:
+    enabled: true
+    cron: "0 2 * * *"  # 2 AM daily UTC
+    priority: high
+
+  booking:
+    enabled: true
+    cron: "0 3 * * *"  # 3 AM daily UTC
+    priority: high
+
+  # Processing jobs
+  nlp_pipeline:
+    enabled: true
+    interval_minutes: 180  # Every 3 hours
+    limit: 200
+
+  generate_trends:
+    enabled: true
+    cron: "0 6 * * *"  # 6 AM daily UTC
+    days_back: 30
+
+  extract_moves:
+    enabled: true
+    cron: "0 7 * * *"  # 7 AM daily UTC
+    days_back: 30

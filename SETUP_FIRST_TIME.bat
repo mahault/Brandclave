@@ -8,30 +8,105 @@ echo    BrandClave - First Time Setup
 echo  ============================================
 echo.
 echo  This will set up everything you need.
-echo  It may take 5-10 minutes.
 echo.
 pause
 
-:: Check if conda is available
+:: Set local conda install location
+set "LOCAL_CONDA=%~dp0conda"
+set "CONDA_BASE="
+
+echo.
+echo [1/6] Checking for conda...
+
+:: First check if conda is already in PATH
 where conda >nul 2>nul
-if %errorlevel% neq 0 (
+if %errorlevel% equ 0 (
+    echo Found conda in PATH
+    goto :conda_ready
+)
+
+:: Check if we already installed it locally
+if exist "%LOCAL_CONDA%\Scripts\conda.exe" (
+    echo Found local conda installation
+    set "CONDA_BASE=%LOCAL_CONDA%"
+    goto :found_conda
+)
+
+:: Check common locations
+for %%L in (
+    "%USERPROFILE%\miniconda3"
+    "%USERPROFILE%\Miniconda3"
+    "%USERPROFILE%\anaconda3"
+    "%USERPROFILE%\Anaconda3"
+    "%LOCALAPPDATA%\miniconda3"
+    "C:\miniconda3"
+    "C:\anaconda3"
+    "C:\ProgramData\miniconda3"
+    "C:\ProgramData\anaconda3"
+) do (
+    if exist "%%~L\Scripts\conda.exe" (
+        echo Found conda at: %%~L
+        set "CONDA_BASE=%%~L"
+        goto :found_conda
+    )
+)
+
+:: Not found - install it locally
+echo.
+echo Conda not found. Installing Miniconda locally...
+echo (This is a one-time download of ~80MB)
+echo.
+
+:: Create temp directory for download
+if not exist "%~dp0temp" mkdir "%~dp0temp"
+
+:: Download Miniconda using PowerShell
+echo Downloading Miniconda...
+powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile '%~dp0temp\miniconda_installer.exe'}"
+
+if not exist "%~dp0temp\miniconda_installer.exe" (
     echo.
-    echo [ERROR] Conda not found!
+    echo [ERROR] Failed to download Miniconda!
     echo.
-    echo Please install Miniconda first:
-    echo.
-    echo 1. Go to: https://docs.conda.io/en/latest/miniconda.html
-    echo 2. Download "Miniconda3 Windows 64-bit"
-    echo 3. Run the installer (use default settings)
-    echo 4. Restart your computer
-    echo 5. Run this script again
+    echo Please check your internet connection and try again.
+    echo Or download manually from: https://docs.conda.io/en/latest/miniconda.html
     echo.
     pause
     exit /b 1
 )
 
+:: Install Miniconda silently to local folder
 echo.
-echo [1/5] Creating conda environment...
+echo Installing Miniconda (this may take a few minutes)...
+"%~dp0temp\miniconda_installer.exe" /InstallationType=JustMe /RegisterPython=0 /AddToPath=0 /S /D=%LOCAL_CONDA%
+
+if not exist "%LOCAL_CONDA%\Scripts\conda.exe" (
+    echo.
+    echo [ERROR] Miniconda installation failed!
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Cleanup installer
+del "%~dp0temp\miniconda_installer.exe" >nul 2>nul
+rmdir "%~dp0temp" >nul 2>nul
+
+echo Miniconda installed successfully!
+set "CONDA_BASE=%LOCAL_CONDA%"
+
+:found_conda
+echo.
+echo [2/6] Initializing conda...
+if exist "%CONDA_BASE%\Scripts\activate.bat" (
+    call "%CONDA_BASE%\Scripts\activate.bat" "%CONDA_BASE%"
+) else (
+    call "%CONDA_BASE%\condabin\activate.bat" "%CONDA_BASE%"
+)
+
+:conda_ready
+echo.
+echo [3/6] Creating environment...
 echo       (This may take a few minutes)
 echo.
 call conda env create -f environment.yml
@@ -42,32 +117,43 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [2/5] Activating environment...
+echo [4/6] Activating environment...
 call conda activate brandclave
-
-echo.
-echo [3/5] Installing dependencies...
-pip install -r requirements.txt
-
-echo.
-echo [4/5] Setting up configuration...
-if not exist ".env" (
-    copy .env.example .env
+if %errorlevel% neq 0 (
     echo.
-    echo [IMPORTANT] Created .env file from template.
-    echo.
-    echo You need to add your MISTRAL_API_KEY to the .env file!
-    echo.
-    echo 1. Open the .env file in Notepad
-    echo 2. Replace "your_mistral_api_key_here" with your actual key
-    echo 3. Save and close
-    echo.
-    notepad .env
+    echo [ERROR] Could not activate environment!
     pause
+    exit /b 1
 )
 
 echo.
-echo [5/5] Initializing database...
+echo [5/6] Installing dependencies...
+pip install -r requirements.txt
+
+echo.
+echo [6/6] Setting up...
+if not exist "data" mkdir data
+
+if not exist ".env" (
+    copy .env.example .env
+    echo.
+    echo  ============================================
+    echo.
+    echo   IMPORTANT: Add your API key!
+    echo.
+    echo   Notepad will open. Replace the placeholder
+    echo   with your MISTRAL_API_KEY, then save.
+    echo.
+    echo  ============================================
+    echo.
+    pause
+    notepad .env
+    echo.
+    echo Press any key after saving your API key...
+    pause >nul
+)
+
+:: Initialize database
 python scripts/init_db.py
 
 echo.
@@ -75,9 +161,8 @@ echo  ============================================
 echo.
 echo   Setup complete!
 echo.
-echo   Next steps:
-echo   1. Make sure your MISTRAL_API_KEY is in the .env file
-echo   2. Double-click START_DEMO.bat to run the demo
+echo   To run the demo, double-click:
+echo   START_DEMO.bat
 echo.
 echo  ============================================
 echo.

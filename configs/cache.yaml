@@ -1,0 +1,30 @@
+# Cache Configuration for BrandClave Aggregator
+
+redis:
+  enabled: true
+  # Falls back gracefully when Redis is unavailable
+
+ttl:
+  # HTTP response caching (seconds)
+  http_response:
+    news: 3600        # 1 hour for news feeds
+    social: 1800      # 30 minutes for social
+    review: 86400     # 24 hours for reviews (slow-changing)
+    property: 43200   # 12 hours for property pages
+    default: 3600     # 1 hour default
+
+  # Embedding caching (expensive to compute)
+  embedding: 604800   # 7 days
+
+  # API response caching
+  api_response:
+    trends: 600       # 10 minutes
+    moves: 600        # 10 minutes
+    search: 300       # 5 minutes
+    stats: 60         # 1 minute
+    default: 300      # 5 minutes
+
+prefixes:
+  http: "brandclave:http:"
+  embedding: "brandclave:emb:"
+  api: "brandclave:api:"
