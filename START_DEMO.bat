@@ -56,6 +56,7 @@ echo.
 echo   API Docs:      http://localhost:8000/docs
 echo   Social Pulse:  http://localhost:8000/api/social-pulse
 echo   Hotelier Bets: http://localhost:8000/api/hotelier-bets
+echo   Demand Scan:   http://localhost:8000/api/demand-scan
 echo.
 echo  ============================================
 echo.

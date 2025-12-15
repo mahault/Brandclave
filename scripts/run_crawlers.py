@@ -130,6 +130,32 @@ def extract_moves(days_back: int = 30, limit: int = 100, save: bool = True) -> d
     }
 
 
+def scan_property(url: str, save: bool = True) -> dict:
+    """Scan a property URL with Demand Scan.
+
+    Args:
+        url: Property website URL
+        save: Whether to save to database
+
+    Returns:
+        Scan result summary
+    """
+    from services.demand_scan import scan_property_url
+
+    result = scan_property_url(url=url, save=save)
+    if result:
+        return {
+            "status": "success",
+            "name": result.get("name"),
+            "property_type": result.get("property_type"),
+            "demand_fit_score": result.get("demand_fit_score"),
+            "experience_gaps": len(result.get("experience_gaps", [])),
+            "recommendations": len(result.get("recommendations", [])),
+            "id": result.get("id"),
+        }
+    return {"status": "failed", "error": "Failed to scan property"}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="BrandClave Aggregator CLI - Run scrapers and NLP pipeline"
@@ -184,6 +210,12 @@ def main():
         help="Extract Hotelier Bets moves from news content",
     )
     parser.add_argument(
+        "--scan",
+        type=str,
+        metavar="URL",
+        help="Scan a property URL with Demand Scan",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -234,7 +266,13 @@ def main():
         move_result = extract_moves(days_back=args.days, limit=args.limit)
         print(f"\nMove extraction result: {move_result}")
 
-    if not (args.source or args.all or args.process or args.list or args.trends or args.moves):
+    # Scan property URL
+    if args.scan:
+        logging.info(f"Scanning property: {args.scan}")
+        scan_result = scan_property(url=args.scan)
+        print(f"\nDemand Scan result: {scan_result}")
+
+    if not (args.source or args.all or args.process or args.list or args.trends or args.moves or args.scan):
         parser.print_help()
 
 

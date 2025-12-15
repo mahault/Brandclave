@@ -116,6 +116,52 @@ class HotelierMoveModel(Base):
     metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
 
 
+class PropertyFeaturesModel(Base):
+    """SQLAlchemy model for property features from Demand Scan."""
+
+    __tablename__ = "property_features"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False, unique=True, index=True)
+    name: Mapped[str | None] = mapped_column(String(300))
+    property_type: Mapped[str] = mapped_column(String(30), default="hotel", index=True)
+
+    # Positioning
+    brand_positioning: Mapped[str | None] = mapped_column(Text)
+    tagline: Mapped[str | None] = mapped_column(String(500))
+    tone: Mapped[str | None] = mapped_column(String(200))
+    themes: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Features
+    amenities: Mapped[list | None] = mapped_column(JSON, default=list)
+    room_types: Mapped[list | None] = mapped_column(JSON, default=list)
+    dining_options: Mapped[list | None] = mapped_column(JSON, default=list)
+    experiences: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Location
+    location: Mapped[str | None] = mapped_column(String(300))
+    region: Mapped[str | None] = mapped_column(String(100), index=True)
+
+    # Pricing
+    price_segment: Mapped[str] = mapped_column(String(30), default="unknown")
+    price_indicators: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Demand Fit Analysis
+    demand_fit_score: Mapped[float | None] = mapped_column(Float)
+    experience_gaps: Mapped[list | None] = mapped_column(JSON, default=list)
+    opportunity_lanes: Mapped[list | None] = mapped_column(JSON, default=list)
+    competitive_advantages: Mapped[list | None] = mapped_column(JSON, default=list)
+    recommendations: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Matching trends
+    matching_trend_ids: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Metadata
+    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    source_content_id: Mapped[str | None] = mapped_column(String(36))
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
 class ProcessingJobModel(Base):
     """Track scraping and processing jobs."""
 

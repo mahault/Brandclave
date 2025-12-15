@@ -46,11 +46,18 @@ The browser opens to http://localhost:8000/docs - an interactive API explorer.
    - AI identifies: company, move type, market impact
    - Example: "Marriott Acquires Boutique Hotel Group"
 
+3. **Demand Scan** - Click "POST /api/demand-scan" → "Try it out" → Enter a hotel URL → "Execute"
+   - Analyzes any hotel website instantly
+   - Extracts: property type, themes, amenities, positioning
+   - Shows: demand fit score, experience gaps, recommendations
+   - Example URL: `https://acehotel.com/new-york/`
+
 **Talking Points:**
 - "This is real data scraped from Reddit, YouTube, and Skift news"
 - "AI automatically clusters conversations into trends"
 - "Each trend includes 'why it matters' for hotel strategists"
 - "We extract strategic moves from news articles automatically"
+- "Demand Scan analyzes any hotel website in seconds - instant competitive intelligence"
 
 ### To Stop
 
@@ -306,18 +313,23 @@ A structured development plan from MVP to full system.
 
 **Output**: Live competitor moves extracted from hospitality news.
 
-### Phase 4 — Demand Scan MVP (Weeks 7–10)
+### Phase 4 — Demand Scan MVP (COMPLETE)
 
 **Goal**: property-level analysis + opportunity mapping
 
-- Implement property-page scraper
-- Extract brand positioning & features (themes, amenities, tone)
-- Compute Demand Fit Score vs regional trends
-- Identify Experience Gaps and Opportunity Lanes
-- Build `/api/demand-scan` endpoint
-- Connect to Build-a-Brand module
+**Implemented:**
+- Property page scraper (BeautifulSoup + httpx)
+- LLM-powered feature extraction (name, type, positioning, amenities, themes)
+- Region detection from content
+- Price segment classification
+- Demand fit scoring against regional trends
+- Experience gap identification
+- Opportunity lane generation
+- Strategic recommendations
+- `/api/demand-scan` endpoint with scan, refresh, and list
+- CLI command for property scanning
 
-**Output**: First full pipeline from property URL → insights → brand concepting.
+**Output**: Full pipeline from property URL → insights → recommendations.
 
 ### Phase 5 — Scaling, Reliability & Expansion (Ongoing)
 
@@ -356,14 +368,24 @@ A structured development plan from MVP to full system.
 - FastAPI endpoints for Hotelier Bets
 - CLI command for move extraction
 
+### Phase 4 - Demand Scan MVP (COMPLETE)
+- Property page scraping and analysis
+- LLM-powered feature extraction
+- Demand fit scoring against regional trends
+- Experience gap and opportunity identification
+- Strategic recommendations generation
+- FastAPI endpoints for Demand Scan
+- CLI command for property scanning
+
 **Current Data:**
 - 552 content items scraped
 - 70 items processed with embeddings
 - 3 trend clusters identified
 - 1 hotelier move extracted
+- 1 property analyzed
 
-### Phase 4 - Demand Scan MVP (NEXT)
-- Property URL analysis and feature extraction
+### Phase 5 - Scaling & Expansion (NEXT)
+- More markets, scrapers, and languages
 
 ## Getting Started
 
@@ -425,6 +447,14 @@ GET  /api/hotelier-bets/{id}     - Single move detail
 GET  /api/hotelier-bets/companies - List companies
 GET  /api/hotelier-bets/move-types - List move types
 POST /api/hotelier-bets/generate - Extract moves from news
+
+# Demand Scan (Property Analysis)
+POST /api/demand-scan            - Scan a property URL
+POST /api/demand-scan/refresh    - Rescan a property
+GET  /api/demand-scan            - List scanned properties
+GET  /api/demand-scan/{id}       - Single property detail
+GET  /api/demand-scan/property-types - List property types
+GET  /api/demand-scan/price-segments - List price segments
 ```
 
 ### CLI Commands
@@ -450,6 +480,9 @@ python scripts/run_crawlers.py --trends --days 30
 # Extract Hotelier Bets moves
 python scripts/run_crawlers.py --moves --days 30
 
+# Scan a property URL with Demand Scan
+python scripts/run_crawlers.py --scan "https://acehotel.com/new-york/"
+
 # Check database stats
 python scripts/check_db.py
 ```
@@ -470,4 +503,4 @@ PRs welcome!
 
 ## License
 
-TBD (likely commercial, private to BrandClave)
+TBD (commercial, private to BrandClave)
