@@ -147,11 +147,14 @@ class VectorStore:
         """
         result = self.content_collection.get(ids=[id], include=["embeddings", "documents", "metadatas"])
         if result["ids"]:
+            embeddings = result.get("embeddings")
+            documents = result.get("documents")
+            metadatas = result.get("metadatas")
             return {
                 "id": result["ids"][0],
-                "embedding": result["embeddings"][0] if result["embeddings"] else None,
-                "document": result["documents"][0] if result["documents"] else None,
-                "metadata": result["metadatas"][0] if result["metadatas"] else None,
+                "embedding": embeddings[0] if embeddings is not None and len(embeddings) > 0 else None,
+                "document": documents[0] if documents is not None and len(documents) > 0 else None,
+                "metadata": metadatas[0] if metadatas is not None and len(metadatas) > 0 else None,
             }
         return None
 

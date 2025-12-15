@@ -92,9 +92,11 @@ class ContentClusterer:
 
             for content_id in content_ids:
                 result = vector_store.get_embedding(content_id)
-                if result and result.get("embedding"):
-                    embeddings.append(result["embedding"])
-                    valid_ids.append(content_id)
+                if result:
+                    embedding = result.get("embedding")
+                    if embedding is not None and len(embedding) > 0:
+                        embeddings.append(embedding)
+                        valid_ids.append(content_id)
 
             if not embeddings:
                 logger.warning("No embeddings found in vector store")

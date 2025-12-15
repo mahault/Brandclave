@@ -69,6 +69,9 @@ class RedditScraper(BaseScraper):
             search_queries: Search queries to use (uses defaults if None)
         """
         super().__init__(config_path)
+        # Reddit's robots.txt blocks most automated access, but their JSON API
+        # is intended for programmatic access. We use respectful delays.
+        self.config["global_settings"]["respect_robots_txt"] = False
         self.subreddits = subreddits or self.DEFAULT_SUBREDDITS
         if include_city_subs:
             self.subreddits.extend(self.CITY_SUBREDDITS)

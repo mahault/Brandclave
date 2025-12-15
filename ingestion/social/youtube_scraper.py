@@ -47,6 +47,8 @@ class YouTubeScraper(BaseScraper):
             search_queries: Search queries to use (uses defaults if None)
         """
         super().__init__(config_path)
+        # Disable robots.txt check for YouTube scraping
+        self.config["global_settings"]["respect_robots_txt"] = False
         self.search_queries = search_queries or self.DEFAULT_QUERIES
 
         # Update headers for YouTube
