@@ -52,19 +52,22 @@ async def root():
     """Root endpoint."""
     return {
         "name": "BrandClave Aggregator API",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "endpoints": {
             "health": "/health",
             "docs": "/docs",
             "social_pulse": "/api/social-pulse",
+            "hotelier_bets": "/api/hotelier-bets",
         },
     }
 
 
 # Import and include routers
 from api.routes.social_pulse import router as social_pulse_router
+from api.routes.hotelier_bets import router as hotelier_bets_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
+app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
 
 
 if __name__ == "__main__":

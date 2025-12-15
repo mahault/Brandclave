@@ -2,6 +2,71 @@
 
 **Data Engine for Hospitality Demand Intelligence, Trend Signals, and Hotelier Moves**
 
+---
+
+## Quick Start for Demo (Sarah's Guide)
+
+### First Time Setup (One Time Only)
+
+1. **Install Miniconda** (if not already installed)
+   - Download from: https://docs.conda.io/en/latest/miniconda.html
+   - Choose "Miniconda3 Windows 64-bit"
+   - Run installer with default settings
+   - Restart your computer
+
+2. **Get the Project**
+   - Download/clone this project to your computer
+   - Remember where you put it!
+
+3. **Run First-Time Setup**
+   - Open the project folder
+   - Double-click **`SETUP_FIRST_TIME.bat`**
+   - Follow the prompts (takes ~5-10 minutes)
+   - When Notepad opens, paste your Mistral API key and save
+
+### Running the Demo
+
+Just double-click **`START_DEMO.bat`**
+
+That's it! The browser will open automatically to the API docs.
+
+### What to Show Investors
+
+The browser opens to http://localhost:8000/docs - an interactive API explorer.
+
+**Demo Flow:**
+
+1. **Social Pulse** - Click "GET /api/social-pulse" → "Try it out" → "Execute"
+   - Shows AI-detected travel trends from Reddit & YouTube
+   - Real data: trend names, descriptions, "why it matters"
+   - Example: "Digital Nomad Coliving Spaces" trend
+
+2. **Hotelier Bets** - Click "GET /api/hotelier-bets" → "Try it out" → "Execute"
+   - Shows strategic moves extracted from hospitality news
+   - AI identifies: company, move type, market impact
+   - Example: "Marriott Acquires Boutique Hotel Group"
+
+**Talking Points:**
+- "This is real data scraped from Reddit, YouTube, and Skift news"
+- "AI automatically clusters conversations into trends"
+- "Each trend includes 'why it matters' for hotel strategists"
+- "We extract strategic moves from news articles automatically"
+
+### To Stop
+
+Press `Ctrl+C` in the black terminal window, or just close it.
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| "Conda not found" | Install Miniconda and restart computer |
+| Script closes immediately | Right-click → Run as Administrator |
+| "Environment not found" | Run SETUP_FIRST_TIME.bat again |
+| Browser doesn't open | Manually go to http://localhost:8000/docs |
+
+---
+
 ## Overview
 
 BrandClave Aggregator is the backend data intelligence system powering:
@@ -226,17 +291,20 @@ A structured development plan from MVP to full system.
 
 **Output**: Working Social Pulse API returning real trend data.
 
-### Phase 3 — Hotelier Bets MVP (Weeks 5–7)
+### Phase 3 — Hotelier Bets MVP (COMPLETE)
 
 **Goal**: structured competitor intelligence
 
-- Add 2–3 hospitality news sources
-- Implement move extraction (company, market, move type)
-- Auto-generate "Why it matters" and strategic implications
-- Build `/api/hotelier-bets` endpoint
-- Integrate "Turn Into Brand Concept" pathway
+**Implemented:**
+- LLM-powered move extraction from news content
+- Extracts: company, company type, move type, market, investment amount
+- Generates: title, summary, why it matters, strategic implications
+- Competitive impact analysis
+- Confidence scoring with threshold filtering
+- `/api/hotelier-bets` endpoint with filtering
+- CLI command for move extraction
 
-**Output**: Live competitor moves powering BrandClave's inspiration flow.
+**Output**: Live competitor moves extracted from hospitality news.
 
 ### Phase 4 — Demand Scan MVP (Weeks 7–10)
 
@@ -281,13 +349,21 @@ A structured development plan from MVP to full system.
 - Mistral LLM for trend names and "Why it matters" generation
 - FastAPI endpoints for Social Pulse
 
+### Phase 3 - Hotelier Bets MVP (COMPLETE)
+- LLM-powered move extraction from news articles
+- Extracts: company, move type, market, strategic implications
+- Generates "Why it matters" and competitive impact analysis
+- FastAPI endpoints for Hotelier Bets
+- CLI command for move extraction
+
 **Current Data:**
 - 552 content items scraped
 - 70 items processed with embeddings
 - 3 trend clusters identified
+- 1 hotelier move extracted
 
-### Phase 3 - Hotelier Bets MVP (IN PROGRESS)
-- Next: News source expansion and move extraction
+### Phase 4 - Demand Scan MVP (NEXT)
+- Property URL analysis and feature extraction
 
 ## Getting Started
 
@@ -336,10 +412,19 @@ uvicorn api.main:app --reload
 ```
 GET  /                           - API info
 GET  /health                     - Health check
+
+# Social Pulse (Trend Signals)
 GET  /api/social-pulse           - List trend signals
 GET  /api/social-pulse/{id}      - Single trend detail
 POST /api/social-pulse/search/semantic - Semantic search
 POST /api/social-pulse/generate  - Trigger trend generation
+
+# Hotelier Bets (Strategic Moves)
+GET  /api/hotelier-bets          - List strategic moves
+GET  /api/hotelier-bets/{id}     - Single move detail
+GET  /api/hotelier-bets/companies - List companies
+GET  /api/hotelier-bets/move-types - List move types
+POST /api/hotelier-bets/generate - Extract moves from news
 ```
 
 ### CLI Commands
@@ -359,8 +444,11 @@ python scripts/run_crawlers.py --all
 # Process unprocessed content
 python scripts/run_crawlers.py --process --limit 100
 
-# Generate trends
+# Generate Social Pulse trends
 python scripts/run_crawlers.py --trends --days 30
+
+# Extract Hotelier Bets moves
+python scripts/run_crawlers.py --moves --days 30
 
 # Check database stats
 python scripts/check_db.py

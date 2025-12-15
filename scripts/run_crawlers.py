@@ -110,6 +110,26 @@ def generate_trends(days_back: int = 30, save: bool = True) -> dict:
     }
 
 
+def extract_moves(days_back: int = 30, limit: int = 100, save: bool = True) -> dict:
+    """Extract Hotelier Bets moves from news content.
+
+    Args:
+        days_back: Days of content to analyze
+        limit: Maximum articles to process
+        save: Whether to save to database
+
+    Returns:
+        Extraction summary
+    """
+    from services.hotelier_bets import generate_hotelier_bets
+
+    moves = generate_hotelier_bets(days_back=days_back, limit=limit, save=save)
+    return {
+        "moves_extracted": len(moves),
+        "saved": save,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="BrandClave Aggregator CLI - Run scrapers and NLP pipeline"
@@ -158,6 +178,12 @@ def main():
         help="Days of content for trend generation (default: 30)",
     )
     parser.add_argument(
+        "--moves",
+        "-m",
+        action="store_true",
+        help="Extract Hotelier Bets moves from news content",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -202,7 +228,13 @@ def main():
         trend_result = generate_trends(days_back=args.days)
         print(f"\nTrend generation result: {trend_result}")
 
-    if not (args.source or args.all or args.process or args.list or args.trends):
+    # Extract hotelier moves
+    if args.moves:
+        logging.info(f"Extracting moves (days_back: {args.days}, limit: {args.limit})")
+        move_result = extract_moves(days_back=args.days, limit=args.limit)
+        print(f"\nMove extraction result: {move_result}")
+
+    if not (args.source or args.all or args.process or args.list or args.trends or args.moves):
         parser.print_help()
 
 
