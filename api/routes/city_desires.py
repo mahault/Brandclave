@@ -126,6 +126,101 @@ async def quick_city_search(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
+@router.post("/city-desires/adaptive")
+async def analyze_city_adaptive(request: CityDesireRequest):
+    """Analyze city using active inference and structure learning.
+
+    This endpoint uses an adaptive approach that:
+    - Learns categories from data instead of using fixed ones
+    - Actively decides what to search for next
+    - Expands/merges categories as evidence accumulates
+    - Returns confidence scores and model metrics
+
+    Takes 60-120 seconds due to iterative exploration.
+    """
+    from services.active_inference.adaptive_city_analyzer import AdaptiveCityAnalyzer
+
+    if not request.city:
+        raise HTTPException(status_code=400, detail="City name is required")
+
+    logger.info(f"Adaptive analysis for: {request.city}, {request.country}")
+
+    try:
+        with AdaptiveCityAnalyzer(
+            alpha=1.0,
+            fit_threshold=0.3,
+            max_iterations=8,
+            confidence_threshold=0.7,
+        ) as analyzer:
+            result = analyzer.analyze_city(request.city, request.country or "")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Adaptive analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@router.post("/city-desires/genius")
+async def analyze_city_genius(request: CityDesireRequest):
+    """Analyze city using VERSES Genius Active Inference API.
+
+    This endpoint uses the VERSES Genius service for proper Bayesian
+    active inference with:
+    - POMDP-based action selection (Expected Free Energy minimization)
+    - Online parameter learning from observations
+    - Proper variational free energy computation
+    - Bayesian category inference
+
+    Requires GENIUS_API_KEY to be configured.
+    Takes 60-120 seconds due to iterative exploration.
+    """
+    from services.active_inference.genius_city_analyzer import GeniusCityAnalyzer
+
+    if not request.city:
+        raise HTTPException(status_code=400, detail="City name is required")
+
+    logger.info(f"Genius analysis for: {request.city}, {request.country}")
+
+    try:
+        with GeniusCityAnalyzer(
+            max_iterations=8,
+            confidence_threshold=0.7,
+        ) as analyzer:
+            result = analyzer.analyze_city(request.city, request.country or "")
+
+        return result
+
+    except ValueError as e:
+        # API key not configured
+        logger.error(f"Genius API configuration error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Genius API not configured: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Genius analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@router.get("/city-desires/genius/status")
+async def get_genius_status():
+    """Check VERSES Genius API connection status."""
+    from services.active_inference.genius_client import test_genius_connection
+
+    try:
+        status = test_genius_connection()
+        return {
+            "genius_api": status,
+            "available": status.get("healthy", False),
+        }
+    except Exception as e:
+        return {
+            "genius_api": {"error": str(e)},
+            "available": False,
+        }
+
+
 @router.get("/city-desires/popular")
 async def get_popular_cities():
     """Get list of popular cities for quick analysis."""
@@ -145,4 +240,9 @@ async def get_popular_cities():
             {"city": "Miami", "country": "USA"},
         ],
         "hint": "Use POST /api/city-desires or GET /api/city-desires/quick?city=Lisbon to analyze",
+        "endpoints": {
+            "standard": "POST /api/city-desires - Fixed category analysis",
+            "adaptive": "POST /api/city-desires/adaptive - Local structure learning",
+            "genius": "POST /api/city-desires/genius - VERSES Genius active inference",
+        }
     }
