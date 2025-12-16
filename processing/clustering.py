@@ -1,8 +1,12 @@
-"""Clustering module for trend detection using HDBSCAN."""
+"""Clustering module for trend detection using HDBSCAN.
+
+Integrates with Clustering POMDP for adaptive parameter selection.
+"""
 
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Optional
 
 import hdbscan
 import numpy as np
@@ -12,6 +16,14 @@ from db.models import RawContentModel
 from db.vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
+
+# Import Clustering POMDP
+try:
+    from services.active_inference.clustering_pomdp import get_clustering_pomdp, ClusteringPOMDP
+    CLUSTERING_POMDP_AVAILABLE = True
+except ImportError:
+    CLUSTERING_POMDP_AVAILABLE = False
+    logger.info("Clustering POMDP not available")
 
 
 @dataclass
@@ -25,24 +37,40 @@ class Cluster:
 
 
 class ContentClusterer:
-    """Cluster content embeddings to identify trends."""
+    """Cluster content embeddings to identify trends.
+
+    Supports adaptive parameter selection via Clustering POMDP.
+    """
 
     def __init__(
         self,
         min_cluster_size: int = 3,
         min_samples: int = 2,
         metric: str = "euclidean",
+        use_adaptive: bool = True,
     ):
         """Initialize clusterer.
 
         Args:
-            min_cluster_size: Minimum cluster size for HDBSCAN
-            min_samples: Min samples for core point
+            min_cluster_size: Minimum cluster size for HDBSCAN (used as fallback)
+            min_samples: Min samples for core point (used as fallback)
             metric: Distance metric
+            use_adaptive: Whether to use POMDP for adaptive parameter selection
         """
         self.min_cluster_size = min_cluster_size
         self.min_samples = min_samples
         self.metric = metric
+
+        # Initialize POMDP for adaptive clustering
+        self.use_adaptive = use_adaptive and CLUSTERING_POMDP_AVAILABLE
+        self.clustering_pomdp: Optional[ClusteringPOMDP] = None
+        if self.use_adaptive:
+            try:
+                self.clustering_pomdp = get_clustering_pomdp()
+                logger.info("Clustering POMDP enabled for adaptive parameter selection")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Clustering POMDP: {e}")
+                self.use_adaptive = False
 
     def get_embeddings_from_db(
         self,
@@ -107,22 +135,36 @@ class ContentClusterer:
         finally:
             db.close()
 
-    def cluster(self, embeddings: np.ndarray) -> np.ndarray:
+    def cluster(self, embeddings: np.ndarray) -> tuple[np.ndarray, dict]:
         """Run HDBSCAN clustering on embeddings.
+
+        Uses POMDP for adaptive parameter selection when available.
 
         Args:
             embeddings: Array of embeddings (n_samples, n_features)
 
         Returns:
-            Array of cluster labels (-1 for noise)
+            Tuple of (cluster labels array, params dict)
         """
-        if len(embeddings) < self.min_cluster_size:
+        # Determine parameters
+        if self.clustering_pomdp is not None:
+            param_decision = self.clustering_pomdp.select_parameters(embeddings)
+            mcs = param_decision["min_cluster_size"]
+            ms = param_decision["min_samples"]
+            logger.info(f"POMDP selected params: min_cluster_size={mcs}, min_samples={ms}, "
+                       f"confidence={param_decision.get('confidence', 0):.2f}")
+        else:
+            mcs = self.min_cluster_size
+            ms = self.min_samples
+            param_decision = {"method": "fixed", "min_cluster_size": mcs, "min_samples": ms}
+
+        if len(embeddings) < mcs:
             logger.warning(f"Not enough samples ({len(embeddings)}) for clustering")
-            return np.array([-1] * len(embeddings))
+            return np.array([-1] * len(embeddings)), param_decision
 
         clusterer = hdbscan.HDBSCAN(
-            min_cluster_size=self.min_cluster_size,
-            min_samples=self.min_samples,
+            min_cluster_size=mcs,
+            min_samples=ms,
             metric=self.metric,
             cluster_selection_method="eom",
         )
@@ -132,7 +174,17 @@ class ContentClusterer:
         n_noise = list(labels).count(-1)
 
         logger.info(f"Clustering: {n_clusters} clusters, {n_noise} noise points")
-        return labels
+
+        # Update POMDP with result
+        if self.clustering_pomdp is not None:
+            result = self.clustering_pomdp.observe_clustering_result(
+                params={"min_cluster_size": mcs, "min_samples": ms},
+                labels=labels,
+                embeddings=embeddings,
+            )
+            logger.debug(f"Clustering POMDP updated: silhouette={result.get('silhouette', 0):.3f}")
+
+        return labels, param_decision
 
     def extract_clusters(
         self,
@@ -181,7 +233,7 @@ class ContentClusterer:
         source_types: list[str] | None = None,
         days_back: int = 30,
         limit: int = 1000,
-    ) -> list[Cluster]:
+    ) -> tuple[list[Cluster], dict]:
         """Full clustering pipeline: fetch, cluster, extract.
 
         Args:
@@ -190,7 +242,7 @@ class ContentClusterer:
             limit: Max items to cluster
 
         Returns:
-            List of Cluster objects
+            Tuple of (List of Cluster objects, params dict)
         """
         logger.info(f"Starting clustering (days_back={days_back}, limit={limit})")
 
@@ -202,16 +254,26 @@ class ContentClusterer:
         )
 
         if len(embeddings) == 0:
-            return []
+            return [], {}
 
-        # Cluster
-        labels = self.cluster(embeddings)
+        # Cluster (now returns labels and params)
+        labels, params = self.cluster(embeddings)
 
         # Extract clusters
         clusters = self.extract_clusters(content_ids, embeddings, labels)
 
         logger.info(f"Found {len(clusters)} clusters")
-        return clusters
+        return clusters, params
+
+    def get_pomdp_status(self) -> dict:
+        """Get Clustering POMDP status.
+
+        Returns:
+            Dict with POMDP state information
+        """
+        if self.clustering_pomdp is not None:
+            return self.clustering_pomdp.get_status()
+        return {"enabled": False, "reason": "POMDP not available"}
 
 
 def get_content_for_cluster(cluster: Cluster) -> list[dict]:
@@ -250,18 +312,20 @@ def run_clustering(
     source_types: list[str] | None = None,
     days_back: int = 30,
     min_cluster_size: int = 3,
-) -> list[Cluster]:
+    use_adaptive: bool = True,
+) -> tuple[list[Cluster], dict]:
     """Convenience function to run clustering.
 
     Args:
         source_types: Filter by source types
         days_back: Days of content
-        min_cluster_size: Min cluster size
+        min_cluster_size: Min cluster size (fallback if POMDP disabled)
+        use_adaptive: Whether to use POMDP for adaptive parameter selection
 
     Returns:
-        List of clusters
+        Tuple of (List of clusters, params dict)
     """
-    clusterer = ContentClusterer(min_cluster_size=min_cluster_size)
+    clusterer = ContentClusterer(min_cluster_size=min_cluster_size, use_adaptive=use_adaptive)
     return clusterer.cluster_content(
         source_types=source_types,
         days_back=days_back,

@@ -1,12 +1,13 @@
 """APScheduler integration for automated scraping.
 
 Provides background scheduling of scraper jobs with persistence.
+Integrates with Scraping POMDP for adaptive source selection.
 """
 
 import logging
 import os
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Optional
 
 import yaml
 from dotenv import load_dotenv
@@ -14,6 +15,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Import Scraping POMDP
+try:
+    from services.active_inference.scraping_pomdp import get_scraping_pomdp, ScrapingPOMDP
+    POMDP_AVAILABLE = True
+except ImportError:
+    POMDP_AVAILABLE = False
+    logger.info("Scraping POMDP not available")
 
 # Try to import APScheduler
 try:
@@ -39,18 +48,31 @@ class ScraperScheduler:
         self,
         db_url: str | None = None,
         config_path: str = "configs/scheduler.yaml",
+        use_pomdp: bool = True,
     ):
         """Initialize scheduler.
 
         Args:
             db_url: SQLite URL for job persistence
             config_path: Path to scheduler configuration
+            use_pomdp: Whether to use POMDP for adaptive source selection
         """
         self.config = self._load_config(config_path)
         self._scraper_registry: dict[str, type] = {}
         self._job_functions: dict[str, Callable] = {}
         self.scheduler = None
         self._running = False
+
+        # Initialize POMDP for adaptive scraping
+        self.use_pomdp = use_pomdp and POMDP_AVAILABLE
+        self.scraping_pomdp: Optional[ScrapingPOMDP] = None
+        if self.use_pomdp:
+            try:
+                self.scraping_pomdp = get_scraping_pomdp()
+                logger.info("Scraping POMDP enabled for adaptive source selection")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Scraping POMDP: {e}")
+                self.use_pomdp = False
 
         if not SCHEDULER_AVAILABLE:
             logger.warning("APScheduler not available, scheduling disabled")
@@ -151,9 +173,35 @@ class ScraperScheduler:
                 raise ValueError(f"Unknown source: {source_name}")
 
             with scraper_class() as scraper:
-                return scraper.run()
+                result = scraper.run()
+
+            # Update POMDP with scrape result
+            if self.scraping_pomdp is not None:
+                items_scraped = result.get("items_count", 0) or result.get("scraped", 0)
+                errors = 1 if result.get("status") == "failed" else 0
+                novelty = result.get("novelty_ratio", 0.5)
+
+                self.scraping_pomdp.observe_scrape_result(
+                    source=source_name,
+                    items_scraped=items_scraped,
+                    errors=errors,
+                    novelty_ratio=novelty,
+                )
+                logger.debug(f"Updated Scraping POMDP with result from {source_name}")
+
+            return result
         except Exception as e:
             logger.error(f"Scheduled scrape failed for {source_name}: {e}")
+
+            # Update POMDP with error
+            if self.scraping_pomdp is not None:
+                self.scraping_pomdp.observe_scrape_result(
+                    source=source_name,
+                    items_scraped=0,
+                    errors=1,
+                    novelty_ratio=0.0,
+                )
+
             return {"source": source_name, "status": "failed", "error": str(e)}
 
     def _run_job_function(self, name: str, **kwargs) -> dict:
@@ -430,6 +478,39 @@ class ScraperScheduler:
             self.scheduler.shutdown(wait=wait)
             self._running = False
             logger.info("Scheduler stopped")
+
+    def get_next_source_pomdp(self) -> dict:
+        """Get next source recommendation from POMDP.
+
+        Returns:
+            Dict with source name, priority, and reasoning
+        """
+        if self.scraping_pomdp is not None:
+            return self.scraping_pomdp.select_next_source()
+        return {"source": None, "reason": "POMDP not available"}
+
+    def get_scraping_schedule_pomdp(self, budget_minutes: int = 60) -> list[dict]:
+        """Get an optimized scraping schedule from POMDP.
+
+        Args:
+            budget_minutes: Time budget in minutes
+
+        Returns:
+            Ordered list of sources to scrape
+        """
+        if self.scraping_pomdp is not None:
+            return self.scraping_pomdp.get_scraping_schedule(budget_minutes)
+        return []
+
+    def get_pomdp_status(self) -> dict:
+        """Get POMDP status and beliefs.
+
+        Returns:
+            Dict with POMDP state information
+        """
+        if self.scraping_pomdp is not None:
+            return self.scraping_pomdp.get_status()
+        return {"enabled": False, "reason": "POMDP not available"}
 
 
 # Singleton instance
