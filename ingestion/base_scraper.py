@@ -102,16 +102,33 @@ class BaseScraper(ABC):
             robots_url = f"{base_url}/robots.txt"
             rp = RobotFileParser()
             try:
-                rp.set_url(robots_url)
-                rp.read()
+                # Fetch robots.txt with timeout using our httpx client
+                # instead of RobotFileParser.read() which has no timeout
+                timeout = self.config.get("global_settings", {}).get("request_timeout", 30)
+                response = self.client.get(robots_url, timeout=min(timeout, 10))
+
+                if response.status_code == 200:
+                    # Parse the robots.txt content manually
+                    rp.parse(response.text.splitlines())
+                else:
+                    # No robots.txt or error - allow access
+                    logger.debug(f"No robots.txt at {base_url} (status {response.status_code})")
+                    self._robots_cache[base_url] = None
+                    return True
+
             except Exception as e:
                 logger.warning(f"Could not fetch robots.txt from {base_url}: {e}")
-                # Allow if robots.txt is not available
+                # Allow if robots.txt is not available or times out
+                self._robots_cache[base_url] = None
                 return True
             self._robots_cache[base_url] = rp
 
+        cached = self._robots_cache[base_url]
+        if cached is None:
+            return True
+
         user_agent = self.config.get("user_agents", {}).get("default", "*")
-        return self._robots_cache[base_url].can_fetch(user_agent, url)
+        return cached.can_fetch(user_agent, url)
 
     def fetch(self, url: str, **kwargs) -> httpx.Response | None:
         """Fetch URL with rate limiting and retry logic.
