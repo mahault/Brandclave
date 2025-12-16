@@ -221,6 +221,53 @@ async def get_genius_status():
         }
 
 
+@router.post("/city-desires/pymdp")
+async def analyze_city_pymdp(request: CityDesireRequest):
+    """Analyze city using PyMDP active inference (JAX-based).
+
+    This endpoint uses the open-source pymdp library for local
+    active inference with:
+    - Expected Free Energy (EFE) minimization for query selection
+    - Variational inference for belief updates
+    - Online parameter learning
+    - No external API required
+
+    Takes 60-120 seconds due to iterative exploration.
+    """
+    from services.active_inference.pymdp_city_analyzer import PyMDPCityAnalyzer
+
+    if not request.city:
+        raise HTTPException(status_code=400, detail="City name is required")
+
+    logger.info(f"PyMDP analysis for: {request.city}, {request.country}")
+
+    try:
+        with PyMDPCityAnalyzer(
+            max_iterations=8,
+            confidence_threshold=0.7,
+            use_learning=True,
+        ) as analyzer:
+            result = analyzer.analyze_city(request.city, request.country or "")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"PyMDP analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@router.get("/city-desires/pymdp/status")
+async def get_pymdp_status():
+    """Check PyMDP availability status."""
+    from services.active_inference.pymdp_learner import PYMDP_AVAILABLE
+
+    return {
+        "pymdp_available": PYMDP_AVAILABLE,
+        "description": "JAX-based active inference library",
+        "install_command": "pip install inferactively-pymdp jax jaxlib" if not PYMDP_AVAILABLE else None,
+    }
+
+
 @router.get("/city-desires/popular")
 async def get_popular_cities():
     """Get list of popular cities for quick analysis."""
@@ -244,5 +291,6 @@ async def get_popular_cities():
             "standard": "POST /api/city-desires - Fixed category analysis",
             "adaptive": "POST /api/city-desires/adaptive - Local structure learning",
             "genius": "POST /api/city-desires/genius - VERSES Genius active inference",
+            "pymdp": "POST /api/city-desires/pymdp - PyMDP JAX-based active inference",
         }
     }

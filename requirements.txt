@@ -31,3 +31,8 @@ pyyaml>=6.0
 # Phase 5: Caching & Scheduling
 redis>=4.0.0
 APScheduler>=3.10.0
+
+# Active Inference
+inferactively-pymdp>=0.0.8
+jax>=0.4.0
+jaxlib>=0.4.0
