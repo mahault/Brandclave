@@ -11,25 +11,32 @@ logger = logging.getLogger(__name__)
 
 
 class MistralLLM:
-    """Wrapper for Mistral API text generation."""
+    """Wrapper for Mistral API text generation with rate limiting."""
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str = "mistral-small-latest",
+        max_retries: int = 3,
+        base_delay: float = 0.5,
     ):
         """Initialize Mistral LLM client.
 
         Args:
             api_key: Mistral API key. Defaults to MISTRAL_API_KEY env var.
             model: Model to use for generation.
+            max_retries: Max retry attempts for rate limits.
+            base_delay: Base delay between requests.
         """
         self.api_key = api_key or os.getenv("MISTRAL_API_KEY")
         if not self.api_key:
             raise ValueError("MISTRAL_API_KEY not found in environment")
 
         self.model = model
+        self.max_retries = max_retries
+        self.base_delay = base_delay
         self._client = None
+        self._last_request_time = 0
 
     @property
     def client(self):
@@ -40,6 +47,14 @@ class MistralLLM:
             self._client = Mistral(api_key=self.api_key)
         return self._client
 
+    def _wait_for_rate_limit(self):
+        """Wait to respect rate limits."""
+        import time
+        elapsed = time.time() - self._last_request_time
+        if elapsed < self.base_delay:
+            time.sleep(self.base_delay - elapsed)
+        self._last_request_time = time.time()
+
     def generate(
         self,
         prompt: str,
@@ -47,7 +62,7 @@ class MistralLLM:
         max_tokens: int = 500,
         temperature: float = 0.7,
     ) -> str:
-        """Generate text from prompt.
+        """Generate text from prompt with retry logic.
 
         Args:
             prompt: User prompt
@@ -58,19 +73,35 @@ class MistralLLM:
         Returns:
             Generated text
         """
+        import time
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat.complete(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        for attempt in range(self.max_retries):
+            try:
+                self._wait_for_rate_limit()
+                response = self.client.chat.complete(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+                return response.choices[0].message.content
 
-        return response.choices[0].message.content
+            except Exception as e:
+                error_str = str(e).lower()
+                if "429" in error_str or "rate" in error_str:
+                    wait_time = self.base_delay * (2 ** attempt) + 1
+                    logger.warning(f"LLM rate limited, waiting {wait_time:.1f}s (attempt {attempt + 1}/{self.max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    raise
+
+        raise Exception(f"LLM generation failed after {self.max_retries} retries")
 
     def generate_trend_name(self, sample_texts: list[str]) -> str:
         """Generate a concise trend name from sample content.

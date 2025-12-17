@@ -39,7 +39,14 @@ class RSSNewsScraper(BaseScraper):
             return []
 
         logger.info(f"Fetching RSS feed from {self.RSS_URL}")
-        feed = feedparser.parse(self.RSS_URL)
+
+        # Fetch with proper user-agent (feedparser's default is often blocked)
+        response = self.fetch(self.RSS_URL)
+        if response is None:
+            # Fallback to direct feedparser (might work for some feeds)
+            feed = feedparser.parse(self.RSS_URL)
+        else:
+            feed = feedparser.parse(response.text)
 
         if feed.bozo and not feed.entries:
             logger.error(f"Feed parsing error: {feed.bozo_exception}")
@@ -49,12 +56,15 @@ class RSSNewsScraper(BaseScraper):
         for entry in feed.entries:
             try:
                 content = ""
+                # Try content first, but check if value is non-empty
                 if hasattr(entry, "content") and entry.content:
-                    content = entry.content[0].value
-                elif hasattr(entry, "summary"):
-                    content = entry.summary
-                elif hasattr(entry, "description"):
-                    content = entry.description
+                    content = entry.content[0].value or ""
+                # Fall back to summary if content is empty
+                if not content and hasattr(entry, "summary"):
+                    content = entry.summary or ""
+                # Fall back to description
+                if not content and hasattr(entry, "description"):
+                    content = entry.description or ""
 
                 if not content:
                     continue
@@ -547,6 +557,36 @@ class TravelDailyScraper(RSSNewsScraper):
 
     source_name = "traveldaily"
     RSS_URL = "https://www.traveldaily.com.au/feed"
+
+
+# === NEW WORKING SOURCES (replacements for broken feeds) ===
+
+class EHotelierScraper(RSSNewsScraper):
+    """Scraper for eHotelier insights - global hospitality news."""
+
+    source_name = "ehotelier"
+    RSS_URL = "https://insights.ehotelier.com/feed/"
+
+
+class LodgingMagazineScraper(RSSNewsScraper):
+    """Scraper for Lodging Magazine - AHLA official publication."""
+
+    source_name = "lodgingmagazine"
+    RSS_URL = "https://www.lodgingmagazine.com/feed/"
+
+
+class LuxuryHospitalityScraper(RSSNewsScraper):
+    """Scraper for Luxury Hospitality Magazine (UK)."""
+
+    source_name = "luxuryhospitality"
+    RSS_URL = "https://www.lhmagazine.co.uk/feed/"
+
+
+class HotelBusinessScraper(RSSNewsScraper):
+    """Scraper for Hotel Business - industry news and analysis."""
+
+    source_name = "hotelbusiness"
+    RSS_URL = "https://www.hotelbusiness.com/feed/"
 
 
 # Convenience functions

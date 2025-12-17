@@ -61,7 +61,11 @@ class BaseScraper(ABC):
     def _create_client(self) -> httpx.Client:
         """Create HTTP client with configured settings."""
         timeout = self.config.get("global_settings", {}).get("request_timeout", 30)
-        user_agent = self.config.get("user_agents", {}).get("default", "BrandClave-Aggregator/1.0")
+        # Use desktop user agent by default (many sites block bot user-agents)
+        user_agent = self.config.get("user_agents", {}).get(
+            "desktop",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
 
         return httpx.Client(
             timeout=timeout,
@@ -194,12 +198,24 @@ class BaseScraper(ABC):
         Returns:
             Number of new items saved
         """
+        if not items:
+            logger.info(f"No items to save from {self.source_name}")
+            return 0
+
         db = SessionLocal()
         saved_count = 0
 
+        # Deduplicate items by URL within the batch first
+        seen_urls = set()
+        unique_items = []
+        for item in items:
+            if item.url not in seen_urls:
+                seen_urls.add(item.url)
+                unique_items.append(item)
+
         try:
-            for item in items:
-                # Check for existing URL
+            for item in unique_items:
+                # Check for existing URL in database
                 existing = (
                     db.query(RawContentModel).filter(RawContentModel.url == item.url).first()
                 )
@@ -222,18 +238,61 @@ class BaseScraper(ABC):
                 db.add(db_item)
                 saved_count += 1
 
+                # Flush periodically to catch duplicates early
+                if saved_count % 10 == 0:
+                    try:
+                        db.flush()
+                    except Exception:
+                        db.rollback()
+                        # Re-check and add items one by one
+                        saved_count = self._save_items_individually(db, unique_items)
+                        break
+
             db.commit()
             logger.info(f"Saved {saved_count} new items from {self.source_name}")
 
         except Exception as e:
             db.rollback()
-            logger.error(f"Error saving content: {e}")
-            raise
+            # Try individual inserts as fallback
+            logger.warning(f"Batch save failed, trying individual inserts: {e}")
+            saved_count = self._save_items_individually(db, unique_items)
 
         finally:
             db.close()
 
         return saved_count
+
+    def _save_items_individually(self, db, items: list[RawContentCreate]) -> int:
+        """Save items one by one, skipping duplicates."""
+        saved = 0
+        for item in items:
+            try:
+                # Check for existing
+                existing = db.query(RawContentModel).filter(RawContentModel.url == item.url).first()
+                if existing:
+                    continue
+
+                db_item = RawContentModel(
+                    source=item.source,
+                    source_type=item.source_type.value if hasattr(item.source_type, "value") else item.source_type,
+                    url=item.url,
+                    title=item.title,
+                    content=item.content,
+                    author=item.author,
+                    published_at=item.published_at,
+                    scraped_at=datetime.utcnow(),
+                    metadata_json=item.metadata,
+                )
+                db.add(db_item)
+                db.commit()
+                saved += 1
+            except Exception as e:
+                db.rollback()
+                logger.debug(f"Skipping item due to error: {e}")
+                continue
+
+        logger.info(f"Saved {saved} items individually from {self.source_name}")
+        return saved
 
     def run(self) -> dict:
         """Run the scraper and return summary.

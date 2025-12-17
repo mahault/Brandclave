@@ -1,0 +1,59 @@
+# POMDP Active Inference Configuration
+# Controls adaptive decision-making across Brandclave components
+
+pomdp:
+  enabled: true
+
+  # Adaptive Scraping POMDP
+  # Decides which sources to scrape based on expected information gain
+  scraping:
+    enabled: true
+    learning_rate: 0.1
+    exploration_bonus: 0.2          # Bonus for exploring uncertain sources
+    min_observations_before_exploit: 10
+    batch_size: 1
+    policy_len: 1
+
+  # Trend Clustering POMDP
+  # Adaptively selects HDBSCAN parameters
+  clustering:
+    enabled: true
+    param_grid:
+      min_cluster_size: [2, 3, 4, 5]
+      min_samples: [1, 2, 3]
+    quality_threshold: 0.3          # Minimum silhouette score
+    learning_rate: 0.1
+
+  # Move Extraction POMDP
+  # Decides extraction strategy per article (LLM vs regex vs skip)
+  extraction:
+    enabled: true
+    cost_weights:
+      skip: 0.0
+      regex: 0.01
+      llm_single: 1.0
+      llm_multi: 3.0
+    quality_threshold: 0.5
+    learning_rate: 0.1
+
+  # Cross-Component Coordinator POMDP
+  # Orchestrates information flow across components
+  coordinator:
+    enabled: true
+    update_interval_seconds: 300    # How often to check for cross-component signals
+    cross_component_threshold: 0.7  # Minimum correlation to surface
+    learning_rate: 0.05
+
+  # User-Adaptive API POMDP
+  # Learns user preferences and personalizes responses
+  user_adaptive:
+    enabled: true
+    min_interactions_before_personalization: 5
+    belief_decay_rate: 0.01         # How fast old beliefs fade
+    learning_rate: 0.1
+
+# State persistence
+persistence:
+  enabled: true
+  save_interval_seconds: 60         # How often to persist POMDP states
+  log_actions: true                 # Log all POMDP decisions for analysis

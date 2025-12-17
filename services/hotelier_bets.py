@@ -1,8 +1,11 @@
-"""Hotelier Bets service - Strategic move extraction and management."""
+"""Hotelier Bets service - Strategic move extraction and management.
+
+Integrates with Move Extraction POMDP for adaptive extraction strategy.
+"""
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 
 from db.database import SessionLocal
 from db.models import HotelierMoveModel, RawContentModel
@@ -15,23 +18,47 @@ from processing.move_extraction import (
 
 logger = logging.getLogger(__name__)
 
+# Import Move Extraction POMDP
+try:
+    from services.active_inference.move_extraction_pomdp import get_extraction_pomdp, MoveExtractionPOMDP
+    EXTRACTION_POMDP_AVAILABLE = True
+except ImportError:
+    EXTRACTION_POMDP_AVAILABLE = False
+    logger.info("Move Extraction POMDP not available")
+
 
 class HotelierBetsService:
-    """Service for extracting and managing Hotelier Bets moves."""
+    """Service for extracting and managing Hotelier Bets moves.
+
+    Supports adaptive extraction via Move Extraction POMDP.
+    """
 
     def __init__(
         self,
         use_llm: bool = True,
         confidence_threshold: float = 0.5,
+        use_adaptive: bool = True,
     ):
         """Initialize Hotelier Bets service.
 
         Args:
             use_llm: Whether to use LLM for extraction
             confidence_threshold: Minimum confidence to include a move
+            use_adaptive: Whether to use POMDP for adaptive extraction strategy
         """
         self.use_llm = use_llm
         self.confidence_threshold = confidence_threshold
+
+        # Initialize POMDP for adaptive extraction
+        self.use_adaptive = use_adaptive and EXTRACTION_POMDP_AVAILABLE
+        self.extraction_pomdp: Optional[MoveExtractionPOMDP] = None
+        if self.use_adaptive:
+            try:
+                self.extraction_pomdp = get_extraction_pomdp()
+                logger.info("Move Extraction POMDP enabled for adaptive strategy selection")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Move Extraction POMDP: {e}")
+                self.use_adaptive = False
 
     def extract_moves(
         self,
@@ -95,6 +122,8 @@ class HotelierBetsService:
     def _extract_from_article(self, article: RawContentModel) -> dict | None:
         """Extract move from a single article.
 
+        Uses POMDP for adaptive method selection when available.
+
         Args:
             article: RawContentModel instance
 
@@ -108,6 +137,58 @@ class HotelierBetsService:
         if len(content) < 100:
             return None
 
+        # Prepare article dict for POMDP
+        article_dict = {
+            "id": article.id,
+            "title": title,
+            "content": content,
+            "source": article.source,
+        }
+
+        # Use POMDP for method selection if available
+        if self.extraction_pomdp is not None:
+            decision = self.extraction_pomdp.select_extraction_method(article_dict)
+            method = decision["method"]
+            logger.debug(f"POMDP selected method: {method} (EFE={decision.get('efe', 0):.3f})")
+
+            move = None
+            if method == "skip":
+                # POMDP decided to skip this article
+                self.extraction_pomdp.observe_extraction_result(article_dict, method, None)
+                return None
+            elif method == "regex":
+                # Use regex-based detection (no LLM cost)
+                move = fallback_move_detection(title, content)
+                if move:
+                    move["source_url"] = article.url
+                    move["source_name"] = article.source
+                    move["extraction_method"] = "regex"
+            elif method == "llm_single":
+                # Standard LLM extraction
+                move = extract_move_from_article(
+                    title=title,
+                    content=content,
+                    source_url=article.url,
+                    source_name=article.source,
+                )
+                if move:
+                    move["extraction_method"] = "llm_single"
+            else:  # llm_multi
+                # Multi-sample LLM extraction (higher quality, higher cost)
+                move = self._multi_sample_extraction(title, content, article.url, article.source)
+                if move:
+                    move["extraction_method"] = "llm_multi"
+
+            # Update POMDP with result
+            self.extraction_pomdp.observe_extraction_result(article_dict, method, move)
+
+            # Generate additional insights if move found
+            if move:
+                move = self._enhance_move(move, title)
+
+            return move
+
+        # Non-adaptive path (original logic)
         if self.use_llm:
             move = extract_move_from_article(
                 title=title,
@@ -116,29 +197,10 @@ class HotelierBetsService:
                 source_name=article.source,
             )
 
-            # If LLM extraction found a move, generate additional insights
             if move:
-                # Generate why it matters if not present
-                if not move.get("why_it_matters"):
-                    move["why_it_matters"] = generate_why_it_matters(
-                        title=move.get("title", title),
-                        summary=move.get("summary", ""),
-                        company=move.get("company", "Unknown"),
-                        move_type=move.get("move_type", "other"),
-                        market=move.get("market"),
-                    )
-
-                # Generate competitive impact
-                move["competitive_impact"] = extract_competitive_impact(
-                    company=move.get("company", "Unknown"),
-                    move_type=move.get("move_type", "other"),
-                    market=move.get("market"),
-                    summary=move.get("summary", ""),
-                )
-
+                move = self._enhance_move(move, title)
                 return move
         else:
-            # Fallback to regex-based detection
             move = fallback_move_detection(title, content)
             if move:
                 move["source_url"] = article.url
@@ -146,6 +208,72 @@ class HotelierBetsService:
                 return move
 
         return None
+
+    def _enhance_move(self, move: dict, title: str) -> dict:
+        """Add additional insights to a move."""
+        # Generate why it matters if not present
+        if not move.get("why_it_matters"):
+            move["why_it_matters"] = generate_why_it_matters(
+                title=move.get("title", title),
+                summary=move.get("summary", ""),
+                company=move.get("company", "Unknown"),
+                move_type=move.get("move_type", "other"),
+                market=move.get("market"),
+            )
+
+        # Generate competitive impact
+        move["competitive_impact"] = extract_competitive_impact(
+            company=move.get("company", "Unknown"),
+            move_type=move.get("move_type", "other"),
+            market=move.get("market"),
+            summary=move.get("summary", ""),
+        )
+
+        return move
+
+    def _multi_sample_extraction(
+        self,
+        title: str,
+        content: str,
+        source_url: str,
+        source_name: str,
+    ) -> dict | None:
+        """Multi-sample LLM extraction for higher quality.
+
+        Runs multiple LLM calls and aggregates results.
+        """
+        # Run 3 extractions and pick best
+        results = []
+        for _ in range(3):
+            move = extract_move_from_article(
+                title=title,
+                content=content,
+                source_url=source_url,
+                source_name=source_name,
+            )
+            if move:
+                results.append(move)
+
+        if not results:
+            return None
+
+        # Pick result with highest confidence
+        best = max(results, key=lambda m: m.get("confidence_score", 0))
+
+        # Boost confidence slightly for multi-sample
+        best["confidence_score"] = min(1.0, best.get("confidence_score", 0.5) * 1.1)
+
+        return best
+
+    def get_pomdp_status(self) -> dict:
+        """Get Move Extraction POMDP status.
+
+        Returns:
+            Dict with POMDP state information
+        """
+        if self.extraction_pomdp is not None:
+            return self.extraction_pomdp.get_status()
+        return {"enabled": False, "reason": "POMDP not available"}
 
     def save_moves(self, moves: list[dict]) -> int:
         """Save extracted moves to database.

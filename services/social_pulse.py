@@ -14,25 +14,34 @@ logger = logging.getLogger(__name__)
 
 
 class SocialPulseService:
-    """Service for generating and managing Social Pulse trends."""
+    """Service for generating and managing Social Pulse trends.
+
+    Integrates with Clustering POMDP for adaptive parameter selection.
+    """
 
     def __init__(
         self,
         min_cluster_size: int = 3,
         days_back: int = 30,
         use_llm: bool = True,
+        use_adaptive: bool = True,
     ):
         """Initialize Social Pulse service.
 
         Args:
-            min_cluster_size: Minimum content items to form a trend
+            min_cluster_size: Minimum content items to form a trend (fallback)
             days_back: Days of content to analyze
             use_llm: Whether to use LLM for generating insights
+            use_adaptive: Whether to use POMDP for adaptive clustering
         """
-        self.clusterer = ContentClusterer(min_cluster_size=min_cluster_size)
+        self.clusterer = ContentClusterer(
+            min_cluster_size=min_cluster_size,
+            use_adaptive=use_adaptive,
+        )
         self.scorer = TrendScorer()
         self.days_back = days_back
         self.use_llm = use_llm
+        self.use_adaptive = use_adaptive
 
     def generate_trends(
         self,
@@ -50,11 +59,15 @@ class SocialPulseService:
         """
         logger.info(f"Generating trends (source_types={source_types}, max={max_trends})")
 
-        # Run clustering
-        clusters = self.clusterer.cluster_content(
+        # Run clustering (returns clusters and params used)
+        clusters, cluster_params = self.clusterer.cluster_content(
             source_types=source_types,
             days_back=self.days_back,
         )
+
+        if cluster_params:
+            logger.info(f"Clustering used params: {cluster_params.get('method', 'unknown')}, "
+                       f"mcs={cluster_params.get('min_cluster_size')}, ms={cluster_params.get('min_samples')}")
 
         if not clusters:
             logger.warning("No clusters found")
@@ -64,7 +77,7 @@ class SocialPulseService:
         for cluster in clusters[:max_trends]:
             try:
                 trend = self._process_cluster(cluster)
-                if trend:
+                if trend and self._is_quality_trend(trend):
                     trends.append(trend)
             except Exception as e:
                 logger.error(f"Error processing cluster {cluster.cluster_id}: {e}")
@@ -72,6 +85,47 @@ class SocialPulseService:
 
         logger.info(f"Generated {len(trends)} trends")
         return trends
+
+    def _is_quality_trend(self, trend: dict) -> bool:
+        """Check if a trend meets quality standards.
+
+        Filters out trends with garbage names or descriptions.
+
+        Args:
+            trend: Trend dict
+
+        Returns:
+            True if trend is acceptable quality
+        """
+        name = trend.get("name", "").lower()
+
+        # Reject trends with garbage patterns
+        garbage_patterns = [
+            " there trend",
+            " with trend",
+            "trend based on",
+            "discussion around",
+            "pattern identified",
+            " & in hospitality",
+            "hospitality movement",
+            "refund",
+            "receptionists trend",
+        ]
+
+        for pattern in garbage_patterns:
+            if pattern in name:
+                logger.debug(f"Filtering out low-quality trend: {trend.get('name')}")
+                return False
+
+        # Reject very short or very long names
+        if len(name) < 5 or len(name) > 80:
+            return False
+
+        # Reject names that are just numbers or generic
+        if name.replace(" ", "").isdigit():
+            return False
+
+        return True
 
     def _process_cluster(self, cluster: Cluster) -> dict | None:
         """Process a single cluster into a trend.
@@ -198,57 +252,62 @@ class SocialPulseService:
         Returns:
             Dict with name, description, why_it_matters, topics
         """
-        # Extract common words from titles for name
-        titles = [item.get("title", "") for item in content_items if item.get("title")]
-        words = " ".join(titles).lower().split()
+        # Extract themes from content
+        all_text = " ".join(
+            f"{item.get('title', '')} {item.get('content', '')[:300]}"
+            for item in content_items[:10]
+        ).lower()
 
-        # Simple word frequency - exclude years and list indicators
-        word_freq = {}
-        stop_words = {
-            "the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or",
-            "is", "are", "was", "were", "this", "that", "what", "how", "why",
-            "when", "where", "who", "best", "top", "list", "guide", "tips",
-            "2024", "2025", "2026", "trends", "trend", "things", "ways"
+        # Hospitality-specific theme detection
+        theme_patterns = {
+            "Remote Work & Travel": ["digital nomad", "remote work", "workation", "work from", "coworking", "laptop"],
+            "Sustainable Tourism": ["sustainable", "eco-friendly", "green hotel", "environment", "carbon", "eco-tourism"],
+            "Wellness & Retreat": ["wellness", "spa", "meditation", "yoga", "retreat", "mindfulness", "health"],
+            "Luxury Experiences": ["luxury", "five star", "premium", "exclusive", "high-end", "upscale"],
+            "Budget Travel": ["budget", "affordable", "cheap", "hostel", "backpack", "low cost"],
+            "Solo Travel": ["solo travel", "traveling alone", "solo trip", "single traveler"],
+            "Family Vacations": ["family travel", "kids", "children", "family-friendly", "family vacation"],
+            "Food & Culinary": ["restaurant", "food", "culinary", "dining", "cuisine", "chef", "foodie"],
+            "Adventure Tourism": ["adventure", "hiking", "outdoor", "extreme", "safari", "trekking"],
+            "City Exploration": ["city break", "urban", "sightseeing", "downtown", "nightlife"],
+            "Beach & Resort": ["beach", "resort", "tropical", "island", "seaside", "coastal"],
+            "Cultural Immersion": ["culture", "local experience", "authentic", "heritage", "tradition"],
+            "Tech in Travel": ["app", "booking", "technology", "ai", "digital", "mobile"],
+            "Short Getaways": ["weekend", "short trip", "quick getaway", "day trip", "mini break"],
         }
-        for word in words:
-            word = word.strip(".,!?\"'()[]")
-            if len(word) > 3 and word not in stop_words and not word.isdigit():
-                word_freq[word] = word_freq.get(word, 0) + 1
 
-        # Top words as topics
-        top_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
-        topics = [w[0] for w in top_words]
+        # Find matching themes
+        matched_themes = []
+        for theme_name, keywords in theme_patterns.items():
+            matches = sum(1 for kw in keywords if kw in all_text)
+            if matches >= 2:
+                matched_themes.append((theme_name, matches))
 
-        # Generate a descriptive name from topics - avoid generic list titles
-        if topics and len(topics) >= 2:
-            # Create meaningful combination
-            name = f"{topics[0].title()} & {topics[1].title()} in Hospitality"
-        elif topics:
-            name = f"{topics[0].title()} Hospitality Movement"
+        # Sort by match count
+        matched_themes.sort(key=lambda x: x[1], reverse=True)
+
+        # Generate name from best matching theme
+        if matched_themes:
+            name = matched_themes[0][0]
+            topics = [t[0].split()[0].lower() for t in matched_themes[:5]]
         else:
-            # Use source types or content hints to generate a name
-            sources = set(item.get("source", "") for item in content_items)
-            if "reddit" in sources:
-                name = "Traveler Discussion Pattern"
-            elif "youtube" in sources:
-                name = "Video Content Movement"
-            else:
-                name = f"Emerging Hospitality Signal ({len(content_items)} sources)"
+            # Generic but reasonable fallback
+            num_items = len(content_items)
+            name = f"Emerging Travel Pattern ({num_items} discussions)"
+            topics = ["travel", "hospitality"]
 
-        # Generate a meaningful description from the actual content
-        sample_content = " ".join(
-            item.get("content", "")[:200] for item in content_items[:3]
-        )
-        if sample_content and len(sample_content) > 50:
-            # Extract a snippet as description
-            description = f"Discussion around {', '.join(topics[:3]) if topics else 'hospitality topics'}. Based on {len(content_items)} content sources."
+        # Generate description
+        if matched_themes:
+            description = f"Trend identified from {len(content_items)} social discussions focusing on {name.lower()}. This pattern shows growing traveler interest in this area."
         else:
-            description = f"Pattern identified from {len(content_items)} social mentions."
+            description = f"Trend based on {len(content_items)} social mentions."
+
+        why_it_matters = "This emerging pattern indicates shifting traveler preferences that hospitality businesses should monitor for potential opportunities."
 
         return {
             "name": name,
             "description": description,
-            "why_it_matters": "This emerging topic shows growing interest in the hospitality space and may indicate shifting consumer preferences.",
+            "why_it_matters": why_it_matters,
             "topics": topics,
         }
 
