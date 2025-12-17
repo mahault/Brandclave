@@ -29,21 +29,32 @@ class EmbeddingProvider(ABC):
 
 
 class MistralEmbedding(EmbeddingProvider):
-    """Mistral Embed API provider."""
+    """Mistral Embed API provider with rate limiting."""
 
-    def __init__(self, api_key: str | None = None, model: str = "mistral-embed"):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "mistral-embed",
+        max_retries: int = 5,
+        base_delay: float = 1.0,
+    ):
         """Initialize Mistral embedding provider.
 
         Args:
             api_key: Mistral API key. Defaults to MISTRAL_API_KEY env var.
             model: Model name. Defaults to mistral-embed.
+            max_retries: Maximum retry attempts on rate limit errors.
+            base_delay: Base delay between requests in seconds.
         """
         self.api_key = api_key or os.getenv("MISTRAL_API_KEY")
         if not self.api_key:
             raise ValueError("MISTRAL_API_KEY not found in environment")
 
         self.model = model
+        self.max_retries = max_retries
+        self.base_delay = base_delay
         self._client = None
+        self._last_request_time = 0
 
     @property
     def client(self):
@@ -54,18 +65,62 @@ class MistralEmbedding(EmbeddingProvider):
             self._client = Mistral(api_key=self.api_key)
         return self._client
 
+    def _wait_for_rate_limit(self):
+        """Wait to respect rate limits."""
+        import time
+        elapsed = time.time() - self._last_request_time
+        if elapsed < self.base_delay:
+            time.sleep(self.base_delay - elapsed)
+        self._last_request_time = time.time()
+
+    def _call_with_retry(self, func, *args, **kwargs):
+        """Call API function with exponential backoff retry."""
+        import time
+        for attempt in range(self.max_retries):
+            try:
+                self._wait_for_rate_limit()
+                return func(*args, **kwargs)
+            except Exception as e:
+                error_str = str(e).lower()
+                # Check for rate limit error (429)
+                if "429" in error_str or "rate" in error_str or "limit" in error_str:
+                    wait_time = self.base_delay * (2 ** attempt) + (attempt * 0.5)
+                    print(f"Rate limited, waiting {wait_time:.1f}s (attempt {attempt + 1}/{self.max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                # Check for server errors (5xx)
+                elif "500" in error_str or "502" in error_str or "503" in error_str:
+                    wait_time = self.base_delay * (2 ** attempt)
+                    print(f"Server error, waiting {wait_time:.1f}s (attempt {attempt + 1}/{self.max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    raise
+        raise Exception(f"Failed after {self.max_retries} retries")
+
     def embed(self, text: str) -> list[float]:
-        """Generate embedding for a single text."""
-        response = self.client.embeddings.create(model=self.model, inputs=[text])
+        """Generate embedding for a single text with retry logic."""
+        response = self._call_with_retry(
+            self.client.embeddings.create,
+            model=self.model,
+            inputs=[text]
+        )
         return response.data[0].embedding
 
-    def embed_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
-        """Generate embeddings for multiple texts in batches."""
+    def embed_batch(self, texts: list[str], batch_size: int = 16) -> list[list[float]]:
+        """Generate embeddings for multiple texts in batches with rate limiting."""
+        import time
         embeddings = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            response = self.client.embeddings.create(model=self.model, inputs=batch)
+            response = self._call_with_retry(
+                self.client.embeddings.create,
+                model=self.model,
+                inputs=batch
+            )
             embeddings.extend([item.embedding for item in response.data])
+            # Small delay between batches
+            time.sleep(0.2)
         return embeddings
 
     @property

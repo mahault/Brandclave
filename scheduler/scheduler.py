@@ -253,8 +253,9 @@ class ScraperScheduler:
             else:
                 trigger = IntervalTrigger(minutes=interval_minutes or 60)
 
+            # Use module-level function to avoid serialization issues
             self.scheduler.add_job(
-                self._run_scraper_job,
+                _run_scraper_job_standalone,
                 trigger=trigger,
                 args=[source_name],
                 id=job_id,
@@ -303,10 +304,10 @@ class ScraperScheduler:
             else:
                 trigger = IntervalTrigger(minutes=interval_minutes or 60)
 
+            # Pass function directly - it's already a module-level function
             self.scheduler.add_job(
-                self._run_job_function,
+                func,
                 trigger=trigger,
-                args=[name],
                 kwargs=kwargs,
                 id=job_id,
                 name=f"Process {name}",
@@ -511,6 +512,68 @@ class ScraperScheduler:
         if self.scraping_pomdp is not None:
             return self.scraping_pomdp.get_status()
         return {"enabled": False, "reason": "POMDP not available"}
+
+
+# --------------------------------------------------------------------------
+# Standalone job functions (to avoid serialization issues with APScheduler)
+# --------------------------------------------------------------------------
+
+def _run_scraper_job_standalone(source_name: str) -> dict:
+    """
+    Standalone scraper job function for APScheduler.
+
+    This function is module-level to avoid serialization issues when
+    APScheduler persists jobs to the database.
+
+    Args:
+        source_name: Name of the scraper source
+
+    Returns:
+        Job result dict
+    """
+    from scripts.run_crawlers import get_scraper_class
+
+    logger.info(f"Running scheduled scrape: {source_name}")
+
+    try:
+        scraper_class = get_scraper_class(source_name)
+        with scraper_class() as scraper:
+            result = scraper.run()
+
+        # Update POMDP with scrape result (via singleton scheduler)
+        scheduler = get_scheduler()
+        if scheduler.scraping_pomdp is not None:
+            items_scraped = result.get("items_count", 0) or result.get("scraped", 0)
+            errors = 1 if result.get("status") == "failed" else 0
+            novelty = result.get("novelty_ratio", 0.5)
+
+            scheduler.scraping_pomdp.observe_scrape_result(
+                source=source_name,
+                items_scraped=items_scraped,
+                errors=errors,
+                novelty_ratio=novelty,
+            )
+            logger.debug(f"Updated Scraping POMDP with result from {source_name}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Scheduled scrape failed for {source_name}: {e}")
+
+        # Update POMDP with error
+        try:
+            scheduler = get_scheduler()
+            if scheduler.scraping_pomdp is not None:
+                scheduler.scraping_pomdp.observe_scrape_result(
+                    source=source_name,
+                    items_scraped=0,
+                    errors=1,
+                    novelty_ratio=0.0,
+                )
+        except Exception:
+            pass
+
+        return {"source": source_name, "status": "failed", "error": str(e)}
 
 
 # Singleton instance

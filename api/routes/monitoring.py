@@ -215,6 +215,94 @@ async def get_recent_content(limit: int = Query(20, ge=1, le=100)):
         db.close()
 
 
+@router.get("/monitoring/debug", response_class=HTMLResponse)
+async def dashboard_debug():
+    """Simple debug page to test data loading."""
+    debug_html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BrandClave Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #fff; }
+        .section { margin: 20px 0; padding: 15px; background: #16213e; border-radius: 8px; }
+        .success { color: #22c55e; }
+        .error { color: #ef4444; }
+        .pending { color: #f59e0b; }
+        pre { background: #0f0f23; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 300px; }
+    </style>
+</head>
+<body>
+    <h1>BrandClave Dashboard Debug</h1>
+    <div id="status" class="section">
+        <h2>Status: <span id="status-text" class="pending">Starting...</span></h2>
+    </div>
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+        const statusText = document.getElementById('status-text');
+
+        function log(endpoint, status, data, timeMs) {
+            const div = document.createElement('div');
+            div.className = 'section';
+            const preview = JSON.stringify(data, null, 2);
+            div.innerHTML = `
+                <h3>${endpoint}: <span class="${status}">${status.toUpperCase()}</span> (${timeMs}ms)</h3>
+                <pre>${preview.substring(0, 2000)}${preview.length > 2000 ? '...(truncated)' : ''}</pre>
+            `;
+            resultsDiv.appendChild(div);
+        }
+
+        async function testEndpoints() {
+            statusText.textContent = 'Testing endpoints...';
+            statusText.className = 'pending';
+
+            const endpoints = [
+                '/api/monitoring/health',
+                '/api/monitoring/metrics',
+                '/api/social-pulse?limit=3',
+                '/api/hotelier-bets?limit=3',
+                '/api/demand-scan?limit=3',
+                '/api/monitoring/content?limit=3',
+                '/api/monitoring/scrapers',
+            ];
+
+            let allOk = true;
+
+            for (const endpoint of endpoints) {
+                const start = Date.now();
+                try {
+                    const response = await fetch(endpoint);
+                    const timeMs = Date.now() - start;
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    const data = await response.json();
+                    log(endpoint, 'success', data, timeMs);
+                } catch (err) {
+                    const timeMs = Date.now() - start;
+                    log(endpoint, 'error', {error: err.message}, timeMs);
+                    allOk = false;
+                }
+            }
+
+            if (allOk) {
+                statusText.textContent = 'All endpoints OK! Dashboard should work.';
+                statusText.className = 'success';
+            } else {
+                statusText.textContent = 'Some endpoints failed - check errors above';
+                statusText.className = 'error';
+            }
+        }
+
+        // Start test after 500ms
+        setTimeout(testEndpoints, 500);
+    </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=debug_html)
+
+
 @router.get("/monitoring/dashboard", response_class=HTMLResponse)
 async def dashboard():
     """Interactive dashboard showcasing BrandClave intelligence."""
@@ -569,6 +657,13 @@ async def dashboard():
     </div>
 
     <div class="container">
+        <!-- Loading Status Bar -->
+        <div id="load-status" style="background:rgba(255,255,255,0.1);padding:10px 15px;border-radius:8px;margin-bottom:15px;display:flex;align-items:center;gap:10px;">
+            <span id="status-icon" style="font-size:1.2em;">⏳</span>
+            <span id="status-text" style="color:white;flex:1;">Loading dashboard data...</span>
+            <button onclick="loadData()" class="btn" style="padding:6px 12px;font-size:0.85em;">Refresh</button>
+        </div>
+
         <div class="tabs">
             <button class="tab active" onclick="showSection('overview')">Overview</button>
             <button class="tab" onclick="showSection('citydesires')">City Desires</button>
@@ -740,12 +835,28 @@ async def dashboard():
     </div>
 
     <script>
+        // Track loading state
+        let isLoading = false;
+        let loadError = null;
+
         // Tab navigation
         function showSection(sectionId) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById(sectionId).classList.add('active');
-            event.target.classList.add('active');
+            // Find and activate the clicked tab
+            document.querySelectorAll('.tab').forEach(t => {
+                if (t.textContent.toLowerCase().includes(sectionId.toLowerCase()) ||
+                    (sectionId === 'overview' && t.textContent === 'Overview') ||
+                    (sectionId === 'citydesires' && t.textContent === 'City Desires') ||
+                    (sectionId === 'trends' && t.textContent === 'Social Pulse') ||
+                    (sectionId === 'moves' && t.textContent === 'Hotelier Bets') ||
+                    (sectionId === 'properties' && t.textContent === 'Demand Scan') ||
+                    (sectionId === 'content' && t.textContent === 'Raw Content') ||
+                    (sectionId === 'system' && t.textContent === 'System Status')) {
+                    t.classList.add('active');
+                }
+            });
         }
 
         function getStatusClass(status) {
@@ -762,18 +873,104 @@ async def dashboard():
             return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
         }
 
-        async function loadData() {
+        // Render error state with retry
+        function renderError(message, retrySection) {
+            return `
+                <div class="empty-state" style="background:#fee2e2;border-radius:8px;padding:20px;">
+                    <div class="icon" style="color:#dc2626;">⚠️</div>
+                    <p style="color:#991b1b;font-weight:500;">${message}</p>
+                    <button onclick="loadData()" class="btn" style="margin-top:15px;">
+                        🔄 Retry
+                    </button>
+                </div>
+            `;
+        }
+
+        // Fetch with timeout - returns {data, error}
+        async function fetchWithTimeout(url, timeoutMs = 10000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                // Load all data in parallel
-                const [health, metrics, trends, moves, properties, content, scrapers] = await Promise.all([
-                    fetch('/api/monitoring/health').then(r => r.json()).catch(() => null),
-                    fetch('/api/monitoring/metrics').then(r => r.json()).catch(() => null),
-                    fetch('/api/social-pulse?limit=10').then(r => r.json()).catch(() => ({trends: []})),
-                    fetch('/api/hotelier-bets?limit=10').then(r => r.json()).catch(() => ({moves: []})),
-                    fetch('/api/demand-scan?limit=5').then(r => r.json()).catch(() => ({properties: []})),
-                    fetch('/api/monitoring/content?limit=50').then(r => r.json()).catch(() => ({items: []})),
-                    fetch('/api/monitoring/scrapers').then(r => r.json()).catch(() => []),
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return { data: await response.json(), error: null };
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.warn(`Failed to fetch ${url}:`, error.message);
+                return { data: null, error: error.message };
+            }
+        }
+
+        function updateStatus(icon, text, isError = false) {
+            document.getElementById('status-icon').textContent = icon;
+            document.getElementById('status-text').textContent = text;
+            document.getElementById('status-text').style.color = isError ? '#f87171' : 'white';
+        }
+
+        async function loadData() {
+            if (isLoading) {
+                console.log('loadData: Already loading, skipping');
+                return;
+            }
+            isLoading = true;
+            loadError = null;
+
+            console.log('loadData: Starting data load');
+            updateStatus('⏳', 'Loading dashboard data...');
+
+            try {
+                // Load all data in parallel with timeouts
+                console.log('loadData: Fetching all endpoints...');
+                const results = await Promise.all([
+                    fetchWithTimeout('/api/monitoring/health', 5000),
+                    fetchWithTimeout('/api/monitoring/metrics', 5000),
+                    fetchWithTimeout('/api/social-pulse?limit=10', 8000),
+                    fetchWithTimeout('/api/hotelier-bets?limit=10', 8000),
+                    fetchWithTimeout('/api/demand-scan?limit=5', 8000),
+                    fetchWithTimeout('/api/monitoring/content?limit=50', 8000),
+                    fetchWithTimeout('/api/monitoring/scrapers', 5000),
                 ]);
+                console.log('loadData: All fetches completed');
+
+                const health = results[0].data;
+                const metrics = results[1].data;
+                const trends = results[2].data || {trends: []};
+                const moves = results[3].data || {moves: []};
+                const properties = results[4].data || {properties: []};
+                const content = results[5].data || {items: []};
+                const scrapers = results[6].data || [];
+
+                console.log('loadData: Data extracted', {
+                    health: !!health,
+                    metrics: !!metrics,
+                    trendsCount: trends.trends?.length || 0,
+                    movesCount: moves.moves?.length || 0,
+                    propertiesCount: properties.properties?.length || 0,
+                    contentCount: content.items?.length || 0,
+                    scrapersCount: scrapers.length || 0,
+                });
+
+                updateStatus('⏳', 'Rendering dashboard...');
+
+                // Check if we got any data at all
+                const errorCount = results.filter(r => r.error).length;
+                const allFailed = errorCount >= 5; // Most endpoints failed
+                console.log('loadData: errorCount =', errorCount, 'allFailed =', allFailed);
+
+                if (allFailed) {
+                    loadError = 'Could not connect to API server (connection refused)';
+                    // Show error in main sections
+                    document.getElementById('latest-trend').innerHTML = renderError('Failed to load trends. Is the API server running?');
+                    document.getElementById('latest-move').innerHTML = renderError('Failed to load moves. Is the API server running?');
+                    document.getElementById('trends-list').innerHTML = renderError('Failed to load trends. Check if uvicorn is running on port 8000.');
+                    document.getElementById('moves-list').innerHTML = renderError('Failed to load moves.');
+                    document.getElementById('properties-list').innerHTML = renderError('Failed to load properties.');
+                    document.getElementById('content-list').innerHTML = renderError('Failed to load content.');
+                    document.getElementById('scrapers-list').innerHTML = renderError('Failed to load scraper status.');
+                    isLoading = false;
+                    return;
+                }
 
                 // Update metrics
                 if (metrics) {
@@ -782,6 +979,13 @@ async def dashboard():
                     document.getElementById('trends-count').textContent = metrics.trends_count || '0';
                     document.getElementById('moves-count').textContent = metrics.moves_count || '0';
                     document.getElementById('properties-count').textContent = metrics.properties_count || '0';
+                } else {
+                    // Show dash for metrics that failed
+                    document.getElementById('total-content').textContent = '-';
+                    document.getElementById('processed').textContent = '-';
+                    document.getElementById('trends-count').textContent = '-';
+                    document.getElementById('moves-count').textContent = '-';
+                    document.getElementById('properties-count').textContent = '-';
                 }
 
                 // Update health
@@ -792,6 +996,12 @@ async def dashboard():
                     document.getElementById('db-status').className = 'metric-value ' + getStatusClass(health.database);
                     document.getElementById('cache-status').textContent = health.cache;
                     document.getElementById('scheduler-status').textContent = health.scheduler;
+                } else {
+                    document.getElementById('health-status').textContent = 'Error';
+                    document.getElementById('health-status').className = 'metric-value status-degraded';
+                    document.getElementById('db-status').textContent = '-';
+                    document.getElementById('cache-status').textContent = '-';
+                    document.getElementById('scheduler-status').textContent = '-';
                 }
 
                 // Render trends
@@ -866,8 +1076,21 @@ async def dashboard():
                     document.getElementById('scrapers-list').innerHTML = '<p style="color:#888;text-align:center;padding:20px;">No scraper data available</p>';
                 }
 
+            // Success - update status
+            const now = new Date().toLocaleTimeString();
+            updateStatus('✅', `Data loaded at ${now}. Next refresh in 60s.`);
+            console.log('loadData: Complete');
+
             } catch (error) {
                 console.error('Failed to load data:', error);
+                loadError = error.message;
+                updateStatus('❌', 'Failed to load: ' + error.message, true);
+                // Show errors in sections
+                document.getElementById('latest-trend').innerHTML = renderError('Failed to load: ' + error.message);
+                document.getElementById('latest-move').innerHTML = renderError('Failed to load: ' + error.message);
+            } finally {
+                isLoading = false;
+                console.log('loadData: isLoading set to false');
             }
         }
 
@@ -1024,8 +1247,9 @@ async def dashboard():
                     <div class="icon">${icons[type] || '📊'}</div>
                     <p>${message}</p>
                     <div class="hint">
-                        <strong>To generate data:</strong><br>
-                        <code>${hint}</code>
+                        <strong>To populate data, run:</strong><br>
+                        <code style="background:#1a1a2e;color:#22c55e;padding:8px 12px;display:inline-block;border-radius:4px;margin:8px 0;">POPULATE_DATA.bat</code><br>
+                        <span style="font-size:0.85em;opacity:0.8;">Or: ${hint}</span>
                     </div>
                 </div>
             `;
@@ -1204,11 +1428,42 @@ async def dashboard():
             resultsDiv.innerHTML = html;
         }
 
-        // Load data on page load
-        loadData();
+        // Load data on page load with retry for server startup
+        let retryCount = 0;
+        const maxRetries = 5;
 
-        // Auto-refresh every 30 seconds
-        setInterval(loadData, 30000);
+        async function initialLoad() {
+            retryCount++;
+            console.log('Initial load attempt', retryCount);
+            updateStatus('⏳', `Loading... (attempt ${retryCount}/${maxRetries})`);
+
+            await loadData();
+
+            // Check if loadData failed (loadError is set)
+            if (loadError) {
+                console.log('Load failed with error:', loadError);
+                if (retryCount < maxRetries) {
+                    const waitTime = 2000 * retryCount;
+                    updateStatus('⏳', `Server may be starting up... retrying in ${waitTime/1000}s (${retryCount}/${maxRetries})`, false);
+                    loadError = null; // Reset for retry
+                    setTimeout(initialLoad, waitTime);
+                } else {
+                    updateStatus('❌', 'Failed to load after ' + maxRetries + ' attempts. Click Refresh to retry.', true);
+                }
+            } else {
+                console.log('Initial data load complete');
+            }
+        }
+
+        // Start initial load after a brief delay to let server initialize
+        setTimeout(initialLoad, 1000);
+
+        // Auto-refresh every 60 seconds (increased from 30 to reduce load)
+        setInterval(() => {
+            if (!isLoading && !loadError) {
+                loadData().catch(err => console.warn('Refresh failed:', err));
+            }
+        }, 60000);
     </script>
 </body>
 </html>

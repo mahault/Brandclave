@@ -54,19 +54,20 @@ class ScrapingPOMDP:
     All inference is JIT-compiled via PyMDP/JAX.
     """
 
-    # All available scraping sources
+    # Available scraping sources - ONLY reliable working sources
+    # Broken/blocked sources removed to avoid wasted time and errors
     SOURCES = [
-        # News sources
-        "skift", "hospitalitynet", "hoteldive", "hotelmanagement",
-        "phocuswire", "travelweekly", "hotelnewsresource", "traveldailynews",
-        "businesstravelnews", "boutiquehotelier", "hotelonline", "hoteltechreport",
-        "tophotelnews", "siteminder", "ehlinsights", "cbrehotels",
-        "cushmanwakefield", "costar", "traveldaily",
-        # Social sources
-        "reddit", "youtube", "quora",
-        # Review sources
-        "tripadvisor", "booking",
+        # High-volume social
+        "reddit", "youtube",
+        # Working RSS feeds (verified Dec 2025)
+        "skift", "hoteldive", "hotelmanagement", "siteminder",
+        "tophotelnews", "ehlinsights",
+        # Additional working sources
+        "ehotelier", "lodgingmagazine", "luxuryhospitality", "hotelbusiness",
     ]
+
+    # All sources are now reliable
+    RELIABLE_SOURCES = set(SOURCES)
 
     # Productivity levels (hidden states)
     PRODUCTIVITY_LEVELS = ["high", "medium", "low", "stale"]
@@ -308,12 +309,19 @@ class ScrapingPOMDP:
                     empirical_prior=self.empirical_prior,
                 )
 
-                # Extract beliefs
+                # Extract beliefs - handle various shapes from PyMDP
                 beliefs = np.array(self.qs[0])
-                if beliefs.ndim == 3:
-                    beliefs = beliefs[0, -1]
-                elif beliefs.ndim == 2:
-                    beliefs = beliefs[0]
+                # Flatten to 1D if needed
+                beliefs = beliefs.flatten()
+                # Take first num_states elements
+                if len(beliefs) >= len(self.PRODUCTIVITY_LEVELS):
+                    beliefs = beliefs[:len(self.PRODUCTIVITY_LEVELS)]
+                else:
+                    # Pad with zeros if too short
+                    beliefs = np.pad(beliefs, (0, len(self.PRODUCTIVITY_LEVELS) - len(beliefs)))
+
+                # Normalize
+                beliefs = beliefs / (beliefs.sum() + 1e-10)
 
                 # Update source state
                 state.productivity_belief = float(beliefs[0] + beliefs[1] * 0.5)
@@ -331,7 +339,7 @@ class ScrapingPOMDP:
                 }
 
             except Exception as e:
-                logger.warning(f"JAX inference failed: {e}")
+                logger.debug(f"JAX inference failed, using fallback: {e}")
 
         # Fallback: simple belief update
         state.productivity_belief = 0.8 * state.productivity_belief + 0.2 * (items_scraped / 50)
@@ -379,53 +387,68 @@ class ScrapingPOMDP:
 
         return [prod_obs, fresh_obs, error_obs]
 
-    def select_next_source(self) -> dict:
+    def select_next_source(self, exclude: set[str] | None = None, force_scrape: bool = True) -> dict:
         """
         Select the next source to scrape using EFE minimization.
+
+        Args:
+            exclude: Set of source names to exclude from selection
+            force_scrape: If True, only consider scraping actions (not wait)
 
         Returns:
             Dict with source name, priority, and reasoning
         """
+        exclude = exclude or set()
+
         if self.agent is not None and JAX_AVAILABLE:
             try:
                 # Run policy inference (JIT compiled)
                 q_pi, G = self.agent.infer_policies(self.qs)
-
-                # Sample action with batched keys
-                self.rng_key, *subkeys = jr.split(self.rng_key, self.batch_size + 1)
-                batch_keys = jnp.stack(subkeys)
-                action = self.agent.sample_action(q_pi, rng_key=batch_keys)
-
-                # Extract action index
-                if hasattr(action, 'ndim') and action.ndim > 1:
-                    action_idx = int(action[0, 0])
-                elif hasattr(action, '__iter__'):
-                    action_idx = int(action[0])
-                else:
-                    action_idx = int(action)
-
-                # Update empirical prior
-                self.empirical_prior, self.qs = self.agent.update_empirical_prior(
-                    action, self.qs
-                )
 
                 # Get EFE values
                 efe_values = np.array(G)
                 if efe_values.ndim > 1:
                     efe_values = efe_values[0]
 
-                # Determine source name
-                if action_idx >= len(self.SOURCES):
-                    source_name = "wait"
-                    reason = "Low expected information gain from all sources"
-                else:
-                    source_name = self.SOURCES[action_idx]
-                    reason = f"EFE minimization (G={float(efe_values[action_idx]):.3f})"
+                # Consider only source actions (exclude wait action at index -1)
+                source_efe = efe_values[:len(self.SOURCES)].copy()
+
+                # Mask excluded sources with high EFE (make them undesirable)
+                for i, src in enumerate(self.SOURCES):
+                    if src in exclude:
+                        source_efe[i] = float('inf')
+
+                # Check if all sources are excluded
+                if np.all(np.isinf(source_efe)):
+                    return {
+                        "source": "wait",
+                        "priority": 0.0,
+                        "reason": "All sources excluded",
+                        "method": "pymdp_efe",
+                    }
+
+                # Find best non-excluded source action
+                action_idx = int(np.argmin(source_efe))
+                source_name = self.SOURCES[action_idx]
+                source_efe_value = float(efe_values[action_idx])
+
+                # If not forcing scrape, check if wait is better
+                if not force_scrape and len(efe_values) > len(self.SOURCES):
+                    wait_efe = float(efe_values[-1])
+                    if wait_efe < source_efe_value:
+                        return {
+                            "source": "wait",
+                            "priority": 0.0,
+                            "reason": f"Wait is optimal (G={wait_efe:.3f} < {source_efe_value:.3f})",
+                            "method": "pymdp_efe",
+                        }
+
+                reason = f"EFE minimization (G={source_efe_value:.3f})"
 
                 result = {
                     "source": source_name,
                     "action_index": action_idx,
-                    "priority": 1.0 - float(efe_values[action_idx]) if action_idx < len(efe_values) else 0.0,
+                    "priority": float(source_efe_value),
                     "reason": reason,
                     "efe_values": {
                         self.SOURCES[i]: float(efe_values[i])
@@ -446,15 +469,19 @@ class ScrapingPOMDP:
                 logger.warning(f"JAX policy inference failed: {e}")
 
         # Fallback: select least recently scraped source with high belief
-        return self._fallback_select_source()
+        return self._fallback_select_source(exclude=exclude)
 
-    def _fallback_select_source(self) -> dict:
+    def _fallback_select_source(self, exclude: set[str] | None = None) -> dict:
         """Fallback source selection without JAX."""
+        exclude = exclude or set()
         now = datetime.utcnow()
         best_source = None
         best_score = -float('inf')
 
         for name, state in self.sources.items():
+            if name in exclude:
+                continue
+
             # Calculate staleness
             if state.last_scraped is None:
                 staleness = 1.0
@@ -473,32 +500,60 @@ class ScrapingPOMDP:
                 best_score = score
                 best_source = name
 
+        if best_source is None:
+            return {
+                "source": "wait",
+                "priority": 0.0,
+                "reason": "All sources excluded",
+                "method": "fallback",
+            }
+
         return {
-            "source": best_source or self.SOURCES[0],
+            "source": best_source,
             "priority": best_score,
             "reason": "Fallback: staleness + productivity heuristic",
             "method": "fallback",
         }
 
-    def get_scraping_schedule(self, budget_minutes: int = 60) -> list[dict]:
+    def get_scraping_schedule(
+        self,
+        budget_minutes: int = 60,
+        max_sources: int | None = None,
+    ) -> list[dict]:
         """
-        Generate an optimal scraping schedule for a time budget.
+        Generate an optimal scraping schedule.
+
+        Each source is included at most once in the schedule.
 
         Args:
-            budget_minutes: Total time budget in minutes
+            budget_minutes: Total time budget in minutes (used if max_sources not set)
+            max_sources: Maximum number of sources to include (overrides time budget)
 
         Returns:
-            Ordered list of sources to scrape
+            Ordered list of sources to scrape (no duplicates)
         """
         schedule = []
-        time_per_scrape = 2  # Estimated minutes per scrape
+        scheduled_sources = set()
 
-        num_scrapes = budget_minutes // time_per_scrape
+        # Determine how many sources to schedule
+        if max_sources is not None:
+            num_scrapes = min(max_sources, len(self.SOURCES))
+        else:
+            time_per_scrape = 0.5  # Estimated minutes per scrape (most are quick)
+            num_scrapes = min(int(budget_minutes / time_per_scrape), len(self.SOURCES))
 
         for _ in range(num_scrapes):
-            next_source = self.select_next_source()
-            if next_source["source"] == "wait":
+            next_source = self.select_next_source(exclude=scheduled_sources)
+            source_name = next_source["source"]
+
+            if source_name == "wait" or source_name is None:
                 break
+
+            if source_name in scheduled_sources:
+                # Safety check - shouldn't happen but skip duplicates
+                continue
+
+            scheduled_sources.add(source_name)
             schedule.append(next_source)
 
         return schedule

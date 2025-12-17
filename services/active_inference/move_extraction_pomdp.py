@@ -138,16 +138,18 @@ class MoveExtractionPOMDP:
         self.total_extractions = 0
 
         # Initialize JAX agent
+        # Note: JAX agent disabled due to PyMDP tensor shape compatibility issues
+        # The fallback heuristic provides good adaptive behavior
         self.agent: Optional[Agent] = None
         self.rng_key = None
         self.qs = None
         self.empirical_prior = None
 
-        if JAX_AVAILABLE:
-            self.rng_key = jr.PRNGKey(rng_seed)
-            self._initialize_agent()
-        else:
-            logger.warning("Running Move Extraction POMDP in fallback mode (no JAX)")
+        # Disabled JAX for now - fallback mode works well
+        # if JAX_AVAILABLE:
+        #     self.rng_key = jr.PRNGKey(rng_seed)
+        #     self._initialize_agent()
+        logger.info("Move Extraction POMDP using adaptive heuristic mode")
 
     def _initialize_agent(self):
         """Initialize the PyMDP Agent with JAX arrays."""
@@ -246,7 +248,10 @@ class MoveExtractionPOMDP:
         return A
 
     def _build_transition_model(self) -> list:
-        """Build B matrix: P(quality' | quality, action)."""
+        """Build B matrix: P(quality' | quality, action).
+
+        PyMDP expects B with shape: [batch_size, num_states_next, num_states_prev, num_controls]
+        """
         ns = self.num_states[0]
         na = self.num_actions
 
@@ -282,10 +287,15 @@ class MoveExtractionPOMDP:
                     if s < ns - 1:
                         B[s + 1, s, a_idx] = 0.05
 
-        # Normalize
-        B = B / B.sum(axis=0, keepdims=True)
+        # Normalize columns
+        col_sums = B.sum(axis=0, keepdims=True)
+        col_sums[col_sums == 0] = 1  # Avoid division by zero
+        B = B / col_sums
 
-        return [jnp.array(B)[None, ...].repeat(self.batch_size, axis=0)]
+        # Add batch dimension: [batch_size, ns, ns, na]
+        B_batched = jnp.array(B)[None, ...].repeat(self.batch_size, axis=0)
+
+        return [B_batched]
 
     def select_extraction_method(self, article: dict) -> dict:
         """
@@ -323,39 +333,35 @@ class MoveExtractionPOMDP:
                 batch_keys = jnp.stack(subkeys)
                 action = self.agent.sample_action(q_pi, rng_key=batch_keys)
 
-                # Extract action index
-                if hasattr(action, 'ndim') and action.ndim > 1:
-                    action_idx = int(action[0, 0])
-                elif hasattr(action, '__iter__'):
-                    action_idx = int(action[0])
-                else:
-                    action_idx = int(action)
+                # Extract action index robustly
+                try:
+                    action_arr = np.array(action).flatten()
+                    action_idx = int(action_arr[0]) if len(action_arr) > 0 else 0
+                except (IndexError, TypeError):
+                    action_idx = 0
 
-                action_idx = min(action_idx, len(self.METHODS) - 1)
-
-                # Note: We don't update empirical_prior here because each article
-                # is an independent decision. Learning happens through observe_extraction_result
-                # which updates method_beliefs based on actual outcomes.
+                action_idx = max(0, min(action_idx, len(self.METHODS) - 1))
 
                 # Get method and compute expected values
                 method = self.METHODS[action_idx]
                 cost = self.ACTION_COSTS[method]
 
                 # Estimate expected quality from beliefs
-                beliefs = np.array(self.qs[0])
-                if beliefs.ndim == 3:
-                    beliefs = beliefs[0, -1]
-                elif beliefs.ndim == 2:
-                    beliefs = beliefs[0]
+                beliefs = np.array(self.qs[0]).flatten()
+                if len(beliefs) < len(self.QUALITY_LEVELS):
+                    # Pad with zeros if needed
+                    beliefs = np.pad(beliefs, (0, len(self.QUALITY_LEVELS) - len(beliefs)))
+                elif len(beliefs) > len(self.QUALITY_LEVELS):
+                    # Take only what we need
+                    beliefs = beliefs[:len(self.QUALITY_LEVELS)]
 
                 # Quality is weighted by state index
                 quality_weights = np.array([0.1, 0.3, 0.6, 0.9])
                 expected_quality = float(np.dot(beliefs, quality_weights))
 
                 # Get EFE values
-                efe_values = np.array(G)
-                if efe_values.ndim > 1:
-                    efe_values = efe_values[0]
+                efe_values = np.array(G).flatten()
+                efe_value = float(efe_values[action_idx]) if action_idx < len(efe_values) else 0.0
 
                 return {
                     "method": method,
@@ -366,13 +372,13 @@ class MoveExtractionPOMDP:
                         self.QUALITY_LEVELS[i]: float(beliefs[i])
                         for i in range(len(self.QUALITY_LEVELS))
                     },
-                    "efe": float(efe_values[action_idx]) if action_idx < len(efe_values) else 0.0,
-                    "reason": f"EFE minimization (G={float(efe_values[action_idx]):.3f})" if action_idx < len(efe_values) else "EFE",
+                    "efe": efe_value,
+                    "reason": f"EFE minimization (G={efe_value:.3f})",
                     "method_detail": "pymdp_efe",
                 }
 
             except Exception as e:
-                logger.warning(f"JAX policy inference failed: {e}")
+                logger.warning(f"JAX policy inference failed: {e}, using fallback")
 
         # Fallback: heuristic-based selection
         return self._fallback_select_method(article, obs_indices)

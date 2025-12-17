@@ -31,6 +31,14 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting BrandClave Aggregator API...")
 
+    # Pre-initialize cache (fast fail if Redis unavailable)
+    try:
+        from cache.redis_cache import get_cache
+        cache = get_cache()
+        logger.info(f"Cache status: {cache.is_connected}")
+    except Exception as e:
+        logger.warning(f"Cache init: {e}")
+
     # Initialize scheduler if enabled
     if os.getenv("SCHEDULER_ENABLED", "true").lower() == "true":
         try:
@@ -41,6 +49,21 @@ async def lifespan(app: FastAPI):
                 logger.info("Scheduler started successfully")
         except Exception as e:
             logger.warning(f"Could not start scheduler: {e}")
+
+    # Pre-warm services to avoid slow first requests (JAX JIT compilation)
+    try:
+        logger.info("Pre-warming services...")
+        from services.social_pulse import SocialPulseService
+        from services.hotelier_bets import HotelierBetsService
+        from services.demand_scan import DemandScanService
+
+        # Create service instances to trigger POMDP initialization
+        _ = SocialPulseService(use_adaptive=True)
+        _ = HotelierBetsService(use_adaptive=True)
+        _ = DemandScanService()
+        logger.info("Services pre-warmed successfully")
+    except Exception as e:
+        logger.warning(f"Service pre-warm failed (non-critical): {e}")
 
     yield
 
@@ -111,6 +134,7 @@ from api.routes.demand_scan import router as demand_scan_router
 from api.routes.city_desires import router as city_desires_router
 from api.routes.scheduler import router as scheduler_router
 from api.routes.monitoring import router as monitoring_router
+from api.routes.dashboard_simple import router as dashboard_simple_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
@@ -118,6 +142,7 @@ app.include_router(demand_scan_router, prefix="/api", tags=["Demand Scan"])
 app.include_router(city_desires_router, prefix="/api", tags=["City Desires"])
 app.include_router(scheduler_router, prefix="/api", tags=["Scheduler"])
 app.include_router(monitoring_router, prefix="/api", tags=["Monitoring"])
+app.include_router(dashboard_simple_router, prefix="/api", tags=["Dashboard"])
 
 
 if __name__ == "__main__":

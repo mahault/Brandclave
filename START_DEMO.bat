@@ -1,10 +1,10 @@
 @echo off
-title BrandClave Demo
+title BrandClave Dashboard
 color 0A
 
 echo.
 echo  ============================================
-echo       BrandClave Aggregator - Demo Mode
+echo       BrandClave Intelligence Dashboard
 echo  ============================================
 echo.
 
@@ -51,87 +51,39 @@ if not exist ".env" (
 
 if not exist "data" mkdir data
 
+:: Check if we have any data
+echo Checking database...
+for /f %%i in ('python -c "from db.database import SessionLocal; from db.models import RawContentModel; db=SessionLocal(); count=db.query(RawContentModel).count(); db.close(); print(count)"') do set CONTENT_COUNT=%%i
+
+echo Found %CONTENT_COUNT% content items in database.
+
+if %CONTENT_COUNT% LSS 10 (
+    echo.
+    echo  ============================================
+    echo   WARNING: Database has very little data!
+    echo  ============================================
+    echo.
+    echo   The dashboard will be mostly empty.
+    echo   For the best experience, run POPULATE_DATA.bat first.
+    echo.
+    echo   Press any key to continue anyway, or close this window
+    echo   and run POPULATE_DATA.bat first.
+    echo.
+    pause
+)
+
 echo.
 echo  ============================================
-echo   Collecting Fresh Data (15-20 minutes)
+echo   Starting Dashboard Server
 echo  ============================================
 echo.
-echo   Scraping 24 hospitality sources...
-echo.
-
-:: News sources - Primary (13)
-echo   [1/25] Skift...
-python scripts/run_crawlers.py --source skift >nul 2>&1
-echo   [2/25] HospitalityNet...
-python scripts/run_crawlers.py --source hospitalitynet >nul 2>&1
-echo   [3/25] HotelDive...
-python scripts/run_crawlers.py --source hoteldive >nul 2>&1
-echo   [4/25] PhocusWire...
-python scripts/run_crawlers.py --source phocuswire >nul 2>&1
-echo   [5/25] HotelManagement...
-python scripts/run_crawlers.py --source hotelmanagement >nul 2>&1
-echo   [6/25] TravelWeekly...
-python scripts/run_crawlers.py --source travelweekly >nul 2>&1
-echo   [7/25] HotelNewsResource...
-python scripts/run_crawlers.py --source hotelnewsresource >nul 2>&1
-echo   [8/25] TravelDailyNews...
-python scripts/run_crawlers.py --source traveldailynews >nul 2>&1
-echo   [9/25] BusinessTravelNews...
-python scripts/run_crawlers.py --source businesstravelnews >nul 2>&1
-echo   [10/25] BoutiqueHotelier...
-python scripts/run_crawlers.py --source boutiquehotelier >nul 2>&1
-echo   [11/25] HotelOnline...
-python scripts/run_crawlers.py --source hotelonline >nul 2>&1
-echo   [12/25] HotelTechReport...
-python scripts/run_crawlers.py --source hoteltechreport >nul 2>&1
-echo   [13/25] TopHotelNews...
-python scripts/run_crawlers.py --source tophotelnews >nul 2>&1
-
-:: News sources - Research & Insights (6)
-echo   [14/25] SiteMinder...
-python scripts/run_crawlers.py --source siteminder >nul 2>&1
-echo   [15/25] EHL Insights...
-python scripts/run_crawlers.py --source ehlinsights >nul 2>&1
-echo   [16/25] CBRE Hotels...
-python scripts/run_crawlers.py --source cbrehotels >nul 2>&1
-echo   [17/25] Cushman Wakefield...
-python scripts/run_crawlers.py --source cushmanwakefield >nul 2>&1
-echo   [18/25] CoStar...
-python scripts/run_crawlers.py --source costar >nul 2>&1
-echo   [19/25] TravelDaily...
-python scripts/run_crawlers.py --source traveldaily >nul 2>&1
-
-:: Social sources (3)
-echo   [20/25] Reddit...
-python scripts/run_crawlers.py --source reddit >nul 2>&1
-echo   [21/25] YouTube...
-python scripts/run_crawlers.py --source youtube >nul 2>&1
-echo   [22/25] Quora...
-python scripts/run_crawlers.py --source quora >nul 2>&1
-
-:: Review sources (2)
-echo   [23/25] TripAdvisor...
-python scripts/run_crawlers.py --source tripadvisor >nul 2>&1
-echo   [24/25] Booking.com...
-python scripts/run_crawlers.py --source booking >nul 2>&1
-
-:: Process and generate insights
-echo   [25/25] Analyzing with AI...
-python scripts/run_crawlers.py --process --limit 400 >nul 2>&1
-python scripts/run_crawlers.py --trends --days 30 >nul 2>&1
-python scripts/run_crawlers.py --moves --days 30 --limit 100 >nul 2>&1
-
-echo.
-echo   Data collection complete!
-echo.
-echo  ============================================
-echo   Starting Dashboard
-echo  ============================================
-echo.
-echo   Opening browser...
-echo.
-echo   Dashboard:     http://localhost:8000/api/monitoring/dashboard
+echo   Dashboard:     http://localhost:8000/api/monitoring/dashboard-v2
 echo   API Docs:      http://localhost:8000/docs
+echo.
+echo   The scheduler will run background updates automatically.
+echo.
+echo   If you need fresh data, close this and run:
+echo   POPULATE_DATA.bat
 echo.
 echo  ============================================
 echo.
@@ -139,9 +91,9 @@ echo   Press Ctrl+C to stop the server
 echo.
 
 :: Open browser after delay
-start "" timeout /t 2 /nobreak >nul & start http://localhost:8000/api/monitoring/dashboard
+start "" cmd /c "timeout /t 3 /nobreak >nul & start http://localhost:8000/api/monitoring/dashboard-v2"
 
-:: Start server
+:: Start server (scheduler runs automatically)
 python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 
 echo.
