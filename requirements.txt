@@ -32,7 +32,7 @@ pyyaml>=6.0
 redis>=4.0.0
 APScheduler>=3.10.0
 
-# Active Inference
-inferactively-pymdp>=0.0.8
+# Active Inference (JAX-based v1.0.0 alpha from GitHub)
+pymdp @ git+https://github.com/infer-actively/pymdp.git@v1.0.0_alpha
 jax>=0.4.0
 jaxlib>=0.4.0
