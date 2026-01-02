@@ -486,19 +486,21 @@ class SocialPulseService:
     ) -> list[dict]:
         """Get trends from database with filters.
 
+        Prefers recent trends, but falls back to latest available if none recent.
+
         Args:
             limit: Maximum trends to return
             region: Filter by region
             audience_segment: Filter by audience
             min_strength: Minimum strength score
-            days_back: Only return trends updated within this many days (default 7)
+            days_back: Prefer trends updated within this many days (default 7)
 
         Returns:
             List of trend dicts
         """
         db = SessionLocal()
         try:
-            # Only show recent trends
+            # Try recent trends first
             cutoff_date = datetime.utcnow() - timedelta(days=days_back)
 
             query = db.query(TrendSignalModel).filter(
@@ -511,11 +513,25 @@ class SocialPulseService:
             if audience_segment:
                 query = query.filter(TrendSignalModel.audience_segment == audience_segment)
 
-            # Order by recency first, then strength
             trends = query.order_by(
                 TrendSignalModel.last_updated.desc(),
                 TrendSignalModel.strength_score.desc(),
             ).limit(limit).all()
+
+            # Fallback: if no recent trends, get latest regardless of age
+            if not trends:
+                query = db.query(TrendSignalModel).filter(
+                    TrendSignalModel.strength_score >= min_strength,
+                )
+                if region:
+                    query = query.filter(TrendSignalModel.region == region)
+                if audience_segment:
+                    query = query.filter(TrendSignalModel.audience_segment == audience_segment)
+
+                trends = query.order_by(
+                    TrendSignalModel.last_updated.desc(),
+                    TrendSignalModel.strength_score.desc(),
+                ).limit(limit).all()
 
             return [self._model_to_dict(t) for t in trends]
 
