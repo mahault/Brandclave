@@ -171,8 +171,18 @@ Clustering POMDP enabled for adaptive parameter selection
 
 ### Requirements
 - Python 3.11+
-- Mistral API key (for embeddings and LLM)
+- **Mistral API key** (required for trend naming and embeddings)
 - Optional: Redis (for caching)
+- Optional: VERSES Genius API (for cloud-based active inference)
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MISTRAL_API_KEY` | **Yes** | For LLM trend naming and embeddings |
+| `GENIUS_API_URL` | No | VERSES Genius agent URL |
+| `GENIUS_API_KEY` | No | VERSES Genius API key |
+| `REDIS_URL` | No | Redis for caching (defaults to in-memory) |
 
 ### Manual Setup
 
@@ -194,6 +204,19 @@ python -c "from db.database import init_db; init_db()"
 # Run the server
 python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
+
+### Cloud Deployment (Render)
+
+The app can be deployed to Render's free tier:
+
+1. Push to GitHub
+2. Create new Web Service on Render, connect repo
+3. Add environment variables in Render dashboard:
+   - `MISTRAL_API_KEY` - your Mistral API key
+   - `SCHEDULER_ENABLED` - set to `true` for auto-scraping
+4. Deploy
+
+**Note:** Free tier has cold starts (~30s) and ephemeral storage. For persistent data, use Render PostgreSQL or an external database.
 
 ### CLI Commands
 
@@ -291,7 +314,8 @@ brandclave/
 | "Environment not found" | Run `SETUP_FIRST_TIME.bat` again |
 | No trends showing | Run `POPULATE_DATA.bat` to generate data |
 | LLM rate limited | The system auto-retries with backoff |
-| Poor trend names | Trends are now quality-filtered automatically |
+| Poor trend names like "Tour Advice There Trend" | Add `MISTRAL_API_KEY` to `.env` - LLM generates proper names |
+| Trends show old data | Trends auto-filter to last 7 days; regenerate with `python scripts/regenerate_trends.py` |
 
 ### To Stop the Server
 
