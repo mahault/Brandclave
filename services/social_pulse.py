@@ -1,7 +1,7 @@
 """Social Pulse service - Trend generation and management."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from db.database import SessionLocal
@@ -482,6 +482,7 @@ class SocialPulseService:
         region: str | None = None,
         audience_segment: str | None = None,
         min_strength: float = 0,
+        days_back: int = 7,
     ) -> list[dict]:
         """Get trends from database with filters.
 
@@ -490,14 +491,19 @@ class SocialPulseService:
             region: Filter by region
             audience_segment: Filter by audience
             min_strength: Minimum strength score
+            days_back: Only return trends updated within this many days (default 7)
 
         Returns:
             List of trend dicts
         """
         db = SessionLocal()
         try:
+            # Only show recent trends
+            cutoff_date = datetime.utcnow() - timedelta(days=days_back)
+
             query = db.query(TrendSignalModel).filter(
-                TrendSignalModel.strength_score >= min_strength
+                TrendSignalModel.strength_score >= min_strength,
+                TrendSignalModel.last_updated >= cutoff_date,
             )
 
             if region:
@@ -505,8 +511,10 @@ class SocialPulseService:
             if audience_segment:
                 query = query.filter(TrendSignalModel.audience_segment == audience_segment)
 
+            # Order by recency first, then strength
             trends = query.order_by(
-                TrendSignalModel.strength_score.desc()
+                TrendSignalModel.last_updated.desc(),
+                TrendSignalModel.strength_score.desc(),
             ).limit(limit).all()
 
             return [self._model_to_dict(t) for t in trends]
