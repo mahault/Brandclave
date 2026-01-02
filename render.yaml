@@ -12,5 +12,5 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: SCHEDULER_ENABLED
-        value: "false"
+        value: "true"
     plan: free
