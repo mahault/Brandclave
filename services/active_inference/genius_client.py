@@ -9,26 +9,35 @@ This client interfaces with the VERSES Genius service for:
 
 The Genius API provides a proper active inference engine using
 Factor Graphs (VFG) for probabilistic reasoning.
+
+NOTE: This client uses ONLY Python standard library (no httpx/requests).
+Authentication uses x-api-key header (not Bearer token).
+Graph writes (POST/PUT/DELETE) require If-Match: * header.
 """
 
+import json
 import os
 import time
 import logging
-from typing import Optional, Any
+import urllib.request
+import urllib.error
+from typing import Optional, Any, Dict, Tuple
 from dataclasses import dataclass, field
-
-import httpx
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class GeniusConfig:
-    """Configuration for VERSES Genius API."""
-    api_url: str = field(default_factory=lambda: os.getenv(
-        "GENIUS_API_URL",
-        "https://agent-3271175-2724605-8366d751a2c4dc.agents.genius.verses.ai"
-    ))
+    """
+    Configuration for VERSES Genius API.
+
+    All sensitive values (URL, API key) are read from environment variables.
+    No defaults are provided for security - set these in .env file:
+        GENIUS_API_URL=https://agent-xxx.agents.genius.verses.ai
+        GENIUS_API_KEY=your-api-key
+    """
+    api_url: str = field(default_factory=lambda: os.getenv("GENIUS_API_URL", ""))
     api_key: str = field(default_factory=lambda: os.getenv("GENIUS_API_KEY", ""))
     agent_id: str = field(default_factory=lambda: os.getenv("GENIUS_AGENT_ID", ""))
     license_key: str = field(default_factory=lambda: os.getenv("GENIUS_LICENSE_KEY", ""))
@@ -47,22 +56,17 @@ class GeniusClient:
     - Action selection (POMDP-based policy selection)
     - Learning (update parameters from observations)
     - Simulation (multi-step rollouts)
+
+    Uses only Python standard library (urllib) - no external dependencies.
     """
 
     def __init__(self, config: Optional[GeniusConfig] = None):
         self.config = config or GeniusConfig()
 
+        if not self.config.api_url:
+            raise ValueError("GENIUS_API_URL environment variable not set")
         if not self.config.api_key:
             raise ValueError("GENIUS_API_KEY environment variable not set")
-
-        self.client = httpx.Client(
-            base_url=self.config.api_url,
-            timeout=self.config.timeout,
-            headers={
-                "x-api-key": self.config.api_key,
-                "Content-Type": "application/json",
-            }
-        )
 
         self._graph_etag: Optional[str] = None
 
@@ -70,11 +74,56 @@ class GeniusClient:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.client.close()
+        pass  # No cleanup needed for urllib
 
     def close(self):
-        """Close the HTTP client."""
-        self.client.close()
+        """Close the HTTP client (no-op for urllib)."""
+        pass
+
+    def _request(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Tuple[int, Dict[str, str], Any]:
+        """
+        Make HTTP request using urllib (stdlib only).
+
+        Returns: (status_code, response_headers, parsed_json_or_text_or_none)
+        """
+        url = f"{self.config.api_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.config.api_key,
+        }
+        if extra_headers:
+            headers.update(extra_headers)
+
+        data = None
+        if json_data is not None:
+            data = json.dumps(json_data).encode("utf-8")
+
+        req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.config.timeout) as resp:
+                status = resp.status
+                resp_headers = dict(resp.headers.items())
+                body_bytes = resp.read()
+                if not body_bytes:
+                    return status, resp_headers, None
+
+                body_text = body_bytes.decode("utf-8")
+                try:
+                    return status, resp_headers, json.loads(body_text)
+                except json.JSONDecodeError:
+                    return status, resp_headers, body_text
+
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8") if hasattr(e, "read") else ""
+            # Re-raise with context for caller to handle
+            raise RuntimeError(f"HTTP {e.code} {e.reason}: {err_body}") from None
 
     # -------------------------------------------------------------------------
     # License Management
@@ -87,24 +136,23 @@ class GeniusClient:
             return {"status": "no_license"}
 
         try:
-            response = self.client.post(
+            status, _, body = self._request(
+                "POST",
                 "/license/update",
-                json={"license_key": self.config.license_key}
+                json_data={"license_key": self.config.license_key}
             )
-            response.raise_for_status()
             logger.info("Genius license activated successfully")
             return {"status": "activated"}
-        except httpx.HTTPError as e:
+        except RuntimeError as e:
             logger.error(f"License activation failed: {e}")
             return {"status": "error", "error": str(e)}
 
     def get_license_metadata(self) -> dict:
         """Get license metadata and limits."""
         try:
-            response = self.client.get("/license/metadata")
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
+            status, _, body = self._request("GET", "/license/metadata")
+            return body if isinstance(body, dict) else {}
+        except RuntimeError as e:
             logger.error(f"Failed to get license metadata: {e}")
             return {}
 
@@ -115,18 +163,17 @@ class GeniusClient:
     def health_check(self) -> bool:
         """Check if the Genius API is available."""
         try:
-            response = self.client.get("/")
-            return response.status_code == 200
-        except httpx.HTTPError:
+            status, _, _ = self._request("GET", "/")
+            return status == 200
+        except RuntimeError:
             return False
 
     def get_version(self) -> dict:
         """Get API version information."""
         try:
-            response = self.client.get("/version")
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
+            status, _, body = self._request("GET", "/version")
+            return body if isinstance(body, dict) else {}
+        except RuntimeError as e:
             logger.error(f"Failed to get version: {e}")
             return {}
 
@@ -137,16 +184,17 @@ class GeniusClient:
     def get_graph(self) -> Optional[dict]:
         """Retrieve the current VFG graph."""
         try:
-            response = self.client.get("/graph")
-            if response.status_code == 404:
+            status, headers, body = self._request("GET", "/graph")
+            if status == 404:
                 return None
-            response.raise_for_status()
 
             # Store ETag for conditional updates
-            self._graph_etag = response.headers.get("etag")
+            self._graph_etag = headers.get("ETag") or headers.get("etag")
 
-            return response.json()
-        except httpx.HTTPError as e:
+            return body if isinstance(body, dict) else None
+        except RuntimeError as e:
+            if "404" in str(e):
+                return None
             logger.error(f"Failed to get graph: {e}")
             return None
 
@@ -164,32 +212,80 @@ class GeniusClient:
         Returns:
             Updated graph response
         """
-        headers = {}
+        # Always include If-Match: * for graph writes (required by Genius API)
+        extra_headers = {"If-Match": "*"}
         if self._graph_etag:
-            headers["if-match"] = self._graph_etag
+            extra_headers["If-Match"] = self._graph_etag
 
         try:
-            response = self.client.put(
+            status, headers, body = self._request(
+                "POST",  # Use POST instead of PUT for loading graph
                 "/graph",
-                json={"vfg": vfg},
-                headers=headers
+                json_data={"vfg": vfg},
+                extra_headers=extra_headers
             )
-            response.raise_for_status()
 
-            self._graph_etag = response.headers.get("etag")
-            return response.json()
-        except httpx.HTTPError as e:
+            self._graph_etag = headers.get("ETag") or headers.get("etag")
+            return body if isinstance(body, dict) else {"status": "ok"}
+        except RuntimeError as e:
             logger.error(f"Failed to set graph: {e}")
             raise
 
-    def delete_graph(self) -> bool:
-        """Delete the current graph."""
+    def load_graph(self, vfg_model: dict) -> Tuple[int, Optional[str]]:
+        """
+        Load a VFG model (POST /graph with If-Match: *).
+
+        This is the recommended way to load models per the new Genius API approach.
+
+        Args:
+            vfg_model: Complete VFG model dict with 'vfg' key
+
+        Returns:
+            Tuple of (status_code, etag)
+        """
         try:
-            response = self.client.delete("/graph")
-            response.raise_for_status()
+            status, headers, _ = self._request(
+                "POST",
+                "/graph",
+                json_data=vfg_model,
+                extra_headers={"If-Match": "*"}
+            )
+            etag = headers.get("ETag") or headers.get("etag")
+            self._graph_etag = etag
+            return status, etag
+        except RuntimeError as e:
+            logger.error(f"Failed to load graph: {e}")
+            raise
+
+    def unload_graph(self) -> int:
+        """
+        Unload the current graph (DELETE /graph with If-Match: *).
+
+        Returns:
+            HTTP status code
+        """
+        try:
+            status, _, _ = self._request(
+                "DELETE",
+                "/graph",
+                extra_headers={"If-Match": "*"}
+            )
             self._graph_etag = None
+            return status
+        except RuntimeError as e:
+            # It's ok if there was no graph to delete
+            if "404" in str(e):
+                self._graph_etag = None
+                return 404
+            logger.error(f"Failed to unload graph: {e}")
+            raise
+
+    def delete_graph(self) -> bool:
+        """Delete the current graph (legacy method, use unload_graph)."""
+        try:
+            self.unload_graph()
             return True
-        except httpx.HTTPError as e:
+        except RuntimeError as e:
             logger.error(f"Failed to delete graph: {e}")
             return False
 
@@ -224,19 +320,18 @@ class GeniusClient:
             request["evidence"] = evidence
 
         try:
-            response = self.client.post("/infer", json=request)
+            status, _, body = self._request("POST", "/infer", json_data=request)
 
-            if response.status_code == 202:
+            if status == 202 and isinstance(body, dict):
                 # Async - need to poll
-                task_id = response.json().get("task_id")
+                task_id = body.get("task_id")
                 if wait and task_id:
                     return self._poll_task(task_id)
                 return {"task_id": task_id, "status": "pending"}
 
-            response.raise_for_status()
-            return response.json()
+            return body if isinstance(body, dict) else {}
 
-        except httpx.HTTPError as e:
+        except RuntimeError as e:
             logger.error(f"Inference failed: {e}")
             raise
 
@@ -247,6 +342,7 @@ class GeniusClient:
     def select_action(
         self,
         observations: Optional[dict[str, Any]] = None,
+        options: Optional[dict[str, Any]] = None,
         wait: bool = True
     ) -> dict:
         """
@@ -259,6 +355,7 @@ class GeniusClient:
 
         Args:
             observations: Current observations as evidence
+            options: Optional control parameters (policy_len, beta, etc.)
             wait: If True, poll until complete
 
         Returns:
@@ -271,20 +368,38 @@ class GeniusClient:
         request = {}
         if observations:
             request["observations"] = observations
+        if options:
+            request["options"] = options
 
         try:
-            response = self.client.post("/actionselection", json=request)
+            status, _, body = self._request("POST", "/actionselection", json_data=request)
 
-            if response.status_code == 202:
-                task_id = response.json().get("task_id")
+            if status == 202 and isinstance(body, dict):
+                task_id = body.get("task_id")
                 if wait and task_id:
                     return self._poll_task(task_id)
                 return {"task_id": task_id, "status": "pending"}
 
-            response.raise_for_status()
-            return response.json()
+            return body if isinstance(body, dict) else {}
 
-        except httpx.HTTPError as e:
+        except RuntimeError as e:
+            logger.error(f"Action selection failed: {e}")
+            raise
+
+    def action_selection(self, payload: dict) -> dict:
+        """
+        Raw action selection call (matches the new API approach).
+
+        Args:
+            payload: Full payload dict with observations and options
+
+        Returns:
+            Action selection response
+        """
+        try:
+            status, _, body = self._request("POST", "/actionselection", json_data=payload)
+            return body if isinstance(body, dict) else {}
+        except RuntimeError as e:
             logger.error(f"Action selection failed: {e}")
             raise
 
@@ -315,18 +430,17 @@ class GeniusClient:
         request = {"data": data}
 
         try:
-            response = self.client.post("/learn", json=request)
+            status, _, body = self._request("POST", "/learn", json_data=request)
 
-            if response.status_code == 202:
-                task_id = response.json().get("task_id")
+            if status == 202 and isinstance(body, dict):
+                task_id = body.get("task_id")
                 if wait and task_id:
                     return self._poll_task(task_id)
                 return {"task_id": task_id, "status": "pending"}
 
-            response.raise_for_status()
-            return response.json()
+            return body if isinstance(body, dict) else {}
 
-        except httpx.HTTPError as e:
+        except RuntimeError as e:
             logger.error(f"Learning failed: {e}")
             raise
 
@@ -356,18 +470,17 @@ class GeniusClient:
             request["initial_state"] = initial_state
 
         try:
-            response = self.client.post("/simulate", json=request)
+            status, _, body = self._request("POST", "/simulate", json_data=request)
 
-            if response.status_code == 202:
-                task_id = response.json().get("task_id")
+            if status == 202 and isinstance(body, dict):
+                task_id = body.get("task_id")
                 if wait and task_id:
                     return self._poll_task(task_id)
                 return {"task_id": task_id, "status": "pending"}
 
-            response.raise_for_status()
-            return response.json()
+            return body if isinstance(body, dict) else {}
 
-        except httpx.HTTPError as e:
+        except RuntimeError as e:
             logger.error(f"Simulation failed: {e}")
             raise
 
@@ -378,10 +491,9 @@ class GeniusClient:
     def validate_graph(self, vfg: dict) -> dict:
         """Validate a VFG structure without setting it."""
         try:
-            response = self.client.post("/validate", json={"vfg": vfg})
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
+            status, _, body = self._request("POST", "/validate", json_data={"vfg": vfg})
+            return body if isinstance(body, dict) else {}
+        except RuntimeError as e:
             logger.error(f"Validation failed: {e}")
             raise
 
@@ -395,23 +507,22 @@ class GeniusClient:
 
         while polls < self.config.max_polls:
             try:
-                response = self.client.get(f"/status/{task_id}")
-                response.raise_for_status()
+                status, _, body = self._request("GET", f"/status/{task_id}")
 
-                result = response.json()
-                status = result.get("status", "")
+                if isinstance(body, dict):
+                    task_status = body.get("status", "")
 
-                if status == "completed":
-                    return result.get("result", result)
-                elif status == "failed":
-                    error = result.get("error", "Unknown error")
-                    raise RuntimeError(f"Task failed: {error}")
+                    if task_status == "completed":
+                        return body.get("result", body)
+                    elif task_status == "failed":
+                        error = body.get("error", "Unknown error")
+                        raise RuntimeError(f"Task failed: {error}")
 
                 # Still pending
                 time.sleep(self.config.poll_interval)
                 polls += 1
 
-            except httpx.HTTPError as e:
+            except RuntimeError as e:
                 logger.error(f"Failed to poll task {task_id}: {e}")
                 raise
 
@@ -420,10 +531,9 @@ class GeniusClient:
     def get_all_tasks(self) -> list[dict]:
         """Get status of all tasks."""
         try:
-            response = self.client.get("/status")
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
+            status, _, body = self._request("GET", "/status")
+            return body if isinstance(body, list) else []
+        except RuntimeError as e:
             logger.error(f"Failed to get tasks: {e}")
             return []
 

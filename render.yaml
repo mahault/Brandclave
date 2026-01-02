@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: brandclave-demo
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        value: sqlite:///./data/brandclave.db
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SCHEDULER_ENABLED
+        value: "false"
+    plan: free
