@@ -157,7 +157,65 @@ async def dashboard_v2():
 
         .error { background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 8px; text-align: center; }
 
-        
+        /* Chat */
+        .chat-message { margin-bottom: 15px; }
+        .chat-message.user { text-align: right; }
+        .chat-message.assistant { text-align: left; }
+        .chat-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.4;
+        }
+        .chat-message.user .chat-bubble {
+            background: #e94560;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-message.assistant .chat-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #eee;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-confidence {
+            font-size: 0.75em;
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+        .confidence-high { color: #22c55e; }
+        .confidence-medium { color: #f59e0b; }
+        .confidence-low { color: #ef4444; }
+        .suggestion-chip {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #e94560;
+            color: #e94560;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .suggestion-chip:hover { background: #e94560; color: white; }
+        .chat-typing {
+            display: flex;
+            gap: 4px;
+            padding: 10px 15px;
+        }
+        .chat-typing span {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: typing 1s infinite;
+        }
+        .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+        .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
         /* Modal */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -239,6 +297,7 @@ async def dashboard_v2():
             <button class="tab" onclick="showTab('moves')">Hotelier Bets</button>
             <button class="tab" onclick="showTab('content')">Content</button>
             <button class="tab" onclick="showTab('scrapers')">Scrapers</button>
+            <button class="tab" onclick="showTab('chat')">💬 Chat</button>
         </div>
 
         <div id="overview" class="section active">
@@ -326,6 +385,37 @@ async def dashboard_v2():
             <div class="card">
                 <h2>🔧 Scraper Status</h2>
                 <div id="scrapers-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
+            </div>
+        </div>
+
+        <div id="chat" class="section">
+            <div class="card">
+                <h2>💬 BrandClave Chat</h2>
+                <p style="margin-bottom:15px;color:#666;">Ask about trends, market opportunities, or get help building a brand concept.</p>
+
+                <div id="chat-messages" style="min-height:300px;max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:15px;margin-bottom:15px;background:#fafafa;">
+                    <div class="chat-welcome">
+                        <div style="text-align:center;padding:40px 20px;">
+                            <div style="font-size:3em;margin-bottom:15px;">🤖</div>
+                            <h3 style="color:#1a1a2e;margin-bottom:10px;">Hello! I'm your hospitality intelligence assistant.</h3>
+                            <p style="color:#666;">Try asking me about:</p>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:15px;">
+                                <button onclick="sendSuggestion('What are the top wellness trends in hotels?')" class="suggestion-chip">Wellness trends</button>
+                                <button onclick="sendSuggestion('What opportunities exist in the boutique hotel market in Lisbon?')" class="suggestion-chip">Lisbon opportunities</button>
+                                <button onclick="sendSuggestion('Help me build a luxury lifestyle hotel brand')" class="suggestion-chip">Build a brand</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;">
+                    <input type="text" id="chat-input" placeholder="Ask about trends, opportunities, or help building a brand..."
+                           style="flex:1;padding:12px 15px;border:1px solid #ddd;border-radius:8px;font-size:1em;"
+                           onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button onclick="sendMessage()" style="padding:12px 25px;background:#e94560;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Send</button>
+                </div>
+
+                <div id="chat-state" style="margin-top:10px;font-size:0.85em;color:#888;"></div>
             </div>
         </div>
     </div>
@@ -621,6 +711,133 @@ async def dashboard_v2():
             }
 
             resultsDiv.innerHTML = html;
+        }
+
+        // Chat functionality
+        let chatConversationId = null;
+
+        function sendSuggestion(text) {
+            document.getElementById('chat-input').value = text;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const messagesDiv = document.getElementById('chat-messages');
+
+            // Clear welcome message if present
+            const welcome = messagesDiv.querySelector('.chat-welcome');
+            if (welcome) welcome.remove();
+
+            // Add user message
+            messagesDiv.innerHTML += `
+                <div class="chat-message user">
+                    <div class="chat-bubble">${escapeHtml(message)}</div>
+                </div>
+            `;
+            input.value = '';
+
+            // Add typing indicator
+            messagesDiv.innerHTML += `
+                <div class="chat-message assistant" id="typing-indicator">
+                    <div class="chat-bubble chat-typing">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: chatConversationId
+                    })
+                });
+
+                const data = await res.json();
+
+                // Remove typing indicator
+                const typing = document.getElementById('typing-indicator');
+                if (typing) typing.remove();
+
+                if (res.ok) {
+                    chatConversationId = data.conversation_id;
+
+                    // Add assistant message
+                    const confClass = data.confidence === 'High' ? 'confidence-high' :
+                                      data.confidence === 'Medium' ? 'confidence-medium' : 'confidence-low';
+                    messagesDiv.innerHTML += `
+                        <div class="chat-message assistant">
+                            <div class="chat-bubble">${formatResponse(data.response)}</div>
+                            <div class="chat-confidence ${confClass}">
+                                ${data.confidence} confidence | ${data.sources_used} sources | Mode: ${data.mode}
+                            </div>
+                        </div>
+                    `;
+
+                    // Show state info
+                    if (data.state) {
+                        document.getElementById('chat-state').innerHTML = `
+                            Mode: ${data.mode} (${Math.round(data.state.mode_confidence * 100)}%) |
+                            Location: ${data.state.slots?.location || '-'} |
+                            Segment: ${data.state.slots?.segment || '-'}
+                        `;
+                    }
+
+                    // Show suggested action
+                    if (data.suggested_action) {
+                        messagesDiv.innerHTML += `
+                            <div class="chat-message assistant">
+                                <button onclick="window.location.href='/api/monitoring/dashboard-v2#build'"
+                                        class="suggestion-chip" style="margin-top:10px;">
+                                    ➡️ Continue to Build a Brand
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    messagesDiv.innerHTML += `
+                        <div class="chat-message assistant">
+                            <div class="chat-bubble" style="background:#fee2e2;color:#991b1b;">
+                                Error: ${data.detail || 'Something went wrong'}
+                            </div>
+                        </div>
+                    `;
+                }
+
+            } catch (err) {
+                const typing = document.getElementById('typing-indicator');
+                if (typing) typing.remove();
+                messagesDiv.innerHTML += `
+                    <div class="chat-message assistant">
+                        <div class="chat-bubble" style="background:#fee2e2;color:#991b1b;">
+                            Connection error: ${err.message}
+                        </div>
+                    </div>
+                `;
+            }
+
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatResponse(text) {
+            // Basic markdown-like formatting
+            return escapeHtml(text)
+                .replace(/\\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
         }
 
         // Load data on page load
