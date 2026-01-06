@@ -107,6 +107,10 @@ async def dashboard_v2():
         }
         .trend-card h3 { margin-bottom: 8px; }
         .trend-card p { opacity: 0.95; font-size: 0.9em; line-height: 1.4; }
+        
+        .trend-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .move-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+
         .trend-meta { margin-top: 10px; font-size: 0.85em; opacity: 0.9; }
 
         .move-card {
@@ -152,6 +156,28 @@ async def dashboard_v2():
         .empty .icon { font-size: 3em; margin-bottom: 10px; }
 
         .error { background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 8px; text-align: center; }
+
+        
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; justify-content: center; align-items: flex-start; }
+        .modal-content { background: white; border-radius: 12px; max-width: 700px; width: 100%; margin: 40px auto; position: relative; }
+        .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; }
+        .modal-header.move-header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .modal-header h2 { margin: 0; font-size: 1.4em; line-height: 1.3; }
+        .modal-header .meta { opacity: 0.9; margin-top: 8px; font-size: 0.9em; }
+        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+        .modal-section { margin-bottom: 20px; }
+        .modal-section:last-child { margin-bottom: 0; }
+        .modal-section h3 { color: #1a1a2e; margin-bottom: 10px; font-size: 1.1em; }
+        .modal-section p { color: #444; line-height: 1.6; }
+        .modal-close { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.2em; }
+        .modal-close:hover { background: rgba(255,255,255,0.3); }
+        .source-quote { background: #f8f9fa; border-left: 3px solid #667eea; padding: 12px 15px; margin-bottom: 10px; border-radius: 0 8px 8px 0; font-style: italic; color: #555; font-size: 0.9em; }
+        .topic-tag { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 15px; font-size: 0.85em; margin: 3px; }
 
         .quick-city {
             padding: 5px 12px;
@@ -305,6 +331,50 @@ async def dashboard_v2():
     </div>
 
     <script>
+        // Store data globally for modal access
+        let allTrends = [];
+        let allMoves = [];
+
+        function openTrendModal(i) {
+            const t = allTrends[i];
+            if (!t) return;
+            document.getElementById('modal-header').className = 'modal-header';
+            document.getElementById('modal-title').textContent = t.name || t.trend_name || 'Unnamed Trend';
+            const score = t.strength_score ? Math.round(t.strength_score * 100) + '%' : 'N/A';
+            document.getElementById('modal-meta').innerHTML = 'Strength: ' + score + ' | ' + (t.volume || 0) + ' sources';
+            let h = '';
+            if (t.description) h += '<div class="modal-section"><h3>Description</h3><p>' + t.description + '</p></div>';
+            if (t.why_it_matters) h += '<div class="modal-section"><h3>Why It Matters</h3><p>' + t.why_it_matters + '</p></div>';
+            if (t.topics && t.topics.length) h += '<div class="modal-section"><h3>Topics</h3><div>' + t.topics.map(x => '<span class="topic-tag">' + x + '</span>').join('') + '</div></div>';
+            if (t.sample_quotes && t.sample_quotes.length) { h += '<div class="modal-section"><h3>Source Quotes</h3>'; t.sample_quotes.forEach(q => { h += '<div class="source-quote">"' + q + '"</div>'; }); h += '</div>'; }
+            document.getElementById('modal-body').innerHTML = h || '<p>No additional details.</p>';
+            document.getElementById('modal-overlay').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function openMoveModal(i) {
+            const m = allMoves[i];
+            if (!m) return;
+            document.getElementById('modal-header').className = 'modal-header move-header';
+            document.getElementById('modal-title').textContent = m.title || 'Untitled';
+            document.getElementById('modal-meta').innerHTML = (m.company || 'Unknown') + ' | ' + (m.move_type || 'Move');
+            let h = '';
+            if (m.summary) h += '<div class="modal-section"><h3>Summary</h3><p>' + m.summary + '</p></div>';
+            if (m.why_it_matters) h += '<div class="modal-section"><h3>Why It Matters</h3><p>' + m.why_it_matters + '</p></div>';
+            if (m.source_url) h += '<div class="modal-section"><h3>Source</h3><p><a href="' + m.source_url + '" target="_blank" style="color:#667eea;">' + (m.source_name || 'View article') + '</a></p></div>';
+            document.getElementById('modal-body').innerHTML = h || '<p>No additional details.</p>';
+            document.getElementById('modal-overlay').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('modal-overlay').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+
         function showTab(tabId) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -348,20 +418,22 @@ async def dashboard_v2():
                 document.getElementById('m-moves').textContent = metrics.moves_count || '0';
 
                 // Render trends
-                const trends = trendsData.trends || [];
+                allTrends = trendsData.trends || [];
+                const trends = allTrends;
                 if (trends.length > 0) {
-                    document.getElementById('latest-trend').innerHTML = renderTrend(trends[0]);
-                    document.getElementById('trends-list').innerHTML = trends.map(renderTrend).join('');
+                    document.getElementById('latest-trend').innerHTML = renderTrend(trends[0], 0);
+                    document.getElementById('trends-list').innerHTML = trends.map((t, i) => renderTrend(t, i)).join('');
                 } else {
                     document.getElementById('latest-trend').innerHTML = '<div class="empty"><div class="icon">📈</div>No trends yet. Run POPULATE_DATA.bat</div>';
                     document.getElementById('trends-list').innerHTML = '<div class="empty"><div class="icon">📈</div>No trends yet</div>';
                 }
 
                 // Render moves
-                const moves = movesData.moves || [];
+                allMoves = movesData.moves || [];
+                const moves = allMoves;
                 if (moves.length > 0) {
-                    document.getElementById('latest-move').innerHTML = renderMove(moves[0]);
-                    document.getElementById('moves-list').innerHTML = moves.map(renderMove).join('');
+                    document.getElementById('latest-move').innerHTML = renderMove(moves[0], 0);
+                    document.getElementById('moves-list').innerHTML = moves.map((m, i) => renderMove(m, i)).join('');
                 } else {
                     document.getElementById('latest-move').innerHTML = '<div class="empty"><div class="icon">♟️</div>No moves yet. Run POPULATE_DATA.bat</div>';
                     document.getElementById('moves-list').innerHTML = '<div class="empty"><div class="icon">♟️</div>No moves yet</div>';
@@ -413,21 +485,21 @@ async def dashboard_v2():
             }
         }
 
-        function renderTrend(t) {
+        function renderTrend(t, idx) {
             const name = t.name || t.trend_name || 'Unnamed Trend';
             const score = t.strength_score ? Math.round(t.strength_score * 100) + '%' : 'N/A';
             return `
-                <div class="trend-card">
+                <div class="trend-card" onclick="openTrendModal(${idx})">
                     <h3>${truncate(name, 60)}</h3>
                     <p>${truncate(t.description || t.why_it_matters || '', 200)}</p>
-                    <div class="trend-meta">Strength: ${score} | ${t.volume || 0} sources</div>
+                    <div class="trend-meta">Strength: ${score} | ${t.volume || 0} sources | Click to expand</div>
                 </div>
             `;
         }
 
-        function renderMove(m) {
+        function renderMove(m, idx) {
             return `
-                <div class="move-card">
+                <div class="move-card" onclick="openMoveModal(${idx})">
                     <h3>${truncate(m.title || 'Untitled', 60)}</h3>
                     <div class="company">${m.company || 'Unknown'} • ${m.move_type || 'move'}</div>
                     <p>${truncate(m.summary || m.why_it_matters || '', 200)}</p>
@@ -557,6 +629,16 @@ async def dashboard_v2():
         // Auto-refresh every 60 seconds
         setInterval(loadAllData, 60000);
     </script>
+
+    <!-- Modal -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div id="modal-header" class="modal-header"><h2 id="modal-title">Title</h2><div class="meta" id="modal-meta"></div></div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
 </body>
 </html>
 """
