@@ -216,3 +216,58 @@ async def stop_scheduler():
 
     scheduler.shutdown(wait=False)
     return {"status": "stopped", "message": "Scheduler stopped"}
+
+
+@router.get("/scheduler/pomdp")
+async def get_pomdp_status():
+    """Get POMDP (Active Inference) status and beliefs.
+
+    Returns the current state of the Scraping POMDP including:
+    - Whether POMDP is enabled
+    - Source beliefs (productivity estimates)
+    - Next recommended source
+    - Recommended scraping schedule
+    """
+    scheduler = get_scheduler()
+
+    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
+        return {
+            "enabled": False,
+            "reason": "Scraping POMDP not available or disabled",
+        }
+
+    try:
+        pomdp_status = scheduler.get_pomdp_status()
+        next_source = scheduler.get_next_source_pomdp()
+        schedule = scheduler.get_scraping_schedule_pomdp(budget_minutes=60)
+
+        return {
+            "enabled": True,
+            "status": pomdp_status,
+            "next_recommended_source": next_source,
+            "recommended_schedule": schedule,
+        }
+    except Exception as e:
+        return {
+            "enabled": True,
+            "error": str(e),
+        }
+
+
+@router.post("/scheduler/pomdp/recommend")
+async def get_pomdp_recommendation():
+    """Get POMDP recommendation for next source to scrape.
+
+    Uses Expected Free Energy minimization to balance:
+    - Pragmatic value: sources likely to yield good content
+    - Epistemic value: sources with uncertain state (exploration)
+    """
+    scheduler = get_scheduler()
+
+    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Scraping POMDP not available",
+        )
+
+    return scheduler.get_next_source_pomdp()
