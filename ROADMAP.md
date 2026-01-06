@@ -1,8 +1,8 @@
 # BrandClave AI — Development Roadmap
 
-## Current Status: ~20% Complete
-**Backend intelligence layer exists** — scraping, trends, moves, city desires, basic demand scan.
-**Not yet built** — user-facing product shell, brand builder, project management, breakthrough features.
+## Current Status: ~30% Complete
+**Backend intelligence layer exists** — scraping, trends, moves, city desires, demand scan, chat with RAG.
+**Not yet built** — Build a Brand form, project management, breakthrough features, React frontend.
 
 ---
 
@@ -93,40 +93,43 @@
 
 ---
 
-## Phase 5: BrandClave Chat
+## Phase 5: BrandClave Chat ✅ MVP Complete
 *Intelligence assistant interface*
 
 > **Technical Spec:** [docs/CHAT_MODULE_SPEC.md](docs/CHAT_MODULE_SPEC.md)
 
 ### Architecture: Bayesian RAG + POMDP-lite
-- [ ] Mode Router — Bayesian intent inference (insight/brand_build/demand_scan)
-- [ ] RAG Layer — vector + BM25 retrieval with Bayesian fusion scoring
-- [ ] Belief Manager — POMDP-lite dialogue control (slots, confidence, stage)
-- [ ] Structured Artifacts — JSON outputs with sources + confidence scores
+- [x] Mode Router — Bayesian intent inference (insight/brand_build/demand_scan)
+- [x] RAG Layer — vector + keyword retrieval with Bayesian fusion scoring
+- [x] Belief Manager — POMDP-lite dialogue control (slots, confidence, stage)
+- [x] Mistral LLM integration for response generation
+- [x] Structured Artifacts — JSON outputs with sources + confidence scores
 
 ### Chat Interface
-- [ ] Conversational UI (single screen)
-- [ ] Chat history persistence
-- [ ] Suggested prompts carousel
-- [ ] Confidence panel (High/Medium/Low + sources)
+- [x] Conversational UI (single screen in dashboard)
+- [x] Suggested prompts carousel
+- [x] Confidence panel (High/Medium/Low + sources)
+- [ ] Chat history persistence (in-memory only, needs DB)
 
 ### Three Modes
-- [ ] **Insight Mode** — trend forecasting, market opportunity analysis
-- [ ] **Brand Build Mode** — interactive brand concept creation
-- [ ] **Demand Scan Mode** — property analysis with prefill to Build a Brand
+- [x] **Insight Mode** — trend forecasting, market opportunity analysis
+- [x] **Brand Build Mode** — interactive brand concept creation
+- [x] **Demand Scan Mode** — property analysis with prefill to Build a Brand
 
 ### Capabilities
-- [ ] Reference What's Hot data (trends, moves) in answers
-- [ ] Read and enhance existing projects
-- [ ] Context-aware follow-up questions
+- [x] Reference What's Hot data (trends, moves) in answers via RAG
+- [x] Context-aware follow-up questions
+- [x] 90+ city location detection
+- [x] Segment/ADR/URL slot extraction
 - [ ] "Send to Build a Brand" action with prefilled inputs
 - [ ] "Save to Project" for any artifact
+- [ ] Read and enhance existing projects
 
-### Data Model (Supabase)
-- [ ] `projects` — user brand projects
-- [ ] `messages` — conversation history
-- [ ] `artifacts` — structured JSON outputs with provenance
-- [ ] `knowledge_chunks` — vector store for RAG
+### Data Model (In Progress)
+- [ ] `projects` — user brand projects (not yet)
+- [ ] `messages` — conversation history (in-memory only)
+- [x] `artifacts` — structured JSON outputs with provenance
+- [x] `knowledge_chunks` — ChromaDB vector store for RAG
 
 ---
 
