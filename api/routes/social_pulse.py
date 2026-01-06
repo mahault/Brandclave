@@ -205,6 +205,49 @@ async def generate_trends(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/social-pulse/regenerate", response_model=GenerateResponse)
+async def regenerate_trends(
+    days_back: int = Query(30, ge=1, le=90, description="Days of content to analyze"),
+    max_trends: int = Query(20, ge=5, le=50, description="Maximum trends to generate"),
+):
+    """Clear all existing trends and regenerate from scratch with LLM.
+
+    Use this to fix bad trend names/descriptions by regenerating all trends
+    using the current LLM pipeline.
+    """
+    try:
+        # Clear all existing trends
+        db = SessionLocal()
+        try:
+            deleted_count = db.query(TrendSignalModel).delete()
+            db.commit()
+            logger.info(f"Cleared {deleted_count} existing trends")
+        finally:
+            db.close()
+
+        # Generate new trends with LLM enabled
+        service = SocialPulseService(
+            days_back=days_back,
+            use_llm=True,
+            use_adaptive=True,
+        )
+        trends = service.generate_trends(max_trends=max_trends)
+
+        saved_count = 0
+        if trends:
+            saved_count = service.save_trends(trends)
+
+        return GenerateResponse(
+            generated=len(trends),
+            saved=saved_count,
+            message=f"Cleared {deleted_count} old trends, generated {len(trends)} new trends with LLM",
+        )
+
+    except Exception as e:
+        logger.error(f"Regeneration error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/social-pulse/{trend_id}/sources")
 async def get_trend_sources(trend_id: str, limit: int = Query(20, ge=1, le=100)):
     """Get the source content items that formed this trend.
