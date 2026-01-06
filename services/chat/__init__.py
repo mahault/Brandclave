@@ -12,7 +12,8 @@ from services.chat.schemas import (
 from services.chat.mode_router import ModeRouter
 from services.chat.rag import BayesianRAG
 from services.chat.belief_manager import BeliefManager
-from services.chat.service import ChatService
+from services.chat.service import ChatService, get_chat_service
+from services.chat.llm_client import MistralLLMClient, get_llm_client
 
 __all__ = [
     "ChatMode",
@@ -26,4 +27,7 @@ __all__ = [
     "BayesianRAG",
     "BeliefManager",
     "ChatService",
+    "get_chat_service",
+    "MistralLLMClient",
+    "get_llm_client",
 ]

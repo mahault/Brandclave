@@ -37,9 +37,10 @@ class BeliefManager:
     """
 
     # Thresholds for policy decisions
-    CONFIDENCE_THRESHOLD = 0.6       # Min confidence to proceed without asking
-    ENTROPY_THRESHOLD = 0.7          # High entropy = need more info
+    CONFIDENCE_THRESHOLD = 0.35      # Min confidence to proceed without asking (lowered)
+    ENTROPY_THRESHOLD = 0.8          # High entropy = need more info (relaxed)
     COMMIT_THRESHOLD = 0.6           # When to suggest "Send to Build a Brand"
+    MAX_CLARIFY_TURNS = 1            # Max turns to ask clarifying questions
 
     # Required slots per mode
     REQUIRED_SLOTS = {
@@ -48,13 +49,36 @@ class BeliefManager:
         ChatMode.DEMAND_SCAN: ["url"],
     }
 
-    # Clarifying questions per slot
+    # Clarifying questions per slot - detailed and helpful
     CLARIFYING_QUESTIONS = {
-        "location": "What city or location are you interested in?",
-        "segment": "What segment are you targeting? (luxury, boutique, lifestyle, budget, wellness, business)",
-        "url": "Can you share the property website URL you'd like me to analyze?",
-        "adr": "What's your target ADR (average daily rate)?",
-        "developer_goal": "What's the main goal for this development?",
+        "location": (
+            "Which city or region are you focusing on? For example: Miami, Lisbon, Tokyo, DC, Bali... "
+            "This helps me find relevant market trends and competitor data for that area."
+        ),
+        "segment": (
+            "What hotel segment fits your vision? Options include:\n"
+            "• **Luxury** - 5-star, high-end experiences ($400+ ADR)\n"
+            "• **Lifestyle** - Design-forward, millennial/Gen-Z focused ($150-300 ADR)\n"
+            "• **Boutique** - Independent, unique character properties\n"
+            "• **Wellness** - Spa, retreat, health-focused\n"
+            "• **Business** - Corporate, conference-oriented"
+        ),
+        "url": (
+            "Please share the property's website URL (e.g., https://hotelname.com). "
+            "I'll analyze their positioning, messaging, and identify gaps versus market demand."
+        ),
+        "adr": (
+            "What's your target ADR (Average Daily Rate)? This helps me benchmark against "
+            "competitors and identify the right positioning. For reference:\n"
+            "• Budget: $50-150\n• Midscale: $150-250\n• Upscale: $250-400\n• Luxury: $400+"
+        ),
+        "developer_goal": (
+            "What's your primary goal? For example:\n"
+            "• Maximize RevPAR in a competitive market\n"
+            "• Create a differentiated brand experience\n"
+            "• Target an underserved guest segment\n"
+            "• Reposition an existing property"
+        ),
     }
 
     def __init__(self):
@@ -166,33 +190,44 @@ class BeliefManager:
         # Check for missing required slots
         missing_slots = self._get_missing_slots(mode)
 
-        # Rule-based policy
+        # Rule-based policy - PRIORITIZE ANSWERING over asking questions
 
-        # 1. If low confidence on mode, ask clarifying question
-        if confidence < self.CONFIDENCE_THRESHOLD and self._turn_count < 3:
+        # 1. If this is the first turn and we have ANY signal, just answer
+        if self._turn_count <= 1:
+            # First turn: always try to answer, don't ask clarifying questions
+            return DialogueAction.ANSWER_NOW, {
+                "reason": "first_turn_answer",
+                "mode": mode.value,
+                "confidence": confidence,
+            }
+
+        # 2. Only ask for clarification if VERY low confidence AND haven't asked before
+        if confidence < self.CONFIDENCE_THRESHOLD and self._turn_count < self.MAX_CLARIFY_TURNS + 1:
             return DialogueAction.ASK_CLARIFYING_Q, {
                 "reason": "low_mode_confidence",
                 "question": self._get_mode_clarification_question(),
             }
 
-        # 2. If missing critical slots, ask for them
-        if missing_slots:
-            slot = missing_slots[0]  # Ask one at a time
-            return DialogueAction.ASK_CLARIFYING_Q, {
-                "reason": "missing_slot",
-                "slot": slot,
-                "question": self.CLARIFYING_QUESTIONS.get(slot, f"What is the {slot}?"),
+        # 3. For brand_build/demand_scan modes, gently prompt for slots but don't block
+        # Only ask if we're clearly in that mode AND haven't already asked
+        if missing_slots and confidence > 0.5 and self._turn_count < 3:
+            slot = missing_slots[0]
+            # Frame as helpful, not blocking
+            return DialogueAction.ANSWER_NOW, {
+                "reason": "will_answer_and_suggest_slot",
+                "mode": mode.value,
+                "suggest_slot": slot,
             }
 
-        # 3. If retrieval entropy is high, try to retrieve more
+        # 4. If retrieval entropy is high, try to retrieve more (but only once)
         if self.belief.is_high_entropy(self.ENTROPY_THRESHOLD):
-            if self.belief.retrieval.chunks_retrieved < 5:
+            if self.belief.retrieval.chunks_retrieved < 3 and self._turn_count <= 2:
                 return DialogueAction.RETRIEVE_MORE, {
                     "reason": "high_entropy",
                     "entropy": self.belief.retrieval.entropy,
                 }
 
-        # 4. If in commit stage and mode is insight, suggest Build a Brand
+        # 5. If in commit stage and mode is insight, suggest Build a Brand
         if (
             mode == ChatMode.INSIGHT and
             self.belief.stage["commit"] > self.COMMIT_THRESHOLD and
@@ -203,7 +238,7 @@ class BeliefManager:
                 "prefill": self._get_brand_prefill(),
             }
 
-        # 5. Default: answer now
+        # 6. Default: answer now (this should be the most common path)
         return DialogueAction.ANSWER_NOW, {
             "reason": "ready_to_answer",
             "mode": mode.value,
@@ -235,11 +270,31 @@ class BeliefManager:
         mode = self.belief.get_dominant_mode()
 
         if mode == ChatMode.INSIGHT:
-            return "Are you looking for market trends and insights, or would you like to analyze a specific property or build a brand concept?"
+            return (
+                "I can help in several ways:\n\n"
+                "**1. Market Insights** - Tell me a location (e.g., 'trends in Miami') and I'll share:\n"
+                "   • Emerging traveler preferences\n"
+                "   • White space opportunities\n"
+                "   • Competitive landscape signals\n\n"
+                "**2. Brand Building** - Say 'help me build a brand' with a location + segment\n\n"
+                "**3. Property Analysis** - Share a hotel URL to analyze positioning gaps\n\n"
+                "What would you like to explore?"
+            )
         elif mode == ChatMode.BRAND_BUILD:
-            return "Would you like me to help create a new hotel brand concept? I'll need to know the location and target segment."
+            return (
+                "Great! To build a compelling brand concept, I'll need:\n\n"
+                "• **Location** - Which city/market? (e.g., DC, Lisbon, Bali)\n"
+                "• **Segment** - Luxury, lifestyle, boutique, wellness, or budget?\n"
+                "• **Target ADR** (optional) - What price point are you targeting?\n\n"
+                "For example: 'Build a lifestyle hotel brand in Austin targeting $200 ADR'"
+            )
         else:
-            return "Would you like me to analyze a specific property website? Please share the URL."
+            return (
+                "I can analyze any hotel property. Please share:\n\n"
+                "• **Website URL** - The property's main website\n\n"
+                "I'll evaluate their positioning, identify gaps versus market demand, "
+                "and suggest opportunity areas."
+            )
 
     def _get_brand_prefill(self) -> dict[str, Any]:
         """Get prefill data for Build a Brand action."""

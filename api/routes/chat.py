@@ -49,15 +49,8 @@ def get_or_create_service(conversation_id: str | None = None):
     if conversation_id and conversation_id in _conversations:
         return _conversations[conversation_id]
 
-    # Create new service
-    embedding_fn = None
-    try:
-        from processing.embeddings import get_embedding
-        embedding_fn = get_embedding
-    except ImportError:
-        logger.warning("Embedding function not available")
-
-    service = ChatService(embedding_fn=embedding_fn)
+    # Create new service - auto-initializes LLM and embeddings
+    service = ChatService()
     conv_id = service.new_conversation()
 
     _conversations[conv_id] = service

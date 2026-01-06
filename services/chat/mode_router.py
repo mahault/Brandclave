@@ -29,6 +29,8 @@ BRAND_BUILD_KEYWORDS = [
     "build", "create", "design", "concept", "brand", "hotel concept",
     "new hotel", "develop", "blueprint", "positioning", "name",
     "experience", "pillars", "thesis", "boutique", "lifestyle",
+    "help me build", "want to build", "building a", "create a hotel",
+    "new brand", "brand concept", "hotel brand", "develop a",
 ]
 
 DEMAND_SCAN_KEYWORDS = [
@@ -41,9 +43,29 @@ DEMAND_SCAN_KEYWORDS = [
 URL_PATTERN = re.compile(r'https?://[^\s<>"\']+|www\.[^\s<>"\']+')
 ADR_PATTERN = re.compile(r'\$?\d{2,4}(?:\s*(?:per night|/night|adr|average))?', re.IGNORECASE)
 LOCATION_KEYWORDS = [
-    "lisbon", "tokyo", "paris", "london", "barcelona", "new york", "miami",
-    "bali", "dubai", "singapore", "amsterdam", "rome", "berlin", "sydney",
-    "los angeles", "san francisco", "bangkok", "hong kong", "mexico city",
+    # North America
+    "new york", "nyc", "miami", "los angeles", "la", "san francisco", "sf",
+    "chicago", "boston", "seattle", "austin", "denver", "nashville", "atlanta",
+    "washington dc", "dc", "washington", "las vegas", "portland", "san diego",
+    "phoenix", "dallas", "houston", "philadelphia", "toronto", "vancouver",
+    "montreal", "mexico city", "cancun", "tulum",
+    # Europe
+    "london", "paris", "barcelona", "madrid", "lisbon", "rome", "milan",
+    "berlin", "amsterdam", "copenhagen", "stockholm", "vienna", "prague",
+    "budapest", "dublin", "edinburgh", "athens", "santorini", "mykonos",
+    "nice", "monaco", "zurich", "geneva", "brussels", "porto",
+    # Asia Pacific
+    "tokyo", "kyoto", "osaka", "seoul", "singapore", "hong kong", "bangkok",
+    "bali", "phuket", "vietnam", "hanoi", "ho chi minh", "manila", "taipei",
+    "shanghai", "beijing", "shenzhen", "kuala lumpur", "jakarta",
+    # Middle East & Africa
+    "dubai", "abu dhabi", "doha", "riyadh", "tel aviv", "marrakech", "cairo",
+    "cape town", "johannesburg", "nairobi",
+    # Oceania
+    "sydney", "melbourne", "brisbane", "auckland", "queenstown",
+    # Caribbean & Latin America
+    "san juan", "havana", "cartagena", "medellin", "bogota", "lima",
+    "buenos aires", "rio de janeiro", "sao paulo",
 ]
 SEGMENT_KEYWORDS = {
     "luxury": ["luxury", "5-star", "five star", "high-end", "premium"],
@@ -142,9 +164,18 @@ class ModeRouter:
         Returns:
             Score (0-1 range, can exceed with many matches)
         """
-        matches = sum(1 for kw in keywords if kw in text)
-        # Diminishing returns for many matches
-        return min(matches * 0.15, 1.0)
+        score = 0.0
+        for kw in keywords:
+            if kw in text:
+                # Multi-word phrases get higher weight
+                word_count = len(kw.split())
+                if word_count >= 3:
+                    score += 0.4  # Strong signal for 3+ word phrases
+                elif word_count == 2:
+                    score += 0.25  # Medium signal for 2-word phrases
+                else:
+                    score += 0.15  # Single word
+        return min(score, 1.0)
 
     def _extract_slots(self, message: str) -> SlotValues:
         """Extract slot values from message.

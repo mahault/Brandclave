@@ -10,6 +10,7 @@ from typing import Any
 from services.chat.belief_manager import BeliefManager, DialogueAction
 from services.chat.mode_router import ModeRouter
 from services.chat.rag import BayesianRAG, RAGResult
+from services.chat.llm_client import get_llm_client, MistralLLMClient
 from services.chat.schemas import (
     ChatArtifact,
     ChatMessage,
@@ -23,6 +24,19 @@ from services.chat.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _get_embedding_fn():
+    """Get the embedding function from data_models."""
+    try:
+        from data_models.embeddings import embed_text
+        return embed_text
+    except ImportError:
+        logger.warning("Could not import embed_text from data_models.embeddings")
+        return None
+    except Exception as e:
+        logger.warning(f"Error getting embedding function: {e}")
+        return None
 
 
 class ChatService:
@@ -40,14 +54,24 @@ class ChatService:
         """Initialize chat service.
 
         Args:
-            llm_client: LLM client for generation
-            embedding_fn: Function to generate embeddings
+            llm_client: LLM client for generation (auto-initialized if None)
+            embedding_fn: Function to generate embeddings (auto-initialized if None)
         """
+        # Auto-initialize embedding function if not provided
+        if embedding_fn is None:
+            embedding_fn = _get_embedding_fn()
+
+        # Auto-initialize LLM client if not provided
+        if llm_client is None:
+            llm_client = get_llm_client()
+
         self.router = ModeRouter(llm_client=llm_client)
         self.rag = BayesianRAG(embedding_fn=embedding_fn)
         self.belief_manager = BeliefManager()
         self.llm_client = llm_client
         self.embedding_fn = embedding_fn
+
+        logger.info(f"ChatService initialized: LLM={llm_client is not None}, Embeddings={embedding_fn is not None}")
 
         # Conversation state
         self._conversation_id: str | None = None
@@ -501,14 +525,6 @@ def get_chat_service() -> ChatService:
     """Get singleton chat service instance."""
     global _chat_service
     if _chat_service is None:
-        # Try to initialize with embedding function
-        embedding_fn = None
-        try:
-            from processing.embeddings import get_embedding
-            embedding_fn = get_embedding
-        except ImportError:
-            logger.warning("Embedding function not available")
-
-        _chat_service = ChatService(embedding_fn=embedding_fn)
-
+        # ChatService now auto-initializes LLM and embeddings
+        _chat_service = ChatService()
     return _chat_service
