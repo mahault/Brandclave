@@ -126,27 +126,37 @@ Trend name:"""
         return self.generate(prompt, system_prompt, max_tokens=20, temperature=0.5).strip()
 
     def generate_trend_description(self, sample_texts: list[str], trend_name: str) -> str:
-        """Generate a brief description of the trend.
+        """Generate an insightful description of the trend.
 
         Args:
             sample_texts: Representative texts from the cluster
             trend_name: The trend name
 
         Returns:
-            1-2 sentence description
+            2-3 sentence description with specific insights
         """
-        combined = "\n".join(sample_texts[:5])
+        combined = "\n---\n".join(sample_texts[:7])
 
-        system_prompt = """You are a hospitality trend analyst. Write brief, insightful trend descriptions.
-Keep responses to 1-2 sentences."""
+        system_prompt = """You are a hospitality trend analyst writing for hotel executives.
+Your descriptions must be SPECIFIC and INSIGHTFUL - not generic.
 
-        prompt = f"""Describe the "{trend_name}" trend based on these posts:
+BAD example: "This trend shows travelers are interested in wellness."
+GOOD example: "Travelers are specifically seeking hotels with in-room yoga mats, meditation apps, and 24-hour wellness centers - not just spas. The demand is driven by remote workers wanting to maintain routines while traveling."
+
+Focus on:
+- WHAT specifically travelers want (concrete details from the posts)
+- WHY this is happening (underlying drivers)
+- WHO is driving this trend (demographics, traveler types)
+
+Keep to 2-3 sentences. Be specific, not generic."""
+
+        prompt = f"""Analyze these social media posts and explain the "{trend_name}" trend:
 
 {combined}
 
-Description:"""
+Write a specific, insight-driven description of what this trend reveals about traveler preferences and behavior:"""
 
-        return self.generate(prompt, system_prompt, max_tokens=100, temperature=0.6).strip()
+        return self.generate(prompt, system_prompt, max_tokens=200, temperature=0.6).strip()
 
     def generate_why_it_matters(
         self,
