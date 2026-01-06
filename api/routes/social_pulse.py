@@ -54,6 +54,10 @@ class GenerateResponse(BaseModel):
     message: str
 
 
+# =============================================================================
+# STATIC ROUTES (must come before parameterized routes)
+# =============================================================================
+
 @router.get("/social-pulse", response_model=TrendListResponse)
 async def get_trends(
     limit: int = Query(20, ge=1, le=100, description="Maximum trends to return"),
@@ -84,37 +88,125 @@ async def get_trends(
     )
 
 
-@router.get("/social-pulse/{trend_id}", response_model=TrendResponse)
-async def get_trend(trend_id: str):
-    """Get a single trend by ID."""
+@router.get("/social-pulse/regions")
+async def get_regions():
+    """Get available regions with trend counts."""
     db = SessionLocal()
     try:
-        trend = db.query(TrendSignalModel).filter(
-            TrendSignalModel.id == trend_id
-        ).first()
+        from sqlalchemy import func
 
-        if not trend:
-            raise HTTPException(status_code=404, detail="Trend not found")
+        results = db.query(
+            TrendSignalModel.region,
+            func.count(TrendSignalModel.id).label("count"),
+        ).filter(
+            TrendSignalModel.region.isnot(None)
+        ).group_by(
+            TrendSignalModel.region
+        ).all()
 
-        return TrendResponse(
-            id=trend.id,
-            name=trend.name,
-            description=trend.description,
-            why_it_matters=trend.why_it_matters,
-            strength_score=trend.strength_score,
-            white_space_score=trend.white_space_score,
-            volume=trend.volume,
-            engagement_score=trend.engagement_score,
-            sentiment_delta=trend.sentiment_delta,
-            region=trend.region,
-            audience_segment=trend.audience_segment,
-            topics=trend.topics or [],
-            sample_quotes=trend.sample_quotes or [],
-            first_seen=trend.first_seen.isoformat() if trend.first_seen else None,
-            last_updated=trend.last_updated.isoformat() if trend.last_updated else None,
-        )
+        return {
+            "regions": [
+                {"region": r.region, "count": r.count}
+                for r in results
+            ]
+        }
     finally:
         db.close()
+
+
+@router.get("/social-pulse/audiences")
+async def get_audiences():
+    """Get available audience segments with trend counts."""
+    db = SessionLocal()
+    try:
+        from sqlalchemy import func
+
+        results = db.query(
+            TrendSignalModel.audience_segment,
+            func.count(TrendSignalModel.id).label("count"),
+        ).group_by(
+            TrendSignalModel.audience_segment
+        ).all()
+
+        return {
+            "audiences": [
+                {"segment": r.audience_segment, "count": r.count}
+                for r in results
+            ]
+        }
+    finally:
+        db.close()
+
+
+@router.get("/social-pulse/debug")
+async def debug_rag():
+    """Debug endpoint to check RAG components."""
+    from db.models import RawContentModel
+
+    result = {
+        "vector_store": {},
+        "database": {},
+        "embedding": {},
+        "test_search": {},
+    }
+
+    # Check vector store
+    try:
+        vector_store = get_vector_store()
+        stats = vector_store.get_collection_stats()
+        result["vector_store"] = {
+            "status": "ok",
+            "content_count": stats.get("content_count", 0),
+            "trends_count": stats.get("trends_count", 0),
+        }
+    except Exception as e:
+        result["vector_store"] = {"status": "error", "error": str(e)}
+
+    # Check database content
+    db = SessionLocal()
+    try:
+        total = db.query(RawContentModel).count()
+        processed = db.query(RawContentModel).filter(RawContentModel.is_processed == True).count()
+        result["database"] = {
+            "status": "ok",
+            "total_content": total,
+            "processed_content": processed,
+        }
+    except Exception as e:
+        result["database"] = {"status": "error", "error": str(e)}
+    finally:
+        db.close()
+
+    # Check embedding function
+    try:
+        provider = get_embedding_provider()
+        test_embedding = provider.embed("test wellness hotel trends")
+        result["embedding"] = {
+            "status": "ok",
+            "provider": type(provider).__name__,
+            "dimension": len(test_embedding),
+        }
+    except Exception as e:
+        result["embedding"] = {"status": "error", "error": str(e)}
+
+    # Test vector search
+    try:
+        if result["embedding"].get("status") == "ok" and result["vector_store"].get("content_count", 0) > 0:
+            provider = get_embedding_provider()
+            query_embedding = provider.embed("wellness hotel trends")
+            vector_store = get_vector_store()
+            search_results = vector_store.search_similar(query_embedding, n_results=5)
+            result["test_search"] = {
+                "status": "ok",
+                "results_found": len(search_results.get("ids", [[]])[0]),
+                "sample_ids": search_results.get("ids", [[]])[0][:3],
+            }
+        else:
+            result["test_search"] = {"status": "skipped", "reason": "prerequisites not met"}
+    except Exception as e:
+        result["test_search"] = {"status": "error", "error": str(e)}
+
+    return result
 
 
 @router.get("/social-pulse/search/semantic")
@@ -248,6 +340,43 @@ async def regenerate_trends(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# =============================================================================
+# PARAMETERIZED ROUTES (must come after static routes)
+# =============================================================================
+
+@router.get("/social-pulse/{trend_id}", response_model=TrendResponse)
+async def get_trend(trend_id: str):
+    """Get a single trend by ID."""
+    db = SessionLocal()
+    try:
+        trend = db.query(TrendSignalModel).filter(
+            TrendSignalModel.id == trend_id
+        ).first()
+
+        if not trend:
+            raise HTTPException(status_code=404, detail="Trend not found")
+
+        return TrendResponse(
+            id=trend.id,
+            name=trend.name,
+            description=trend.description,
+            why_it_matters=trend.why_it_matters,
+            strength_score=trend.strength_score,
+            white_space_score=trend.white_space_score,
+            volume=trend.volume,
+            engagement_score=trend.engagement_score,
+            sentiment_delta=trend.sentiment_delta,
+            region=trend.region,
+            audience_segment=trend.audience_segment,
+            topics=trend.topics or [],
+            sample_quotes=trend.sample_quotes or [],
+            first_seen=trend.first_seen.isoformat() if trend.first_seen else None,
+            last_updated=trend.last_updated.isoformat() if trend.last_updated else None,
+        )
+    finally:
+        db.close()
+
+
 @router.get("/social-pulse/{trend_id}/sources")
 async def get_trend_sources(trend_id: str, limit: int = Query(20, ge=1, le=100)):
     """Get the source content items that formed this trend.
@@ -295,55 +424,5 @@ async def get_trend_sources(trend_id: str, limit: int = Query(20, ge=1, le=100))
             "trend_name": trend.name,
         }
 
-    finally:
-        db.close()
-
-
-@router.get("/social-pulse/regions")
-async def get_regions():
-    """Get available regions with trend counts."""
-    db = SessionLocal()
-    try:
-        from sqlalchemy import func
-
-        results = db.query(
-            TrendSignalModel.region,
-            func.count(TrendSignalModel.id).label("count"),
-        ).filter(
-            TrendSignalModel.region.isnot(None)
-        ).group_by(
-            TrendSignalModel.region
-        ).all()
-
-        return {
-            "regions": [
-                {"region": r.region, "count": r.count}
-                for r in results
-            ]
-        }
-    finally:
-        db.close()
-
-
-@router.get("/social-pulse/audiences")
-async def get_audiences():
-    """Get available audience segments with trend counts."""
-    db = SessionLocal()
-    try:
-        from sqlalchemy import func
-
-        results = db.query(
-            TrendSignalModel.audience_segment,
-            func.count(TrendSignalModel.id).label("count"),
-        ).group_by(
-            TrendSignalModel.audience_segment
-        ).all()
-
-        return {
-            "audiences": [
-                {"segment": r.audience_segment, "count": r.count}
-                for r in results
-            ]
-        }
     finally:
         db.close()
