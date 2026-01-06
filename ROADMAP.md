@@ -96,22 +96,37 @@
 ## Phase 5: BrandClave Chat
 *Intelligence assistant interface*
 
+> **Technical Spec:** [docs/CHAT_MODULE_SPEC.md](docs/CHAT_MODULE_SPEC.md)
+
+### Architecture: Bayesian RAG + POMDP-lite
+- [ ] Mode Router — Bayesian intent inference (insight/brand_build/demand_scan)
+- [ ] RAG Layer — vector + BM25 retrieval with Bayesian fusion scoring
+- [ ] Belief Manager — POMDP-lite dialogue control (slots, confidence, stage)
+- [ ] Structured Artifacts — JSON outputs with sources + confidence scores
+
 ### Chat Interface
-- [ ] Conversational UI
+- [ ] Conversational UI (single screen)
 - [ ] Chat history persistence
 - [ ] Suggested prompts carousel
+- [ ] Confidence panel (High/Medium/Low + sources)
+
+### Three Modes
+- [ ] **Insight Mode** — trend forecasting, market opportunity analysis
+- [ ] **Brand Build Mode** — interactive brand concept creation
+- [ ] **Demand Scan Mode** — property analysis with prefill to Build a Brand
 
 ### Capabilities
-- [ ] Trend forecasting queries
-- [ ] Market opportunity analysis
-- [ ] Bespoke concept suggestions
-- [ ] Reference What's Hot data in answers
+- [ ] Reference What's Hot data (trends, moves) in answers
 - [ ] Read and enhance existing projects
-
-### Interactions
-- [ ] "Send to Build a Brand" from any answer
-- [ ] "Save to Project" from any answer
 - [ ] Context-aware follow-up questions
+- [ ] "Send to Build a Brand" action with prefilled inputs
+- [ ] "Save to Project" for any artifact
+
+### Data Model (Supabase)
+- [ ] `projects` — user brand projects
+- [ ] `messages` — conversation history
+- [ ] `artifacts` — structured JSON outputs with provenance
+- [ ] `knowledge_chunks` — vector store for RAG
 
 ---
 
