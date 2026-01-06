@@ -545,7 +545,8 @@ async def dashboard_v2():
                                 <tr>
                                     <th>Source</th>
                                     <th>Total</th>
-                                    <th>Last 24h</th>
+                                    <th>Last Run</th>
+                                    <th>New Items</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
@@ -554,7 +555,8 @@ async def dashboard_v2():
                                     <tr>
                                         <td><strong>${s.source}</strong></td>
                                         <td>${s.total_items.toLocaleString()}</td>
-                                        <td>${s.items_last_24h}</td>
+                                        <td>${s.last_run_at ? new Date(s.last_run_at).toLocaleString() : 'Never'}</td>
+                                        <td>${s.last_run_items || 0}</td>
                                         <td><span class="badge badge-${s.last_run_status === 'completed' ? 'success' : 'warning'}">${s.last_run_status || 'N/A'}</span></td>
                                     </tr>
                                 `).join('')}
