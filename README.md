@@ -151,13 +151,13 @@ Clustering POMDP enabled for adaptive parameter selection
 ### Social Pulse (Trends)
 - Clusters social conversations into trend signals
 - Each trend has: name, description, strength score, region
+- **Click any trend card** to expand and see full details, topics, and source quotes
 - Quality filtering removes garbage like "Tour Advice There Trend"
-- Click sources to see original posts
 
 ### Hotelier Bets (Strategic Moves)
 - Extracts company moves from news: expansions, acquisitions, launches
 - Shows company, move type, market, strategic implications
-- Links to original articles
+- **Click any move card** to expand and see full summary and source links
 
 ### City Desires
 - Type any city (Lisbon, Tokyo, Barcelona, etc.)
