@@ -691,6 +691,21 @@ def _register_default_jobs(scheduler: ScraperScheduler) -> None:
     based on POMDP expected information gain. This is much more memory-efficient
     than running all scrapers simultaneously.
     """
+    # Remove old individual scraper jobs (from previous deploys)
+    # These were persisted in SQLite and need to be cleaned up
+    old_scraper_jobs = [
+        "scraper_hospitalitynet", "scraper_skift", "scraper_reddit",
+        "scraper_youtube", "scraper_tripadvisor", "scraper_booking",
+        "scraper_hoteldive", "scraper_hotelmanagement", "scraper_siteminder",
+        "scraper_tophotelnews", "scraper_ehlinsights", "scraper_ehotelier",
+    ]
+    for job_id in old_scraper_jobs:
+        try:
+            scheduler.scheduler.remove_job(job_id)
+            logger.info(f"Removed old job: {job_id}")
+        except Exception:
+            pass  # Job doesn't exist, that's fine
+
     config = scheduler.config.get("jobs", {})
 
     # Register ONE adaptive scraper job instead of all individual scrapers
