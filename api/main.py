@@ -48,23 +48,9 @@ async def lifespan(app: FastAPI):
                 scheduler.start()
                 logger.info("Scheduler started successfully")
 
-                # Trigger all scraper jobs on startup (catches up after sleep/deploy)
-                if os.getenv("RUN_SCRAPERS_ON_STARTUP", "true").lower() == "true":
-                    import threading
-                    def run_startup_scrapers():
-                        import time
-                        time.sleep(5)  # Wait for server to fully start
-                        logger.info("Running startup scrapers...")
-                        for job in scheduler.get_jobs():
-                            if job["id"].startswith("scraper_"):
-                                try:
-                                    scheduler.run_job_now(job["id"])
-                                    logger.info(f"Triggered startup scrape: {job['id']}")
-                                except Exception as e:
-                                    logger.warning(f"Failed to trigger {job['id']}: {e}")
-
-                    # Run in background thread to not block startup
-                    threading.Thread(target=run_startup_scrapers, daemon=True).start()
+                # Adaptive scraper runs on schedule, no need to trigger all at startup
+                # The POMDP will pick the best source to scrape every 30 minutes
+                logger.info("Adaptive POMDP scraper will run on schedule (every 30 min)")
         except Exception as e:
             logger.warning(f"Could not start scheduler: {e}")
 

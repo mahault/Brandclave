@@ -16,13 +16,25 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Import Scraping POMDP
-try:
-    from services.active_inference.scraping_pomdp import get_scraping_pomdp, ScrapingPOMDP
-    POMDP_AVAILABLE = True
-except ImportError:
-    POMDP_AVAILABLE = False
-    logger.info("Scraping POMDP not available")
+# Lazy import for Scraping POMDP (to avoid loading JAX at startup)
+POMDP_AVAILABLE = None  # Will be set on first use
+
+def _get_pomdp_module():
+    """Lazy load POMDP module to avoid loading JAX at startup."""
+    global POMDP_AVAILABLE
+    if POMDP_AVAILABLE is None:
+        try:
+            from services.active_inference.scraping_pomdp import get_scraping_pomdp, ScrapingPOMDP
+            POMDP_AVAILABLE = True
+            return get_scraping_pomdp, ScrapingPOMDP
+        except ImportError as e:
+            POMDP_AVAILABLE = False
+            logger.info(f"Scraping POMDP not available: {e}")
+            return None, None
+    elif POMDP_AVAILABLE:
+        from services.active_inference.scraping_pomdp import get_scraping_pomdp, ScrapingPOMDP
+        return get_scraping_pomdp, ScrapingPOMDP
+    return None, None
 
 # Try to import APScheduler
 try:
@@ -63,16 +75,10 @@ class ScraperScheduler:
         self.scheduler = None
         self._running = False
 
-        # Initialize POMDP for adaptive scraping
-        self.use_pomdp = use_pomdp and POMDP_AVAILABLE
-        self.scraping_pomdp: Optional[ScrapingPOMDP] = None
-        if self.use_pomdp:
-            try:
-                self.scraping_pomdp = get_scraping_pomdp()
-                logger.info("Scraping POMDP enabled for adaptive source selection")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Scraping POMDP: {e}")
-                self.use_pomdp = False
+        # POMDP will be lazy-loaded on first use to save memory
+        self._use_pomdp = use_pomdp
+        self._scraping_pomdp = None
+        self._pomdp_initialized = False
 
         if not SCHEDULER_AVAILABLE:
             logger.warning("APScheduler not available, scheduling disabled")
@@ -131,6 +137,26 @@ class ScraperScheduler:
     def is_available(self) -> bool:
         """Check if scheduler is available."""
         return self.scheduler is not None
+
+    @property
+    def scraping_pomdp(self):
+        """Lazy-load scraping POMDP on first access."""
+        if not self._pomdp_initialized and self._use_pomdp:
+            self._pomdp_initialized = True
+            get_scraping_pomdp, ScrapingPOMDP = _get_pomdp_module()
+            if get_scraping_pomdp is not None:
+                try:
+                    self._scraping_pomdp = get_scraping_pomdp()
+                    logger.info("Scraping POMDP lazy-loaded for adaptive source selection")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Scraping POMDP: {e}")
+                    self._scraping_pomdp = None
+        return self._scraping_pomdp
+
+    @property
+    def use_pomdp(self) -> bool:
+        """Check if POMDP is enabled and available."""
+        return self._use_pomdp and self.scraping_pomdp is not None
 
     @property
     def is_running(self) -> bool:
@@ -576,6 +602,42 @@ def _run_scraper_job_standalone(source_name: str) -> dict:
         return {"source": source_name, "status": "failed", "error": str(e)}
 
 
+def _run_adaptive_scraper() -> dict:
+    """
+    POMDP-driven adaptive scraper that picks ONE source based on expected info gain.
+
+    This function:
+    1. Uses POMDP to select the best source to scrape (highest expected info gain)
+    2. Runs only that ONE scraper
+    3. Updates POMDP beliefs with the result
+
+    This is much more memory-efficient than running all scrapers at once.
+    """
+    from scripts.run_crawlers import get_scraper_class, SCRAPERS
+
+    scheduler = get_scheduler()
+
+    # If POMDP available, use it to pick best source
+    if scheduler.scraping_pomdp is not None:
+        recommendation = scheduler.scraping_pomdp.select_next_source()
+        source_name = recommendation.get("source")
+        reason = recommendation.get("reason", "POMDP selection")
+        logger.info(f"POMDP selected source: {source_name} ({reason})")
+    else:
+        # Fallback: round-robin through lightweight sources
+        import random
+        lightweight_sources = ["skift", "hoteldive", "hotelmanagement", "siteminder"]
+        source_name = random.choice(lightweight_sources)
+        logger.info(f"Fallback selected source: {source_name}")
+
+    if not source_name or source_name not in SCRAPERS:
+        logger.warning(f"Invalid source: {source_name}, using skift")
+        source_name = "skift"
+
+    # Run the selected scraper
+    return _run_scraper_job_standalone(source_name)
+
+
 # Singleton instance
 _scheduler: ScraperScheduler | None = None
 
@@ -623,22 +685,36 @@ def _register_default_scrapers(scheduler: ScraperScheduler) -> None:
 
 
 def _register_default_jobs(scheduler: ScraperScheduler) -> None:
-    """Register default jobs from config."""
+    """Register default jobs from config.
+
+    Uses a SINGLE adaptive scraper job that picks ONE source at a time
+    based on POMDP expected information gain. This is much more memory-efficient
+    than running all scrapers simultaneously.
+    """
     config = scheduler.config.get("jobs", {})
 
+    # Register ONE adaptive scraper job instead of all individual scrapers
+    # This runs every 30 minutes and picks the best source to scrape
+    adaptive_interval = int(os.getenv("ADAPTIVE_SCRAPE_INTERVAL_MINUTES", "30"))
+
+    try:
+        scheduler.scheduler.add_job(
+            _run_adaptive_scraper,
+            trigger=IntervalTrigger(minutes=adaptive_interval),
+            id="adaptive_scraper",
+            name="Adaptive POMDP Scraper",
+            replace_existing=True,
+        )
+        logger.info(f"Registered adaptive scraper job (every {adaptive_interval} min)")
+    except Exception as e:
+        logger.error(f"Failed to register adaptive scraper: {e}")
+
+    # Register processing jobs (these are lightweight, keep them)
     for source_name, job_config in config.items():
         if not job_config.get("enabled", True):
             continue
 
-        # Check if it's a scraper job
-        if source_name in scheduler._scraper_registry:
-            scheduler.add_scraper_job(
-                source_name=source_name,
-                interval_minutes=job_config.get("interval_minutes"),
-                cron_expression=job_config.get("cron"),
-            )
-        # Check for special processing jobs
-        elif source_name == "nlp_pipeline":
+        if source_name == "nlp_pipeline":
             from processing.nlp_pipeline import run_pipeline
             scheduler.add_processing_job(
                 name="nlp_pipeline",
