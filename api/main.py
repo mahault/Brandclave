@@ -69,19 +69,23 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Could not start scheduler: {e}")
 
     # Pre-warm services to avoid slow first requests (JAX JIT compilation)
-    try:
-        logger.info("Pre-warming services...")
-        from services.social_pulse import SocialPulseService
-        from services.hotelier_bets import HotelierBetsService
-        from services.demand_scan import DemandScanService
+    # Disabled by default on low-memory environments (Render free tier = 512MB)
+    if os.getenv("PREWARM_SERVICES", "false").lower() == "true":
+        try:
+            logger.info("Pre-warming services...")
+            from services.social_pulse import SocialPulseService
+            from services.hotelier_bets import HotelierBetsService
+            from services.demand_scan import DemandScanService
 
-        # Create service instances to trigger POMDP initialization
-        _ = SocialPulseService(use_adaptive=True)
-        _ = HotelierBetsService(use_adaptive=True)
-        _ = DemandScanService()
-        logger.info("Services pre-warmed successfully")
-    except Exception as e:
-        logger.warning(f"Service pre-warm failed (non-critical): {e}")
+            # Create service instances to trigger POMDP initialization
+            _ = SocialPulseService(use_adaptive=True)
+            _ = HotelierBetsService(use_adaptive=True)
+            _ = DemandScanService()
+            logger.info("Services pre-warmed successfully")
+        except Exception as e:
+            logger.warning(f"Service pre-warm failed (non-critical): {e}")
+    else:
+        logger.info("Service pre-warming disabled (set PREWARM_SERVICES=true to enable)")
 
     yield
 
