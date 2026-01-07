@@ -264,6 +264,7 @@
 - [ ] Comprehensive test coverage
 - [ ] CI/CD pipeline
 - [ ] Documentation site
+- [ ] **Migrate to shared cloud database** — currently using SQLite committed to git; switch to Neon/Supabase PostgreSQL + pgvector for production (avoids repo bloat, enables proper sync between local/Render)
 
 ---
 
