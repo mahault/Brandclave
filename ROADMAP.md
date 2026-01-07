@@ -1,8 +1,9 @@
 # BrandClave AI — Development Roadmap
 
-## Current Status: ~30% Complete
+## Current Status: ~35% Complete
 **Backend intelligence layer exists** — scraping, trends, moves, city desires, demand scan, chat with RAG.
-**Not yet built** — Build a Brand form, project management, breakthrough features, React frontend.
+**Recently completed** — Social Pulse Phase 2 (filters, white space scores, save to project, Build a Brand page).
+**Not yet built** — Full brand blueprint output, project management, breakthrough features, React frontend.
 
 ---
 
@@ -24,11 +25,11 @@
 ## Phase 2: What's Hot Enhancements
 *Make Social Pulse & Hotelier Bets production-ready*
 
-### Social Pulse Improvements
-- [ ] Add **White Space Score** to each trend card
-- [ ] Add **Filters** — by region, segment, time period
-- [ ] Add **"Save to Project"** button on each trend
-- [ ] Add **"Turn Into Brand Concept"** button → pre-fills Build a Brand
+### Social Pulse Improvements ✅
+- [x] Add **White Space Score** to each trend card
+- [x] Add **Filters** — by region, segment, time period
+- [x] Add **"Save to Project"** button on each trend (localStorage)
+- [x] Add **"Turn Into Brand Concept"** button → pre-fills Build a Brand
 
 ### Hotelier Bets Improvements
 - [ ] Add **Market** field to move cards
@@ -48,12 +49,12 @@
 ## Phase 3: Build a Brand (MVP)
 *The core product — automated brand creation*
 
-### Input Form
-- [ ] City & location type selector
-- [ ] Target ADR input
-- [ ] Segment selector (lifestyle, luxury, boutique, etc.)
-- [ ] Developer goal input
-- [ ] Attach What's Hot signals option
+### Input Form (Started)
+- [x] City & location type selector
+- [x] Target ADR input
+- [x] Segment selector (lifestyle, luxury, boutique, etc.)
+- [x] Developer goal input
+- [x] Attach What's Hot signals option (via "Turn Into Brand" from trends)
 
 ### Brand Blueprint Output (MVP)
 - [ ] **Brand name** — AI-generated unique name

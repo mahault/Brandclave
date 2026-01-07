@@ -157,6 +157,81 @@ async def dashboard_v2():
 
         .error { background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 8px; text-align: center; }
 
+        /* White Space Badge */
+        .white-space-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.2);
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .white-space-high { background: rgba(34, 197, 94, 0.3); }
+        .white-space-medium { background: rgba(251, 191, 36, 0.3); }
+        .white-space-low { background: rgba(239, 68, 68, 0.2); }
+
+        /* Filter Bar */
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            font-size: 0.9em;
+            min-width: 140px;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: #667eea; }
+        .filter-reset {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .filter-reset:hover { background: #e0e0e0; }
+        .saved-count {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            margin-left: auto;
+        }
+
+        /* Trend Action Buttons */
+        .trend-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .trend-action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: transform 0.1s, opacity 0.1s;
+        }
+        .trend-action-btn:hover { transform: translateY(-1px); }
+        .btn-save { background: rgba(255,255,255,0.9); color: #333; }
+        .btn-save.saved { background: #22c55e; color: white; }
+        .btn-brand { background: #e94560; color: white; }
+
         /* Chat */
         .chat-message { margin-bottom: 15px; }
         .chat-message.user { text-align: right; }
@@ -363,6 +438,22 @@ async def dashboard_v2():
         <div id="trends" class="section">
             <div class="card">
                 <h2>📈 Social Pulse Trends</h2>
+                <div class="filter-bar">
+                    <select id="filter-region" class="filter-select" onchange="applyFilters()">
+                        <option value="">All Regions</option>
+                    </select>
+                    <select id="filter-audience" class="filter-select" onchange="applyFilters()">
+                        <option value="">All Segments</option>
+                    </select>
+                    <select id="filter-time" class="filter-select" onchange="applyFilters()">
+                        <option value="">All Time</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="14">Last 14 Days</option>
+                        <option value="30">Last 30 Days</option>
+                    </select>
+                    <button class="filter-reset" onclick="resetFilters()">Reset</button>
+                    <span id="saved-count" class="saved-count"></span>
+                </div>
                 <div id="trends-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
@@ -431,10 +522,22 @@ async def dashboard_v2():
             document.getElementById('modal-header').className = 'modal-header';
             document.getElementById('modal-title').textContent = t.name || t.trend_name || 'Unnamed Trend';
             const score = t.strength_score ? Math.round(t.strength_score * 100) + '%' : 'N/A';
-            document.getElementById('modal-meta').innerHTML = 'Strength: ' + score + ' | ' + (t.volume || 0) + ' sources';
+            const whiteSpace = t.white_space_score ? Math.round(t.white_space_score * 100) : 0;
+            document.getElementById('modal-meta').innerHTML = 'Strength: ' + score + ' | White Space: ' + whiteSpace + '% | ' + (t.volume || 0) + ' sources';
             let h = '';
             if (t.description) h += '<div class="modal-section"><h3>Description</h3><p>' + t.description + '</p></div>';
             if (t.why_it_matters) h += '<div class="modal-section"><h3>Why It Matters</h3><p>' + t.why_it_matters + '</p></div>';
+            // White Space Analysis section
+            if (t.white_space_score !== undefined) {
+                const ws = Math.round((t.white_space_score || 0) * 100);
+                const wsClass = ws >= 70 ? 'white-space-high' : ws >= 40 ? 'white-space-medium' : 'white-space-low';
+                const wsLabel = ws >= 70 ? 'High Opportunity - underserved market' : ws >= 40 ? 'Moderate Opportunity' : 'Low - competitive market';
+                h += '<div class="modal-section"><h3>🎯 White Space Analysis</h3>';
+                h += '<p><span class="white-space-badge ' + wsClass + '" style="font-size:1em;padding:6px 12px;">' + ws + '% - ' + wsLabel + '</span></p>';
+                if (t.region) h += '<p style="margin-top:10px;"><strong>Region:</strong> ' + t.region + '</p>';
+                if (t.audience_segment) h += '<p><strong>Segment:</strong> ' + t.audience_segment + '</p>';
+                h += '</div>';
+            }
             if (t.topics && t.topics.length) h += '<div class="modal-section"><h3>Topics</h3><div>' + t.topics.map(x => '<span class="topic-tag">' + x + '</span>').join('') + '</div></div>';
             if (t.sample_quotes && t.sample_quotes.length) { h += '<div class="modal-section"><h3>Source Quotes</h3>'; t.sample_quotes.forEach(q => { h += '<div class="source-quote">"' + q + '"</div>'; }); h += '</div>'; }
             document.getElementById('modal-body').innerHTML = h || '<p>No additional details.</p>';
@@ -580,11 +683,31 @@ async def dashboard_v2():
         function renderTrend(t, idx) {
             const name = t.name || t.trend_name || 'Unnamed Trend';
             const score = t.strength_score ? Math.round(t.strength_score * 100) + '%' : 'N/A';
+            const whiteSpace = t.white_space_score ? Math.round(t.white_space_score * 100) : 0;
+            const wsClass = whiteSpace >= 70 ? 'white-space-high' : whiteSpace >= 40 ? 'white-space-medium' : 'white-space-low';
+            const wsLabel = whiteSpace >= 70 ? 'High Opportunity' : whiteSpace >= 40 ? 'Moderate' : 'Low';
+            const isSaved = isProjectSaved(t.id);
+
             return `
-                <div class="trend-card" onclick="openTrendModal(${idx})">
-                    <h3>${truncate(name, 60)}</h3>
-                    <p>${truncate(t.description || t.why_it_matters || '', 200)}</p>
-                    <div class="trend-meta">Strength: ${score} | ${t.volume || 0} sources | Click to expand</div>
+                <div class="trend-card" data-trend-id="${t.id}">
+                    <div onclick="openTrendModal(${idx})" style="cursor:pointer;">
+                        <h3>${truncate(name, 60)}</h3>
+                        <p>${truncate(t.description || t.why_it_matters || '', 200)}</p>
+                        <div class="trend-meta">
+                            <span class="white-space-badge ${wsClass}">🎯 ${whiteSpace}% ${wsLabel}</span>
+                            | Strength: ${score} | ${t.volume || 0} sources
+                        </div>
+                    </div>
+                    <div class="trend-actions">
+                        <button class="trend-action-btn btn-save ${isSaved ? 'saved' : ''}"
+                                onclick="event.stopPropagation(); toggleSaveProject(${idx})">
+                            ${isSaved ? '✓ Saved' : '💾 Save'}
+                        </button>
+                        <button class="trend-action-btn btn-brand"
+                                onclick="event.stopPropagation(); turnIntoBrand(${idx})">
+                            🚀 Build a Brand
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -610,6 +733,188 @@ async def dashboard_v2():
                     </div>
                 </div>
             `;
+        }
+
+        // =============================================
+        // Filter Functions
+        // =============================================
+        let currentFilters = { region: '', audience: '', time: '' };
+
+        async function loadFilterOptions() {
+            try {
+                const [regionsRes, audiencesRes] = await Promise.all([
+                    fetch('/api/social-pulse/regions'),
+                    fetch('/api/social-pulse/audiences')
+                ]);
+
+                const regionsData = await regionsRes.json();
+                const audiencesData = await audiencesRes.json();
+
+                // Populate region dropdown
+                const regionSelect = document.getElementById('filter-region');
+                regionSelect.innerHTML = '<option value="">All Regions</option>';
+                (regionsData.regions || []).forEach(r => {
+                    if (r.region) {
+                        regionSelect.innerHTML += '<option value="' + r.region + '">' + r.region + ' (' + r.count + ')</option>';
+                    }
+                });
+
+                // Populate audience dropdown
+                const audienceSelect = document.getElementById('filter-audience');
+                audienceSelect.innerHTML = '<option value="">All Segments</option>';
+                (audiencesData.audiences || []).forEach(a => {
+                    if (a.segment) {
+                        audienceSelect.innerHTML += '<option value="' + a.segment + '">' + a.segment + ' (' + a.count + ')</option>';
+                    }
+                });
+            } catch (err) {
+                console.error('Failed to load filter options:', err);
+            }
+        }
+
+        async function applyFilters() {
+            currentFilters.region = document.getElementById('filter-region').value;
+            currentFilters.audience = document.getElementById('filter-audience').value;
+            currentFilters.time = document.getElementById('filter-time').value;
+            await loadTrendsWithFilters();
+        }
+
+        async function loadTrendsWithFilters() {
+            const params = new URLSearchParams({ limit: '20' });
+            if (currentFilters.region) params.append('region', currentFilters.region);
+            if (currentFilters.audience) params.append('audience', currentFilters.audience);
+
+            document.getElementById('trends-list').innerHTML = '<div class="empty"><div class="icon">⏳</div>Loading...</div>';
+
+            try {
+                const res = await fetch('/api/social-pulse?' + params.toString());
+                const data = await res.json();
+
+                let trends = data.trends || [];
+
+                // Client-side time filtering
+                if (currentFilters.time) {
+                    const daysAgo = parseInt(currentFilters.time);
+                    const cutoff = new Date();
+                    cutoff.setDate(cutoff.getDate() - daysAgo);
+                    trends = trends.filter(t => {
+                        if (!t.first_seen) return true;
+                        return new Date(t.first_seen) >= cutoff;
+                    });
+                }
+
+                allTrends = trends;
+
+                if (trends.length > 0) {
+                    document.getElementById('trends-list').innerHTML = trends.map((t, i) => renderTrend(t, i)).join('');
+                } else {
+                    document.getElementById('trends-list').innerHTML = '<div class="empty"><div class="icon">📈</div>No trends match your filters</div>';
+                }
+            } catch (err) {
+                document.getElementById('trends-list').innerHTML = '<div class="error">Failed to load trends: ' + err.message + '</div>';
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-region').value = '';
+            document.getElementById('filter-audience').value = '';
+            document.getElementById('filter-time').value = '';
+            currentFilters = { region: '', audience: '', time: '' };
+            loadTrendsWithFilters();
+        }
+
+        // =============================================
+        // LocalStorage Save to Project Functions
+        // =============================================
+        const STORAGE_KEY = 'brandclave_saved_trends';
+
+        function getSavedProjects() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error('Error reading saved projects:', e);
+                return [];
+            }
+        }
+
+        function saveProject(trend) {
+            const saved = getSavedProjects();
+            if (saved.some(s => s.id === trend.id)) return false;
+
+            saved.push({
+                id: trend.id,
+                name: trend.name || trend.trend_name,
+                description: trend.description,
+                white_space_score: trend.white_space_score,
+                strength_score: trend.strength_score,
+                region: trend.region,
+                audience_segment: trend.audience_segment,
+                topics: trend.topics,
+                saved_at: new Date().toISOString()
+            });
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+            return true;
+        }
+
+        function removeProject(trendId) {
+            const saved = getSavedProjects();
+            const filtered = saved.filter(s => s.id !== trendId);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+        }
+
+        function isProjectSaved(trendId) {
+            return getSavedProjects().some(s => s.id === trendId);
+        }
+
+        function toggleSaveProject(idx) {
+            const trend = allTrends[idx];
+            if (!trend) return;
+
+            if (isProjectSaved(trend.id)) {
+                removeProject(trend.id);
+            } else {
+                saveProject(trend);
+            }
+
+            // Re-render the trends list
+            document.getElementById('trends-list').innerHTML = allTrends.map((t, i) => renderTrend(t, i)).join('');
+            updateSavedCount();
+        }
+
+        function updateSavedCount() {
+            const count = getSavedProjects().length;
+            const countEl = document.getElementById('saved-count');
+            if (countEl) {
+                countEl.textContent = count > 0 ? count + ' saved' : '';
+            }
+        }
+
+        // =============================================
+        // Turn Into Brand Function
+        // =============================================
+        function turnIntoBrand(idx) {
+            const trend = allTrends[idx];
+            if (!trend) return;
+
+            // Store trend data for the Build a Brand page
+            const brandInput = {
+                source_trend_id: trend.id,
+                source_trend_name: trend.name || trend.trend_name,
+                initial_segment: trend.audience_segment || 'lifestyle',
+                initial_region: trend.region || '',
+                topics: trend.topics || [],
+                white_space_score: trend.white_space_score,
+                description: trend.description,
+                why_it_matters: trend.why_it_matters
+            };
+
+            // Store in sessionStorage
+            sessionStorage.setItem('brandclave_brand_input', JSON.stringify(brandInput));
+
+            // Navigate to Build a Brand page
+            window.location.href = '/api/monitoring/build-a-brand';
         }
 
         // City Desires functions
@@ -844,6 +1149,8 @@ async def dashboard_v2():
 
         // Load data on page load
         loadAllData();
+        loadFilterOptions();
+        updateSavedCount();
 
         // Auto-refresh every 60 seconds
         setInterval(loadAllData, 60000);
@@ -858,6 +1165,546 @@ async def dashboard_v2():
         </div>
     </div>
 
+</body>
+</html>
+"""
+    return HTMLResponse(content=html)
+
+
+@router.get("/monitoring/build-a-brand", response_class=HTMLResponse)
+async def build_a_brand_page():
+    """Build a Brand concept page - create hotel brand from trends."""
+    html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Build a Brand | BrandClave</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .hero {
+            background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .hero h1 { font-size: 2em; margin-bottom: 8px; }
+        .hero p { opacity: 0.9; }
+        .back-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+        }
+        .back-link:hover { opacity: 1; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+        .card {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .card h2 { color: #1a1a2e; margin-bottom: 20px; font-size: 1.4em; }
+
+        .source-trend {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .source-trend h3 { margin-bottom: 8px; }
+        .source-trend p { opacity: 0.9; font-size: 0.9em; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        .topics-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .topic-tag {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #e94560 0%, #f06292 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+        .btn-generate:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #result-container { display: none; }
+
+        .blueprint-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+        }
+        .blueprint-card h2 { color: white; margin-bottom: 5px; }
+        .blueprint-oneliner { font-size: 1.1em; opacity: 0.9; margin-bottom: 20px; }
+
+        .blueprint-section { margin-bottom: 20px; }
+        .blueprint-section h3 {
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+        .blueprint-section p { line-height: 1.6; }
+        .blueprint-section ul { padding-left: 20px; }
+        .blueprint-section li { margin-bottom: 5px; }
+
+        .experience-card {
+            background: rgba(255,255,255,0.15);
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .experience-card h4 { margin-bottom: 5px; }
+        .experience-card p { font-size: 0.9em; opacity: 0.9; }
+
+        .loading-indicator {
+            text-align: center;
+            padding: 40px;
+        }
+        .loading-indicator .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0,0,0,0.1);
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .btn-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .btn-secondary {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px;
+            background: white;
+            color: #333;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .btn-secondary:hover { background: #f0f0f0; }
+
+        .white-space-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.2);
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>Build a Brand</h1>
+        <p>Transform market trends into unique hotel brand concepts</p>
+        <a href="/api/monitoring/dashboard-v2" class="back-link">Back to Dashboard</a>
+    </div>
+
+    <div class="container">
+        <div id="source-trend-card" class="source-trend" style="display:none;">
+            <h3 id="source-trend-name">Source Trend</h3>
+            <p id="source-trend-desc">Description</p>
+            <div class="topics-list" id="source-topics"></div>
+            <div class="white-space-badge" id="source-ws"></div>
+        </div>
+
+        <div class="card">
+            <h2>Brand Inputs</h2>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="brand-location">Target Location</label>
+                    <input type="text" id="brand-location" placeholder="e.g., Lisbon, Portugal">
+                </div>
+                <div class="form-group">
+                    <label for="brand-segment">Target Segment</label>
+                    <select id="brand-segment">
+                        <option value="lifestyle">Lifestyle</option>
+                        <option value="luxury">Luxury</option>
+                        <option value="boutique">Boutique</option>
+                        <option value="wellness">Wellness</option>
+                        <option value="eco">Eco / Sustainable</option>
+                        <option value="business">Business</option>
+                        <option value="family">Family</option>
+                        <option value="adventure">Adventure</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="brand-adr">Target ADR ($)</label>
+                    <input type="number" id="brand-adr" placeholder="e.g., 350">
+                </div>
+                <div class="form-group">
+                    <label for="brand-rooms">Room Count</label>
+                    <input type="number" id="brand-rooms" placeholder="e.g., 80">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="brand-goal">Developer Goal / Vision</label>
+                <textarea id="brand-goal" placeholder="What makes this project special? What's your vision?"></textarea>
+            </div>
+
+            <button class="btn-generate" id="generate-btn" onclick="generateBrandConcept()">
+                Generate Brand Concept
+            </button>
+        </div>
+
+        <div id="loading-container" class="card" style="display:none;">
+            <div class="loading-indicator">
+                <div class="spinner"></div>
+                <p>Generating your brand concept...</p>
+                <p style="font-size:0.9em;color:#666;margin-top:10px;">
+                    Analyzing trends, market gaps, and opportunities...
+                </p>
+            </div>
+        </div>
+
+        <div id="result-container">
+            <div class="blueprint-card">
+                <h2 id="bp-name">Brand Name</h2>
+                <p class="blueprint-oneliner" id="bp-oneliner">One-liner</p>
+
+                <div class="blueprint-section">
+                    <h3>Brand Thesis</h3>
+                    <p id="bp-thesis"></p>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Brand Pillars</h3>
+                    <ul id="bp-pillars"></ul>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Signature Experiences</h3>
+                    <div id="bp-experiences"></div>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Design Direction</h3>
+                    <p id="bp-design"></p>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Target Guests</h3>
+                    <p id="bp-personas"></p>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Why It Will Succeed</h3>
+                    <p id="bp-success"></p>
+                </div>
+            </div>
+
+            <div class="btn-actions">
+                <button class="btn-secondary" onclick="saveBlueprintToProject()">
+                    Save to Project
+                </button>
+                <button class="btn-secondary" onclick="regenerateConcept()">
+                    Regenerate
+                </button>
+                <button class="btn-secondary" onclick="window.print()">
+                    Print / Export
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sourceTrend = null;
+        let currentBlueprint = null;
+
+        // Load source trend from sessionStorage
+        function loadSourceTrend() {
+            try {
+                const data = sessionStorage.getItem('brandclave_brand_input');
+                if (data) {
+                    sourceTrend = JSON.parse(data);
+
+                    // Show source trend card
+                    document.getElementById('source-trend-card').style.display = 'block';
+                    document.getElementById('source-trend-name').textContent = sourceTrend.source_trend_name || 'Selected Trend';
+                    document.getElementById('source-trend-desc').textContent = sourceTrend.description || '';
+
+                    // Show topics
+                    const topicsEl = document.getElementById('source-topics');
+                    if (sourceTrend.topics && sourceTrend.topics.length) {
+                        topicsEl.innerHTML = sourceTrend.topics.map(t =>
+                            '<span class="topic-tag">' + t + '</span>'
+                        ).join('');
+                    }
+
+                    // Show white space score
+                    if (sourceTrend.white_space_score) {
+                        const ws = Math.round(sourceTrend.white_space_score * 100);
+                        document.getElementById('source-ws').textContent = 'White Space: ' + ws + '%';
+                    }
+
+                    // Pre-fill inputs
+                    if (sourceTrend.initial_region) {
+                        document.getElementById('brand-location').value = sourceTrend.initial_region;
+                    }
+                    if (sourceTrend.initial_segment) {
+                        document.getElementById('brand-segment').value = sourceTrend.initial_segment;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading source trend:', e);
+            }
+        }
+
+        async function generateBrandConcept() {
+            const btn = document.getElementById('generate-btn');
+            const loadingEl = document.getElementById('loading-container');
+            const resultEl = document.getElementById('result-container');
+
+            btn.disabled = true;
+            loadingEl.style.display = 'block';
+            resultEl.style.display = 'none';
+
+            // Gather inputs
+            const inputs = {
+                location: document.getElementById('brand-location').value,
+                segment: document.getElementById('brand-segment').value,
+                adr: document.getElementById('brand-adr').value,
+                rooms: document.getElementById('brand-rooms').value,
+                goal: document.getElementById('brand-goal').value,
+                source_trend: sourceTrend
+            };
+
+            try {
+                // Build the prompt
+                const message = buildBrandPrompt(inputs);
+
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    displayBlueprint(data.response, inputs);
+                    resultEl.style.display = 'block';
+                } else {
+                    alert('Generation failed: ' + (data.detail || 'Unknown error'));
+                }
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        function buildBrandPrompt(inputs) {
+            let prompt = 'Help me create a detailed hotel brand concept';
+
+            if (inputs.location) prompt += ' in ' + inputs.location;
+            if (inputs.segment) prompt += ' targeting the ' + inputs.segment + ' segment';
+            if (inputs.adr) prompt += ' with a target ADR of $' + inputs.adr;
+            if (inputs.rooms) prompt += ' and approximately ' + inputs.rooms + ' rooms';
+
+            if (inputs.source_trend) {
+                prompt += '. This brand should capitalize on the trend: "' +
+                    inputs.source_trend.source_trend_name + '"';
+                if (inputs.source_trend.description) {
+                    prompt += ' - ' + inputs.source_trend.description.substring(0, 200);
+                }
+            }
+
+            if (inputs.goal) prompt += '. My vision: ' + inputs.goal;
+
+            prompt += '. Please provide: 1) A unique brand name 2) One-liner essence 3) Brand thesis 4) 3-5 brand pillars 5) Signature experiences 6) Design direction 7) Target guest personas 8) Why this concept will succeed in the market.';
+
+            return prompt;
+        }
+
+        function displayBlueprint(response, inputs) {
+            currentBlueprint = {
+                inputs: inputs,
+                response: response,
+                generated_at: new Date().toISOString()
+            };
+
+            // Parse sections from response
+            const sections = parseResponse(response);
+
+            document.getElementById('bp-name').textContent = sections.name || 'Brand Concept';
+            document.getElementById('bp-oneliner').textContent = sections.oneliner || '';
+            document.getElementById('bp-thesis').textContent = sections.thesis || '';
+            document.getElementById('bp-pillars').innerHTML = sections.pillars.map(p => '<li>' + p + '</li>').join('');
+            document.getElementById('bp-experiences').innerHTML = sections.experiences.map(e =>
+                '<div class="experience-card"><p>' + e + '</p></div>'
+            ).join('');
+            document.getElementById('bp-design').textContent = sections.design || '';
+            document.getElementById('bp-personas').textContent = sections.personas || '';
+            document.getElementById('bp-success').textContent = sections.success || '';
+        }
+
+        function parseResponse(text) {
+            const result = {
+                name: '',
+                oneliner: '',
+                thesis: '',
+                pillars: [],
+                experiences: [],
+                design: '',
+                personas: '',
+                success: ''
+            };
+
+            // Try to extract brand name
+            const nameMatch = text.match(/brand\\s*name[:\\s]*["']?([^"'\\n]+)/i) ||
+                              text.match(/\\*\\*([^*]+)\\*\\*/);
+            if (nameMatch) result.name = nameMatch[1].trim();
+
+            // Extract one-liner
+            const oneMatch = text.match(/one[- ]liner[:\\s]*["']?([^"'\\n]+)/i) ||
+                            text.match(/essence[:\\s]*["']?([^"'\\n]+)/i);
+            if (oneMatch) result.oneliner = oneMatch[1].trim();
+
+            // For other sections, split by headers and extract content
+            const lines = text.split('\\n');
+            let currentSection = '';
+
+            for (const line of lines) {
+                const lower = line.toLowerCase();
+                if (lower.includes('thesis') || lower.includes('philosophy')) {
+                    currentSection = 'thesis';
+                } else if (lower.includes('pillar')) {
+                    currentSection = 'pillars';
+                } else if (lower.includes('experience') || lower.includes('signature')) {
+                    currentSection = 'experiences';
+                } else if (lower.includes('design') || lower.includes('aesthetic')) {
+                    currentSection = 'design';
+                } else if (lower.includes('guest') || lower.includes('persona') || lower.includes('target')) {
+                    currentSection = 'personas';
+                } else if (lower.includes('succeed') || lower.includes('success') || lower.includes('why')) {
+                    currentSection = 'success';
+                } else if (line.trim()) {
+                    // Add content to current section
+                    const content = line.replace(/^[\\d\\-\\*\\.]+\\s*/, '').trim();
+                    if (content.length > 3) {
+                        if (currentSection === 'pillars' || currentSection === 'experiences') {
+                            result[currentSection].push(content);
+                        } else if (currentSection && !result[currentSection]) {
+                            result[currentSection] = content;
+                        } else if (currentSection && result[currentSection]) {
+                            result[currentSection] += ' ' + content;
+                        }
+                    }
+                }
+            }
+
+            // Fallbacks
+            if (result.pillars.length === 0) {
+                result.pillars = ['Innovation', 'Experience', 'Community', 'Sustainability'];
+            }
+            if (result.experiences.length === 0) {
+                result.experiences = ['Curated local experiences', 'Signature welcome ritual', 'Community gathering spaces'];
+            }
+            if (!result.thesis) result.thesis = text.substring(0, 300);
+
+            return result;
+        }
+
+        function saveBlueprintToProject() {
+            if (!currentBlueprint) return;
+
+            const saved = JSON.parse(localStorage.getItem('brandclave_saved_blueprints') || '[]');
+            saved.push(currentBlueprint);
+            localStorage.setItem('brandclave_saved_blueprints', JSON.stringify(saved));
+
+            alert('Blueprint saved!');
+        }
+
+        function regenerateConcept() {
+            generateBrandConcept();
+        }
+
+        // Initialize
+        loadSourceTrend();
+    </script>
 </body>
 </html>
 """
