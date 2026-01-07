@@ -1633,57 +1633,102 @@ async def build_a_brand_page():
                 success: ''
             };
 
-            // Try to extract brand name
-            const nameMatch = text.match(/brand\\s*name[:\\s]*["']?([^"'\\n]+)/i) ||
-                              text.match(/\\*\\*([^*]+)\\*\\*/);
-            if (nameMatch) result.name = nameMatch[1].trim();
+            // Helper to strip markdown formatting
+            function cleanMarkdown(str) {
+                if (!str) return '';
+                return str
+                    .replace(/\\*\\*\\*([^*]+)\\*\\*\\*/g, '$1')  // ***bold italic***
+                    .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')        // **bold**
+                    .replace(/\\*([^*]+)\\*/g, '$1')              // *italic*
+                    .replace(/^#{1,6}\\s*/gm, '')                 // ### headers
+                    .replace(/^[-*]\\s+/gm, '')                   // - bullet points
+                    .replace(/^\\d+\\.\\s+/gm, '')                // 1. numbered lists
+                    .replace(/\\n{3,}/g, '\\n\\n')                // multiple newlines
+                    .trim();
+            }
 
-            // Extract one-liner
-            const oneMatch = text.match(/one[- ]liner[:\\s]*["']?([^"'\\n]+)/i) ||
-                            text.match(/essence[:\\s]*["']?([^"'\\n]+)/i);
-            if (oneMatch) result.oneliner = oneMatch[1].trim();
-
-            // For other sections, split by headers and extract content
-            const lines = text.split('\\n');
-            let currentSection = '';
-
-            for (const line of lines) {
-                const lower = line.toLowerCase();
-                if (lower.includes('thesis') || lower.includes('philosophy')) {
-                    currentSection = 'thesis';
-                } else if (lower.includes('pillar')) {
-                    currentSection = 'pillars';
-                } else if (lower.includes('experience') || lower.includes('signature')) {
-                    currentSection = 'experiences';
-                } else if (lower.includes('design') || lower.includes('aesthetic')) {
-                    currentSection = 'design';
-                } else if (lower.includes('guest') || lower.includes('persona') || lower.includes('target')) {
-                    currentSection = 'personas';
-                } else if (lower.includes('succeed') || lower.includes('success') || lower.includes('why')) {
-                    currentSection = 'success';
-                } else if (line.trim()) {
-                    // Add content to current section
-                    const content = line.replace(/^[\\d\\-\\*\\.]+\\s*/, '').trim();
-                    if (content.length > 3) {
-                        if (currentSection === 'pillars' || currentSection === 'experiences') {
-                            result[currentSection].push(content);
-                        } else if (currentSection && !result[currentSection]) {
-                            result[currentSection] = content;
-                        } else if (currentSection && result[currentSection]) {
-                            result[currentSection] += ' ' + content;
-                        }
-                    }
+            // Extract brand name - look for quoted name or "The X" pattern
+            const namePatterns = [
+                /brand\\s*name[:\\s]*[""]([^""]+)[""]|brand\\s*name[:\\s]*["']([^"']+)["']/i,
+                /[""]The\\s+([^""]+)[""]|["']The\\s+([^"']+)["']/i,
+                /called\\s+[""]([^""]+)[""]|called\\s+["']([^"']+)["']/i,
+                /\\*\\*[""]?([^"*]+)[""]?\\*\\*/
+            ];
+            for (const pattern of namePatterns) {
+                const match = text.match(pattern);
+                if (match) {
+                    result.name = cleanMarkdown(match[1] || match[2] || '');
+                    if (result.name) break;
                 }
             }
 
-            // Fallbacks
+            // Extract one-liner/essence
+            const essenceMatch = text.match(/one[- ]liner[^:]*:[\\s]*[""]?([^""\\n]+)/i) ||
+                                 text.match(/essence[^:]*:[\\s]*[""]?([^""\\n]+)/i);
+            if (essenceMatch) result.oneliner = cleanMarkdown(essenceMatch[1]);
+
+            // Split into sections by markdown headers
+            const sections = text.split(/(?=#{2,3}\\s|\\*\\*\\d+\\.|\\*\\*[A-Z])/);
+
+            for (const section of sections) {
+                const lower = section.toLowerCase();
+                const content = cleanMarkdown(section.replace(/^[#*\\d.\\s]+[^\\n]*\\n?/, ''));
+
+                // Only match section headers, not content
+                const isHeader = section.match(/^#{2,3}\\s|^\\*\\*\\d+\\.|^\\*\\*[A-Z]/);
+                if (!isHeader) continue;
+
+                if (lower.includes('thesis') || lower.includes('philosophy') || lower.includes('core concept')) {
+                    result.thesis = content;
+                } else if (lower.includes('pillar')) {
+                    // Extract bullet points
+                    const bullets = section.match(/[-*]\\s+\\*?\\*?([^\\n*]+)/g) || [];
+                    result.pillars = bullets.map(b => cleanMarkdown(b)).filter(b => b.length > 3);
+                } else if ((lower.includes('experience') || lower.includes('signature')) && !lower.includes('target')) {
+                    const bullets = section.match(/[-*]\\s+\\*?\\*?([^\\n*]+)/g) ||
+                                   section.match(/\\*\\*([^*]+)\\*\\*[^\\n]*/g) || [];
+                    result.experiences = bullets.map(b => cleanMarkdown(b)).filter(b => b.length > 3);
+                } else if (lower.includes('design') || lower.includes('aesthetic') || lower.includes('visual')) {
+                    result.design = content;
+                } else if ((lower.includes('guest') || lower.includes('persona')) && lower.includes('target')) {
+                    result.personas = content;
+                } else if (lower.includes('succeed') || lower.includes('success') || lower.includes('why it will')) {
+                    result.success = content;
+                }
+            }
+
+            // Try alternate extraction for experiences if empty
+            if (result.experiences.length === 0) {
+                const expMatch = text.match(/signature\\s+experience[^:]*:([\\s\\S]*?)(?=###|\\*\\*\\d|$)/i);
+                if (expMatch) {
+                    const bullets = expMatch[1].match(/[-*]\\s+\\*?\\*?([^\\n]+)/g) || [];
+                    result.experiences = bullets.map(b => cleanMarkdown(b)).filter(b => b.length > 5);
+                }
+            }
+
+            // Try alternate extraction for personas if empty
+            if (!result.personas) {
+                const personaMatch = text.match(/target\\s+guest[^:]*:([\\s\\S]*?)(?=###|\\*\\*\\d|$)/i);
+                if (personaMatch) {
+                    result.personas = cleanMarkdown(personaMatch[1]);
+                }
+            }
+
+            // Fallbacks with cleaner defaults
             if (result.pillars.length === 0) {
-                result.pillars = ['Innovation', 'Experience', 'Community', 'Sustainability'];
+                result.pillars = ['Authentic Local Experience', 'Community Connection', 'Distinctive Design', 'Personalized Service'];
             }
             if (result.experiences.length === 0) {
-                result.experiences = ['Curated local experiences', 'Signature welcome ritual', 'Community gathering spaces'];
+                result.experiences = ['Curated neighborhood discoveries', 'Signature welcome ritual', 'Local artisan collaborations'];
             }
-            if (!result.thesis) result.thesis = text.substring(0, 300);
+            if (!result.thesis) {
+                // Extract first meaningful paragraph
+                const firstPara = text.split('\\n\\n')[0];
+                result.thesis = cleanMarkdown(firstPara).substring(0, 400);
+            }
+            if (!result.success) {
+                result.success = 'This concept fills a clear market gap by combining trending traveler preferences with authentic local experiences.';
+            }
 
             return result;
         }
