@@ -31,11 +31,11 @@
 - [x] Add **"Save to Project"** button on each trend (localStorage)
 - [x] Add **"Turn Into Brand Concept"** button → pre-fills Build a Brand
 
-### Hotelier Bets Improvements
-- [ ] Add **Market** field to move cards
-- [ ] Add **Strategic Implications** section
-- [ ] Add **Filters** — by company, move type, region
-- [ ] Add **"Save to Project"** button
+### Hotelier Bets Improvements ✅
+- [x] Add **Market** field to move cards
+- [x] Add **Strategic Implications** section
+- [x] Add **Filters** — by company, move type, region
+- [x] Add **"Save to Project"** button
 
 ### Demand Scan Enhancements
 - [ ] Generate **Demand Fit Score (0-100)**

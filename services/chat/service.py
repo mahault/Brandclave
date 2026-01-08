@@ -99,16 +99,20 @@ class ChatService:
         self,
         message: str,
         project_id: str | None = None,
+        user_context: str | None = None,
     ) -> dict[str, Any]:
         """Process a chat message and generate response.
 
         Args:
             message: User message
             project_id: Optional project context
+            user_context: User's research profile from saved items
 
         Returns:
             Dict with response, artifact, and state
         """
+        # Store user context for this conversation
+        self._user_context = user_context
         if not self._conversation_id:
             self.new_conversation(project_id)
 
@@ -119,6 +123,17 @@ class ChatService:
         # 2. Update belief state
         self.belief_manager.update_from_router(router_output)
         self.belief_manager.update_stage(message)
+
+        # 2.5 Check if brand build mode without profile - should ask questions
+        mode = router_output.get_mode()
+        slots = router_output.slots_detected
+        has_profile = bool(user_context)
+        has_enough_context = bool(slots.location or slots.segment or has_profile)
+
+        if mode == ChatMode.BRAND_BUILD and not has_enough_context:
+            # No profile and no clear inputs - ask clarifying questions
+            logger.info("Brand build without context - asking clarifying questions")
+            return self._handle_brand_discovery(message)
 
         # 3. Select action based on belief
         action, action_meta = self.belief_manager.select_action()
@@ -240,6 +255,70 @@ class ChatService:
             "reason": action_meta.get("reason"),
         }
 
+    def _handle_brand_discovery(
+        self,
+        user_message: str,
+    ) -> dict[str, Any]:
+        """Handle brand build request without enough context.
+
+        When user wants to build a brand but hasn't provided location,
+        segment, or saved any research - ask discovery questions.
+
+        Args:
+            user_message: Original user message
+
+        Returns:
+            Response dict with discovery questions
+        """
+        response = """I'd love to help you create a hotel brand! To design something truly unique, I need to understand your vision better.
+
+**Let me ask you a few questions:**
+
+1. **Where are you thinking?** Which city or region interests you most?
+
+2. **Who's your ideal guest?** Are you targeting:
+   - Luxury seekers
+   - Wellness-focused travelers
+   - Digital nomads / remote workers
+   - Adventure travelers
+   - Business travelers
+   - Families
+
+3. **What's the vibe?** Any brands, hotels, or experiences that inspire you?
+
+4. **What's missing in the market?** Any frustrations you've noticed as a traveler?
+
+💡 **Tip:** You can also browse **Social Pulse** and **Hotelier Bets** tabs to save trends and moves that interest you. Your saved items will automatically inform the brand I create for you!
+
+Start with whichever question resonates most, or tell me about your vision in your own words."""
+
+        # Store messages
+        user_msg = ChatMessage(
+            id=str(uuid.uuid4()),
+            role="user",
+            content=user_message,
+        )
+        assistant_msg = ChatMessage(
+            id=str(uuid.uuid4()),
+            role="assistant",
+            content=response,
+        )
+        self._messages.extend([user_msg, assistant_msg])
+
+        return {
+            "conversation_id": self._conversation_id,
+            "response": response,
+            "mode": ChatMode.BRAND_BUILD.value,
+            "confidence": "Low",
+            "sources_used": 0,
+            "state": self.belief_manager.get_state_summary(),
+            "action": "brand_discovery",
+            "suggested_action": {
+                "type": "explore_dashboard",
+                "message": "Browse Social Pulse and Hotelier Bets to build your profile",
+            },
+        }
+
     async def _retrieve_context(
         self,
         query: str,
@@ -324,8 +403,18 @@ class ChatService:
         """Build prompt for insight mode."""
         location_str = f" in {slots.location}" if slots.location else ""
 
-        return f"""You are a hospitality intelligence analyst. Answer the user's question about market trends, opportunities, or industry insights{location_str}.
+        # Include user profile context if available
+        user_profile_section = ""
+        if hasattr(self, '_user_context') and self._user_context:
+            user_profile_section = f"""
+IMPORTANT - User Research Profile:
+{self._user_context}
+Use this context to personalize your response to their specific interests and research focus.
 
+"""
+
+        return f"""You are a hospitality intelligence analyst. Answer the user's question about market trends, opportunities, or industry insights{location_str}.
+{user_profile_section}
 Use the following context from our knowledge base:
 
 {context}
@@ -384,8 +473,18 @@ Be specific and actionable."""
 
         inputs_str = "\n".join(inputs) if inputs else "No specific inputs provided yet."
 
-        return f"""You are a hospitality brand strategist. Help create a unique hotel brand concept.
+        # Include user profile context if available
+        user_profile_section = ""
+        if hasattr(self, '_user_context') and self._user_context:
+            user_profile_section = f"""
+User Research Profile:
+{self._user_context}
+Use these interests and research focus to inform the brand direction.
 
+"""
+
+        return f"""You are a hospitality brand strategist. Help create a unique hotel brand concept.
+{user_profile_section}
 Inputs:
 {inputs_str}
 

@@ -123,6 +123,43 @@ async def dashboard_v2():
         .move-card h3 { margin-bottom: 5px; }
         .move-card .company { font-size: 0.9em; opacity: 0.9; margin-bottom: 8px; }
         .move-card p { font-size: 0.9em; line-height: 1.4; }
+        .move-badges { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .move-type-badge {
+            background: rgba(255,255,255,0.25);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .market-badge {
+            background: rgba(0,0,0,0.15);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        .move-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .move-action-btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        .move-action-btn.btn-save {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .move-action-btn.btn-save:hover { background: rgba(255,255,255,0.35); }
+        .move-action-btn.btn-save.saved {
+            background: rgba(255,255,255,0.9);
+            color: #11998e;
+        }
 
         .content-item {
             padding: 12px;
@@ -291,6 +328,71 @@ async def dashboard_v2():
             50% { opacity: 1; }
         }
 
+        /* My Projects */
+        .profile-insights-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        .profile-insights-card h3 { margin-bottom: 15px; }
+        .profile-tag {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 15px;
+            margin: 3px;
+            font-size: 0.9em;
+        }
+        .profile-section { margin-bottom: 12px; }
+        .profile-section-title { font-size: 0.85em; opacity: 0.9; margin-bottom: 6px; }
+        .btn-primary {
+            padding: 12px 24px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+        }
+        .btn-primary:hover { background: #d63850; }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-secondary {
+            padding: 12px 24px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+        }
+        .btn-secondary:hover { background: #5a6268; }
+        .saved-item-card {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .saved-item-card h4 { margin-bottom: 4px; color: #1a1a2e; }
+        .saved-item-meta { font-size: 0.85em; color: #666; }
+        .saved-item-actions { display: flex; gap: 8px; }
+        .btn-remove {
+            padding: 5px 10px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .btn-remove:hover { background: #c82333; }
+
         /* Modal */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -373,6 +475,7 @@ async def dashboard_v2():
             <button class="tab" onclick="showTab('content')">Content</button>
             <button class="tab" onclick="showTab('scrapers')">Scrapers</button>
             <button class="tab" onclick="showTab('chat')">💬 Chat</button>
+            <button class="tab" onclick="showTab('projects')" id="projects-tab">📁 My Projects</button>
         </div>
 
         <div id="overview" class="section active">
@@ -461,6 +564,19 @@ async def dashboard_v2():
         <div id="moves" class="section">
             <div class="card">
                 <h2>♟️ Hotelier Bets</h2>
+                <div class="filter-bar">
+                    <select id="filter-company" onchange="applyMoveFilters()">
+                        <option value="">All Companies</option>
+                    </select>
+                    <select id="filter-move-type" onchange="applyMoveFilters()">
+                        <option value="">All Move Types</option>
+                    </select>
+                    <select id="filter-market" onchange="applyMoveFilters()">
+                        <option value="">All Markets</option>
+                    </select>
+                    <button onclick="resetMoveFilters()" style="background:#6c757d;">Reset</button>
+                    <span id="moves-saved-count" class="saved-count"></span>
+                </div>
                 <div id="moves-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
@@ -493,7 +609,7 @@ async def dashboard_v2():
                             <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:15px;">
                                 <button onclick="sendSuggestion('What are the top wellness trends in hotels?')" class="suggestion-chip">Wellness trends</button>
                                 <button onclick="sendSuggestion('What opportunities exist in the boutique hotel market in Lisbon?')" class="suggestion-chip">Lisbon opportunities</button>
-                                <button onclick="sendSuggestion('Help me build a luxury lifestyle hotel brand')" class="suggestion-chip">Build a brand</button>
+                                <button onclick="startBrandBuild()" class="suggestion-chip">Build a brand</button>
                             </div>
                         </div>
                     </div>
@@ -507,6 +623,47 @@ async def dashboard_v2():
                 </div>
 
                 <div id="chat-state" style="margin-top:10px;font-size:0.85em;color:#888;"></div>
+            </div>
+        </div>
+
+        <div id="projects" class="section">
+            <div class="card">
+                <h2>📁 My Projects</h2>
+                <p style="margin-bottom:15px;color:#666;">Your saved trends and moves build a profile that informs brand generation.</p>
+
+                <!-- Profile Insights -->
+                <div id="profile-insights" class="profile-insights-card">
+                    <h3>🎯 Your Interest Profile</h3>
+                    <div id="profile-content">
+                        <div class="empty"><div class="icon">💡</div>Save trends and moves to build your profile</div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div style="display:flex;gap:10px;margin:20px 0;">
+                    <button onclick="buildBrandFromProfile()" class="btn-primary" id="build-from-profile-btn" disabled>
+                        🚀 Build Brand from Profile
+                    </button>
+                    <button onclick="clearAllSaved()" class="btn-secondary">
+                        🗑️ Clear All
+                    </button>
+                </div>
+
+                <!-- Saved Trends -->
+                <div style="margin-top:20px;">
+                    <h3 style="margin-bottom:10px;">📊 Saved Trends <span id="saved-trends-count" style="font-weight:normal;color:#666;"></span></h3>
+                    <div id="saved-trends-list">
+                        <div class="empty"><div class="icon">📊</div>No saved trends yet</div>
+                    </div>
+                </div>
+
+                <!-- Saved Moves -->
+                <div style="margin-top:20px;">
+                    <h3 style="margin-bottom:10px;">♟️ Saved Moves <span id="saved-moves-count" style="font-weight:normal;color:#666;"></span></h3>
+                    <div id="saved-moves-list">
+                        <div class="empty"><div class="icon">♟️</div>No saved moves yet</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -550,11 +707,38 @@ async def dashboard_v2():
             if (!m) return;
             document.getElementById('modal-header').className = 'modal-header move-header';
             document.getElementById('modal-title').textContent = m.title || 'Untitled';
-            document.getElementById('modal-meta').innerHTML = (m.company || 'Unknown') + ' | ' + (m.move_type || 'Move');
+
+            // Enhanced meta with market and investment
+            let metaParts = [m.company || 'Unknown', m.move_type ? m.move_type.replace('_', ' ') : 'Move'];
+            if (m.market) metaParts.push('📍 ' + m.market);
+            if (m.investment_amount) metaParts.push('💰 ' + m.investment_amount);
+            document.getElementById('modal-meta').innerHTML = metaParts.join(' | ');
+
             let h = '';
+
+            // Summary
             if (m.summary) h += '<div class="modal-section"><h3>Summary</h3><p>' + m.summary + '</p></div>';
+
+            // Why It Matters
             if (m.why_it_matters) h += '<div class="modal-section"><h3>Why It Matters</h3><p>' + m.why_it_matters + '</p></div>';
+
+            // Strategic Implications
+            if (m.strategic_implications && m.strategic_implications.length > 0) {
+                h += '<div class="modal-section"><h3>Strategic Implications</h3><ul style="margin:0;padding-left:20px;">';
+                m.strategic_implications.forEach(imp => {
+                    h += '<li style="margin-bottom:6px;">' + imp + '</li>';
+                });
+                h += '</ul></div>';
+            }
+
+            // Competitive Impact
+            if (m.competitive_impact) {
+                h += '<div class="modal-section"><h3>Competitive Impact</h3><p>' + m.competitive_impact + '</p></div>';
+            }
+
+            // Source
             if (m.source_url) h += '<div class="modal-section"><h3>Source</h3><p><a href="' + m.source_url + '" target="_blank" style="color:#667eea;">' + (m.source_name || 'View article') + '</a></p></div>';
+
             document.getElementById('modal-body').innerHTML = h || '<p>No additional details.</p>';
             document.getElementById('modal-overlay').classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -713,11 +897,25 @@ async def dashboard_v2():
         }
 
         function renderMove(m, idx) {
+            const isSaved = isMoveSaved(m.id);
+            const moveTypeBadge = m.move_type ? `<span class="move-type-badge">${m.move_type.replace('_', ' ')}</span>` : '';
+            const marketBadge = m.market ? `<span class="market-badge">📍 ${m.market}</span>` : '';
+
             return `
                 <div class="move-card" onclick="openMoveModal(${idx})">
+                    <div class="move-badges">
+                        ${moveTypeBadge}
+                        ${marketBadge}
+                    </div>
                     <h3>${truncate(m.title || 'Untitled', 60)}</h3>
-                    <div class="company">${m.company || 'Unknown'} • ${m.move_type || 'move'}</div>
-                    <p>${truncate(m.summary || m.why_it_matters || '', 200)}</p>
+                    <div class="company">${m.company || 'Unknown'}</div>
+                    <p>${truncate(m.summary || m.why_it_matters || '', 180)}</p>
+                    <div class="move-actions">
+                        <button class="move-action-btn btn-save ${isSaved ? 'saved' : ''}"
+                                onclick="event.stopPropagation(); toggleSaveMove(${idx})">
+                            ${isSaved ? '✓ Saved' : '💾 Save'}
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -824,6 +1022,89 @@ async def dashboard_v2():
         }
 
         // =============================================
+        // Move Filter Functions
+        // =============================================
+        let moveFilters = { company: '', move_type: '', market: '' };
+
+        async function loadMoveFilterOptions() {
+            try {
+                const [companiesRes, moveTypesRes, marketsRes] = await Promise.all([
+                    fetch('/api/hotelier-bets/companies'),
+                    fetch('/api/hotelier-bets/move-types'),
+                    fetch('/api/hotelier-bets/markets')
+                ]);
+
+                const companiesData = await companiesRes.json();
+                const moveTypesData = await moveTypesRes.json();
+                const marketsData = await marketsRes.json();
+
+                // Populate company dropdown
+                const companySelect = document.getElementById('filter-company');
+                companySelect.innerHTML = '<option value="">All Companies</option>';
+                (companiesData.companies || []).forEach(c => {
+                    companySelect.innerHTML += '<option value="' + c + '">' + c + '</option>';
+                });
+
+                // Populate move type dropdown
+                const moveTypeSelect = document.getElementById('filter-move-type');
+                moveTypeSelect.innerHTML = '<option value="">All Move Types</option>';
+                (moveTypesData.move_types || []).forEach(mt => {
+                    const display = mt.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    moveTypeSelect.innerHTML += '<option value="' + mt + '">' + display + '</option>';
+                });
+
+                // Populate market dropdown
+                const marketSelect = document.getElementById('filter-market');
+                marketSelect.innerHTML = '<option value="">All Markets</option>';
+                (marketsData.markets || []).forEach(m => {
+                    if (m) marketSelect.innerHTML += '<option value="' + m + '">' + m + '</option>';
+                });
+            } catch (err) {
+                console.error('Failed to load move filter options:', err);
+            }
+        }
+
+        async function applyMoveFilters() {
+            moveFilters.company = document.getElementById('filter-company').value;
+            moveFilters.move_type = document.getElementById('filter-move-type').value;
+            moveFilters.market = document.getElementById('filter-market').value;
+            await loadMovesWithFilters();
+        }
+
+        async function loadMovesWithFilters() {
+            const params = new URLSearchParams({ limit: '20' });
+            if (moveFilters.company) params.append('company', moveFilters.company);
+            if (moveFilters.move_type) params.append('move_type', moveFilters.move_type);
+            if (moveFilters.market) params.append('market', moveFilters.market);
+
+            document.getElementById('moves-list').innerHTML = '<div class="empty"><div class="icon">⏳</div>Loading...</div>';
+
+            try {
+                const res = await fetch('/api/hotelier-bets?' + params.toString());
+                const data = await res.json();
+
+                allMoves = data.moves || [];
+
+                if (allMoves.length > 0) {
+                    document.getElementById('moves-list').innerHTML = allMoves.map((m, i) => renderMove(m, i)).join('');
+                } else {
+                    document.getElementById('moves-list').innerHTML = '<div class="empty"><div class="icon">♟️</div>No moves match your filters</div>';
+                }
+                updateMovesSavedCount();
+            } catch (err) {
+                document.getElementById('moves-list').innerHTML = '<div class="error">Failed to load moves: ' + err.message + '</div>';
+            }
+        }
+
+        function resetMoveFilters() {
+            document.getElementById('filter-company').value = '';
+            document.getElementById('filter-move-type').value = '';
+            document.getElementById('filter-market').value = '';
+            moveFilters = { company: '', move_type: '', market: '' };
+            loadMovesWithFilters();
+        }
+
+        // =============================================
         // LocalStorage Save to Project Functions
         // =============================================
         const STORAGE_KEY = 'brandclave_saved_trends';
@@ -881,6 +1162,7 @@ async def dashboard_v2():
             // Re-render the trends list
             document.getElementById('trends-list').innerHTML = allTrends.map((t, i) => renderTrend(t, i)).join('');
             updateSavedCount();
+            renderMyProjects(); // Auto-update My Projects tab
         }
 
         function updateSavedCount() {
@@ -889,6 +1171,288 @@ async def dashboard_v2():
             if (countEl) {
                 countEl.textContent = count > 0 ? count + ' saved' : '';
             }
+        }
+
+        // =============================================
+        // LocalStorage Save Moves Functions
+        // =============================================
+        const MOVES_STORAGE_KEY = 'brandclave_saved_moves';
+
+        function getSavedMoves() {
+            try {
+                const data = localStorage.getItem(MOVES_STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error('Error reading saved moves:', e);
+                return [];
+            }
+        }
+
+        function saveMove(move) {
+            const saved = getSavedMoves();
+            if (saved.some(s => s.id === move.id)) return false;
+
+            saved.push({
+                id: move.id,
+                title: move.title,
+                summary: move.summary,
+                company: move.company,
+                move_type: move.move_type,
+                market: move.market,
+                strategic_implications: move.strategic_implications,
+                source_name: move.source_name,
+                saved_at: new Date().toISOString()
+            });
+
+            localStorage.setItem(MOVES_STORAGE_KEY, JSON.stringify(saved));
+            return true;
+        }
+
+        function removeMove(moveId) {
+            const saved = getSavedMoves();
+            const filtered = saved.filter(s => s.id !== moveId);
+            localStorage.setItem(MOVES_STORAGE_KEY, JSON.stringify(filtered));
+        }
+
+        function isMoveSaved(moveId) {
+            return getSavedMoves().some(s => s.id === moveId);
+        }
+
+        function toggleSaveMove(idx) {
+            const move = allMoves[idx];
+            if (!move) return;
+
+            if (isMoveSaved(move.id)) {
+                removeMove(move.id);
+            } else {
+                saveMove(move);
+            }
+
+            // Re-render the moves list
+            document.getElementById('moves-list').innerHTML = allMoves.map((m, i) => renderMove(m, i)).join('');
+            updateMovesSavedCount();
+            renderMyProjects(); // Auto-update My Projects tab
+        }
+
+        function updateMovesSavedCount() {
+            const count = getSavedMoves().length;
+            const countEl = document.getElementById('moves-saved-count');
+            if (countEl) {
+                countEl.textContent = count > 0 ? count + ' saved' : '';
+            }
+        }
+
+        // =============================================
+        // My Projects Functions
+        // =============================================
+        function renderMyProjects() {
+            const savedTrends = getSavedProjects();
+            const savedMoves = getSavedMoves();
+
+            // Update counts
+            document.getElementById('saved-trends-count').textContent = savedTrends.length > 0 ? `(${savedTrends.length})` : '';
+            document.getElementById('saved-moves-count').textContent = savedMoves.length > 0 ? `(${savedMoves.length})` : '';
+
+            // Render saved trends
+            const trendsListEl = document.getElementById('saved-trends-list');
+            if (savedTrends.length > 0) {
+                trendsListEl.innerHTML = savedTrends.map(t => `
+                    <div class="saved-item-card">
+                        <div>
+                            <h4>${t.name || 'Unnamed Trend'}</h4>
+                            <div class="saved-item-meta">
+                                ${t.region ? t.region + ' • ' : ''}${t.audience_segment || 'General'}
+                                ${t.white_space_score ? ' • White Space: ' + (t.white_space_score * 100).toFixed(0) + '%' : ''}
+                            </div>
+                        </div>
+                        <div class="saved-item-actions">
+                            <button class="btn-remove" onclick="removeSavedTrend('${t.id}')">Remove</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                trendsListEl.innerHTML = '<div class="empty"><div class="icon">📊</div>No saved trends yet</div>';
+            }
+
+            // Render saved moves
+            const movesListEl = document.getElementById('saved-moves-list');
+            if (savedMoves.length > 0) {
+                movesListEl.innerHTML = savedMoves.map(m => `
+                    <div class="saved-item-card">
+                        <div>
+                            <h4>${m.title || 'Unnamed Move'}</h4>
+                            <div class="saved-item-meta">
+                                ${m.company || 'Unknown'} • ${m.move_type ? m.move_type.replace('_', ' ') : 'Move'}
+                                ${m.market ? ' • ' + m.market : ''}
+                            </div>
+                        </div>
+                        <div class="saved-item-actions">
+                            <button class="btn-remove" onclick="removeSavedMove('${m.id}')">Remove</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                movesListEl.innerHTML = '<div class="empty"><div class="icon">♟️</div>No saved moves yet</div>';
+            }
+
+            // Update profile insights
+            updateProfileInsights(savedTrends, savedMoves);
+
+            // Enable/disable build button
+            const buildBtn = document.getElementById('build-from-profile-btn');
+            buildBtn.disabled = (savedTrends.length + savedMoves.length) === 0;
+        }
+
+        function updateProfileInsights(trends, moves) {
+            const profileEl = document.getElementById('profile-content');
+
+            if (trends.length === 0 && moves.length === 0) {
+                profileEl.innerHTML = '<div class="empty" style="color:rgba(255,255,255,0.8);"><div class="icon">💡</div>Save trends and moves to build your profile</div>';
+                return;
+            }
+
+            // Analyze patterns
+            const regions = {};
+            const segments = {};
+            const topics = {};
+            const companies = {};
+            const moveTypes = {};
+            const markets = {};
+
+            // From trends
+            trends.forEach(t => {
+                if (t.region) regions[t.region] = (regions[t.region] || 0) + 1;
+                if (t.audience_segment) segments[t.audience_segment] = (segments[t.audience_segment] || 0) + 1;
+                (t.topics || []).forEach(topic => {
+                    topics[topic] = (topics[topic] || 0) + 1;
+                });
+            });
+
+            // From moves
+            moves.forEach(m => {
+                if (m.company) companies[m.company] = (companies[m.company] || 0) + 1;
+                if (m.move_type) moveTypes[m.move_type] = (moveTypes[m.move_type] || 0) + 1;
+                if (m.market) markets[m.market] = (markets[m.market] || 0) + 1;
+            });
+
+            // Sort by frequency and take top items
+            const topRegions = Object.entries(regions).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const topSegments = Object.entries(segments).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const topTopics = Object.entries(topics).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const topCompanies = Object.entries(companies).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const topMoveTypes = Object.entries(moveTypes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const topMarkets = Object.entries(markets).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+            let html = '';
+
+            if (topRegions.length > 0 || topMarkets.length > 0) {
+                const allLocations = [...topRegions, ...topMarkets].slice(0, 4);
+                html += `<div class="profile-section">
+                    <div class="profile-section-title">📍 Locations of Interest</div>
+                    ${allLocations.map(([loc]) => `<span class="profile-tag">${loc}</span>`).join('')}
+                </div>`;
+            }
+
+            if (topSegments.length > 0) {
+                html += `<div class="profile-section">
+                    <div class="profile-section-title">👥 Target Segments</div>
+                    ${topSegments.map(([seg]) => `<span class="profile-tag">${seg}</span>`).join('')}
+                </div>`;
+            }
+
+            if (topTopics.length > 0) {
+                html += `<div class="profile-section">
+                    <div class="profile-section-title">🔥 Key Themes</div>
+                    ${topTopics.map(([topic]) => `<span class="profile-tag">${topic}</span>`).join('')}
+                </div>`;
+            }
+
+            if (topCompanies.length > 0) {
+                html += `<div class="profile-section">
+                    <div class="profile-section-title">🏨 Companies Watched</div>
+                    ${topCompanies.map(([co]) => `<span class="profile-tag">${co}</span>`).join('')}
+                </div>`;
+            }
+
+            if (topMoveTypes.length > 0) {
+                html += `<div class="profile-section">
+                    <div class="profile-section-title">♟️ Move Types</div>
+                    ${topMoveTypes.map(([mt]) => `<span class="profile-tag">${mt.replace('_', ' ')}</span>`).join('')}
+                </div>`;
+            }
+
+            profileEl.innerHTML = html || '<div style="opacity:0.8;">Collecting insights...</div>';
+        }
+
+        function removeSavedTrend(trendId) {
+            removeProject(trendId);
+            renderMyProjects();
+            updateSavedCount();
+            // Re-render trends if visible
+            if (allTrends.length > 0) {
+                document.getElementById('trends-list').innerHTML = allTrends.map((t, i) => renderTrend(t, i)).join('');
+            }
+        }
+
+        function removeSavedMove(moveId) {
+            removeMove(moveId);
+            renderMyProjects();
+            updateMovesSavedCount();
+            // Re-render moves if visible
+            if (allMoves.length > 0) {
+                document.getElementById('moves-list').innerHTML = allMoves.map((m, i) => renderMove(m, i)).join('');
+            }
+        }
+
+        function clearAllSaved() {
+            if (!confirm('Are you sure you want to clear all saved items?')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(MOVES_STORAGE_KEY);
+            renderMyProjects();
+            updateSavedCount();
+            updateMovesSavedCount();
+            // Re-render lists
+            if (allTrends.length > 0) {
+                document.getElementById('trends-list').innerHTML = allTrends.map((t, i) => renderTrend(t, i)).join('');
+            }
+            if (allMoves.length > 0) {
+                document.getElementById('moves-list').innerHTML = allMoves.map((m, i) => renderMove(m, i)).join('');
+            }
+        }
+
+        function buildBrandFromProfile() {
+            const savedTrends = getSavedProjects();
+            const savedMoves = getSavedMoves();
+
+            if (savedTrends.length === 0 && savedMoves.length === 0) {
+                alert('Save some trends or moves first to build your profile.');
+                return;
+            }
+
+            // Build profile data for brand generation
+            const profileData = {
+                trends: savedTrends,
+                moves: savedMoves,
+                // Extract key insights
+                regions: [...new Set(savedTrends.map(t => t.region).filter(Boolean))],
+                segments: [...new Set(savedTrends.map(t => t.audience_segment).filter(Boolean))],
+                topics: [...new Set(savedTrends.flatMap(t => t.topics || []))],
+                companies: [...new Set(savedMoves.map(m => m.company).filter(Boolean))],
+                markets: [...new Set(savedMoves.map(m => m.market).filter(Boolean))],
+                move_types: [...new Set(savedMoves.map(m => m.move_type).filter(Boolean))],
+            };
+
+            // Store for Build a Brand page
+            sessionStorage.setItem('brandclave_profile_data', JSON.stringify(profileData));
+            sessionStorage.setItem('brandclave_brand_input', JSON.stringify({
+                from_profile: true,
+                initial_region: profileData.regions[0] || '',
+                initial_segment: profileData.segments[0] || 'lifestyle',
+                topics: profileData.topics.slice(0, 5),
+            }));
+
+            // Navigate to Build a Brand
+            window.location.href = '/api/monitoring/build-a-brand';
         }
 
         // =============================================
@@ -938,10 +1502,15 @@ async def dashboard_v2():
 
             btn.disabled = true;
             btn.textContent = 'Analyzing...';
-            resultsDiv.innerHTML = '<div class="empty"><div class="icon">⏳</div>Analyzing ' + city + '... This may take 30-60 seconds.</div>';
+            resultsDiv.innerHTML = '<div class="empty"><div class="icon">⏳</div>Analyzing ' + city + '... This may take 60-120 seconds (using semantic clustering).</div>';
 
             try {
-                const response = await fetch('/api/city-desires/quick?city=' + encodeURIComponent(city) + '&country=' + encodeURIComponent(country));
+                // Use adaptive endpoint with semantic clustering for better results
+                const response = await fetch('/api/city-desires/adaptive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ city, country })
+                });
 
                 if (!response.ok) {
                     throw new Error('Analysis failed: ' + response.status);
@@ -961,30 +1530,52 @@ async def dashboard_v2():
         function renderCityResults(data) {
             const resultsDiv = document.getElementById('city-results');
 
+            // Format sources summary
+            const sourcesSummary = data.sources_summary || {};
+            const sourcesHtml = Object.entries(sourcesSummary)
+                .sort((a, b) => b[1] - a[1])
+                .map(([src, count]) => `<span style="background:#e8f4fd;padding:3px 8px;border-radius:12px;font-size:0.85em;margin-right:6px;">${src}: ${count}</span>`)
+                .join('');
+
             let html = `
                 <div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:20px;">
                     <h3 style="margin-bottom:10px;">${data.city}, ${data.country}</h3>
-                    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;">
                         <div><strong>${data.total_signals || 0}</strong> signals</div>
-                        <div><strong>${data.total_sources || 0}</strong> sources</div>
-                        <div>Frustration: <strong>${((data.avg_frustration || 0) * 100).toFixed(0)}%</strong></div>
+                        <div><strong>${data.num_learned_categories || 0}</strong> themes discovered</div>
+                        <div>Confidence: <strong>${((data.model_confidence || 0) * 100).toFixed(0)}%</strong></div>
                     </div>
+                    ${sourcesHtml ? `<div style="margin-top:10px;">Sources: ${sourcesHtml}</div>` : ''}
                 </div>
             `;
 
-            // Top Desires
+            // Top Desires with source attribution
             if (data.top_desires && data.top_desires.length > 0) {
                 html += '<h3 style="margin:20px 0 10px;">🔥 Top Desires</h3>';
-                html += data.top_desires.slice(0, 5).map(d => `
-                    <div class="desire-card">
-                        <h4>${d.theme_name || d.theme || 'Desire'}</h4>
-                        <p>${d.description || ''}</p>
-                        <div class="desire-meta">
-                            Intensity: ${((d.intensity_score || 0) * 100).toFixed(0)}% |
-                            Opportunity: ${((d.opportunity_score || 0) * 100).toFixed(0)}%
+                html += data.top_desires.slice(0, 5).map(d => {
+                    // Format per-theme sources
+                    const themeSources = (d.sources || [])
+                        .map(s => `${s.name} (${s.count})`)
+                        .join(', ') || 'Unknown';
+
+                    // Get example snippet if available
+                    const example = d.example_snippets && d.example_snippets[0]
+                        ? `<div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.03);border-radius:4px;font-size:0.85em;font-style:italic;">"${d.example_snippets[0].text.substring(0, 150)}..." <span style="color:#666;">— ${d.example_snippets[0].source}</span></div>`
+                        : '';
+
+                    return `
+                        <div class="desire-card">
+                            <h4>${d.theme_name || d.theme || 'Desire'}</h4>
+                            <p>${d.description || ''}</p>
+                            <div class="desire-meta">
+                                Intensity: ${((d.intensity_score || 0) * 100).toFixed(0)}% |
+                                ${d.frequency || 0} mentions |
+                                Sources: ${themeSources}
+                            </div>
+                            ${example}
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             // White Space Opportunities
@@ -1023,8 +1614,74 @@ async def dashboard_v2():
         // Chat functionality
         let chatConversationId = null;
 
+        function buildProfileContext() {
+            const savedTrends = getSavedProjects();
+            const savedMoves = getSavedMoves();
+
+            if (savedTrends.length === 0 && savedMoves.length === 0) {
+                return null;
+            }
+
+            let context = 'User research profile: ';
+
+            // Trends summary
+            if (savedTrends.length > 0) {
+                const trendNames = savedTrends.slice(0, 3).map(t => t.name).filter(Boolean);
+                const regions = [...new Set(savedTrends.map(t => t.region).filter(Boolean))];
+                const segments = [...new Set(savedTrends.map(t => t.audience_segment).filter(Boolean))];
+                const topics = [...new Set(savedTrends.flatMap(t => t.topics || []))].slice(0, 5);
+
+                context += `Tracking ${savedTrends.length} trends`;
+                if (trendNames.length) context += ` including "${trendNames.join('", "')}"`;
+                if (regions.length) context += `. Interested in regions: ${regions.join(', ')}`;
+                if (segments.length) context += `. Target segments: ${segments.join(', ')}`;
+                if (topics.length) context += `. Key themes: ${topics.join(', ')}`;
+                context += '. ';
+            }
+
+            // Moves summary
+            if (savedMoves.length > 0) {
+                const companies = [...new Set(savedMoves.map(m => m.company).filter(Boolean))].slice(0, 3);
+                const markets = [...new Set(savedMoves.map(m => m.market).filter(Boolean))].slice(0, 3);
+                const moveTypes = [...new Set(savedMoves.map(m => m.move_type).filter(Boolean))];
+
+                context += `Watching ${savedMoves.length} strategic moves`;
+                if (companies.length) context += ` by companies like ${companies.join(', ')}`;
+                if (markets.length) context += ` in markets: ${markets.join(', ')}`;
+                if (moveTypes.length) context += `. Move types: ${moveTypes.map(m => m.replace('_', ' ')).join(', ')}`;
+                context += '.';
+            }
+
+            return context;
+        }
+
         function sendSuggestion(text) {
             document.getElementById('chat-input').value = text;
+            sendMessage();
+        }
+
+        function startBrandBuild() {
+            const savedTrends = getSavedProjects();
+            const savedMoves = getSavedMoves();
+
+            let message;
+
+            if (savedTrends.length > 0 || savedMoves.length > 0) {
+                // Has profile - build from it
+                const regions = [...new Set(savedTrends.map(t => t.region).filter(Boolean))];
+                const segments = [...new Set(savedTrends.map(t => t.audience_segment).filter(Boolean))];
+                const topics = [...new Set(savedTrends.flatMap(t => t.topics || []))].slice(0, 3);
+
+                message = 'Help me build a hotel brand based on my research profile.';
+                if (regions.length) message += ' I\'m interested in ' + regions.slice(0, 2).join(' and ') + '.';
+                if (segments.length) message += ' Target segment: ' + segments[0] + '.';
+                if (topics.length) message += ' Key themes I\'ve been tracking: ' + topics.join(', ') + '.';
+            } else {
+                // No profile - ask for guidance
+                message = 'I want to build a hotel brand but I\'m not sure where to start. Can you help me figure out what kind of brand would be right?';
+            }
+
+            document.getElementById('chat-input').value = message;
             sendMessage();
         }
 
@@ -1057,13 +1714,17 @@ async def dashboard_v2():
             `;
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
+            // Build profile context from saved items
+            const profileContext = buildProfileContext();
+
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        conversation_id: chatConversationId
+                        conversation_id: chatConversationId,
+                        user_context: profileContext
                     })
                 });
 
@@ -1150,7 +1811,10 @@ async def dashboard_v2():
         // Load data on page load
         loadAllData();
         loadFilterOptions();
+        loadMoveFilterOptions();
         updateSavedCount();
+        updateMovesSavedCount();
+        renderMyProjects();
 
         // Auto-refresh every 60 seconds
         setInterval(loadAllData, 60000);
@@ -1224,6 +1888,25 @@ async def build_a_brand_page():
         }
         .source-trend h3 { margin-bottom: 8px; }
         .source-trend p { opacity: 0.9; font-size: 0.9em; }
+
+        .profile-source-card {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .profile-source-card h3 { margin-bottom: 8px; }
+        .profile-row { display: flex; gap: 8px; margin-bottom: 4px; }
+        .profile-label { opacity: 0.85; }
+        .profile-theme-tag {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin: 2px;
+        }
 
         .form-group { margin-bottom: 20px; }
         .form-group label {
@@ -1383,6 +2066,22 @@ async def build_a_brand_page():
             <div class="white-space-badge" id="source-ws"></div>
         </div>
 
+        <div id="profile-card" class="profile-source-card" style="display:none;">
+            <h3>🎯 Building from Your Profile</h3>
+            <p style="margin-bottom:12px;opacity:0.9;">Your saved trends and moves are informing this brand.</p>
+            <div id="profile-summary">
+                <div class="profile-row">
+                    <span class="profile-label">Trends:</span>
+                    <span id="profile-trend-count">0</span>
+                </div>
+                <div class="profile-row">
+                    <span class="profile-label">Moves:</span>
+                    <span id="profile-move-count">0</span>
+                </div>
+                <div id="profile-themes" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
         <div class="card">
             <h2>Brand Inputs</h2>
 
@@ -1489,32 +2188,41 @@ async def build_a_brand_page():
 
     <script>
         let sourceTrend = null;
+        let profileData = null;
         let currentBlueprint = null;
 
-        // Load source trend from sessionStorage
+        // Load source trend or profile from sessionStorage
         function loadSourceTrend() {
             try {
                 const data = sessionStorage.getItem('brandclave_brand_input');
+                const profile = sessionStorage.getItem('brandclave_profile_data');
+
                 if (data) {
                     sourceTrend = JSON.parse(data);
 
-                    // Show source trend card
-                    document.getElementById('source-trend-card').style.display = 'block';
-                    document.getElementById('source-trend-name').textContent = sourceTrend.source_trend_name || 'Selected Trend';
-                    document.getElementById('source-trend-desc').textContent = sourceTrend.description || '';
+                    // Check if coming from profile
+                    if (sourceTrend.from_profile && profile) {
+                        profileData = JSON.parse(profile);
+                        displayProfileCard(profileData);
+                    } else if (sourceTrend.source_trend_name) {
+                        // Show single trend card
+                        document.getElementById('source-trend-card').style.display = 'block';
+                        document.getElementById('source-trend-name').textContent = sourceTrend.source_trend_name || 'Selected Trend';
+                        document.getElementById('source-trend-desc').textContent = sourceTrend.description || '';
 
-                    // Show topics
-                    const topicsEl = document.getElementById('source-topics');
-                    if (sourceTrend.topics && sourceTrend.topics.length) {
-                        topicsEl.innerHTML = sourceTrend.topics.map(t =>
-                            '<span class="topic-tag">' + t + '</span>'
-                        ).join('');
-                    }
+                        // Show topics
+                        const topicsEl = document.getElementById('source-topics');
+                        if (sourceTrend.topics && sourceTrend.topics.length) {
+                            topicsEl.innerHTML = sourceTrend.topics.map(t =>
+                                '<span class="topic-tag">' + t + '</span>'
+                            ).join('');
+                        }
 
-                    // Show white space score
-                    if (sourceTrend.white_space_score) {
-                        const ws = Math.round(sourceTrend.white_space_score * 100);
-                        document.getElementById('source-ws').textContent = 'White Space: ' + ws + '%';
+                        // Show white space score
+                        if (sourceTrend.white_space_score) {
+                            const ws = Math.round(sourceTrend.white_space_score * 100);
+                            document.getElementById('source-ws').textContent = 'White Space: ' + ws + '%';
+                        }
                     }
 
                     // Pre-fill inputs
@@ -1527,6 +2235,26 @@ async def build_a_brand_page():
                 }
             } catch (e) {
                 console.error('Error loading source trend:', e);
+            }
+        }
+
+        function displayProfileCard(profile) {
+            document.getElementById('profile-card').style.display = 'block';
+            document.getElementById('profile-trend-count').textContent = profile.trends ? profile.trends.length : 0;
+            document.getElementById('profile-move-count').textContent = profile.moves ? profile.moves.length : 0;
+
+            // Show key themes
+            const themesEl = document.getElementById('profile-themes');
+            const allThemes = [
+                ...(profile.topics || []).slice(0, 3),
+                ...(profile.segments || []).slice(0, 2),
+                ...(profile.markets || []).slice(0, 2)
+            ];
+
+            if (allThemes.length > 0) {
+                themesEl.innerHTML = '<div style="margin-top:8px;">' +
+                    allThemes.map(t => '<span class="profile-theme-tag">' + t + '</span>').join('') +
+                    '</div>';
             }
         }
 
@@ -1546,7 +2274,8 @@ async def build_a_brand_page():
                 adr: document.getElementById('brand-adr').value,
                 rooms: document.getElementById('brand-rooms').value,
                 goal: document.getElementById('brand-goal').value,
-                source_trend: sourceTrend
+                source_trend: sourceTrend,
+                profile: profileData
             };
 
             try {
@@ -1584,7 +2313,36 @@ async def build_a_brand_page():
             if (inputs.adr) prompt += ' with a target ADR of $' + inputs.adr;
             if (inputs.rooms) prompt += ' and approximately ' + inputs.rooms + ' rooms';
 
-            if (inputs.source_trend) {
+            // Use profile data if available
+            if (inputs.profile) {
+                prompt += '. IMPORTANT CONTEXT - This brand should be informed by my research:';
+
+                // Add trend insights
+                if (inputs.profile.trends && inputs.profile.trends.length > 0) {
+                    prompt += ' I have been tracking ' + inputs.profile.trends.length + ' trends including: ';
+                    const trendNames = inputs.profile.trends.slice(0, 3).map(t => t.name || t.description).filter(Boolean);
+                    if (trendNames.length) prompt += trendNames.join(', ');
+                }
+
+                // Add topic themes
+                if (inputs.profile.topics && inputs.profile.topics.length > 0) {
+                    prompt += '. Key themes I am interested in: ' + inputs.profile.topics.slice(0, 5).join(', ');
+                }
+
+                // Add move insights
+                if (inputs.profile.moves && inputs.profile.moves.length > 0) {
+                    prompt += '. I have been watching ' + inputs.profile.moves.length + ' strategic moves by companies like: ';
+                    const companies = [...new Set(inputs.profile.moves.map(m => m.company).filter(Boolean))].slice(0, 3);
+                    if (companies.length) prompt += companies.join(', ');
+                }
+
+                // Add markets of interest
+                if (inputs.profile.markets && inputs.profile.markets.length > 0) {
+                    prompt += '. Markets I am researching: ' + inputs.profile.markets.slice(0, 3).join(', ');
+                }
+            }
+            // Use single trend if available (old flow)
+            else if (inputs.source_trend && inputs.source_trend.source_trend_name) {
                 prompt += '. This brand should capitalize on the trend: "' +
                     inputs.source_trend.source_trend_name + '"';
                 if (inputs.source_trend.description) {

@@ -418,6 +418,16 @@ class AdaptiveCityAnalyzer:
         # Convert learned categories to desire themes
         themes = []
         for cat in structure["categories"]:
+            # Format sources for display
+            sources = cat.get("sources", {})
+            source_list = [
+                {"name": src, "count": int(count)}
+                for src, count in sorted(sources.items(), key=lambda x: x[1], reverse=True)
+            ]
+
+            # Get example snippets with attribution
+            examples = cat.get("example_texts", [])
+
             theme = {
                 "theme_name": cat["name"],
                 "description": f"Travelers discussing {', '.join(cat['keywords'][:3])}",
@@ -426,6 +436,8 @@ class AdaptiveCityAnalyzer:
                 "keywords": cat["keywords"],
                 "category": cat["id"],
                 "is_learned": True,  # Flag that this was learned, not predefined
+                "sources": source_list,  # e.g., [{"name": "reddit", "count": 5}, {"name": "youtube", "count": 2}]
+                "example_snippets": examples,  # e.g., [{"text": "...", "source": "reddit"}]
             }
             themes.append(theme)
 
@@ -438,6 +450,12 @@ class AdaptiveCityAnalyzer:
             if theme["intensity_score"] > 0.3 and theme["frequency"] < 10:
                 opportunities.append(f"Emerging interest in: {theme['theme_name']}")
 
+        # Aggregate all sources across themes
+        all_sources = {}
+        for theme in themes:
+            for src in theme["sources"]:
+                all_sources[src["name"]] = all_sources.get(src["name"], 0) + src["count"]
+
         return {
             "city": city,
             "country": country,
@@ -448,6 +466,7 @@ class AdaptiveCityAnalyzer:
             "model_confidence": self._compute_confidence(),
             "free_energy": self.structure_learner.get_free_energy(),
             "search_history": self.search_history,
+            "sources_summary": all_sources,  # Overall source breakdown
             "generated_at": datetime.utcnow().isoformat(),
             "method": "active_inference_structure_learning",
         }

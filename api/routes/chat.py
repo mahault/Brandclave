@@ -17,6 +17,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     conversation_id: str | None = None
     project_id: str | None = None
+    user_context: str | None = None  # Profile context from saved items
 
 
 class ChatResponse(BaseModel):
@@ -73,10 +74,11 @@ async def chat(request: ChatRequest) -> ChatResponse:
         # Get or create service
         service = get_or_create_service(request.conversation_id)
 
-        # Process message
+        # Process message with user context if available
         result = await service.chat(
             message=request.message,
             project_id=request.project_id,
+            user_context=request.user_context,
         )
 
         return ChatResponse(
