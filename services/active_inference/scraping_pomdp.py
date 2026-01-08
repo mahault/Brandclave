@@ -80,7 +80,7 @@ class ScrapingPOMDP:
     def __init__(
         self,
         learning_rate: float = 0.1,
-        exploration_bonus: float = 0.2,
+        exploration_bonus: float = 0.4,  # Increased for better exploration
         batch_size: int = 1,
         policy_len: int = 1,
         rng_seed: int = 42,
@@ -387,6 +387,38 @@ class ScrapingPOMDP:
 
         return [prod_obs, fresh_obs, error_obs]
 
+    def _update_staleness_beliefs(self):
+        """
+        Update source freshness beliefs based on time since last scrape.
+
+        This ensures sources that haven't been scraped in a while
+        become more "stale" and thus more valuable to explore (info gain).
+        """
+        now = datetime.utcnow()
+
+        for name, state in self.sources.items():
+            if state.last_scraped is None:
+                # Never scraped - high uncertainty, very stale
+                state.freshness_belief = 0.1
+                state.productivity_belief = 0.5  # Uncertain
+            else:
+                hours_since = (now - state.last_scraped).total_seconds() / 3600
+
+                # Freshness decays over time (half-life of ~6 hours)
+                decay_factor = 0.5 ** (hours_since / 6)
+                state.freshness_belief = max(0.1, state.freshness_belief * decay_factor)
+
+                # Productivity belief becomes more uncertain over time
+                # This increases epistemic value (info gain) for stale sources
+                if hours_since > 12:
+                    # After 12 hours, start increasing uncertainty
+                    uncertainty_factor = min(0.3, (hours_since - 12) / 48)
+                    # Pull productivity toward 0.5 (maximum uncertainty)
+                    state.productivity_belief = (
+                        state.productivity_belief * (1 - uncertainty_factor)
+                        + 0.5 * uncertainty_factor
+                    )
+
     def select_next_source(self, exclude: set[str] | None = None, force_scrape: bool = True) -> dict:
         """
         Select the next source to scrape using EFE minimization.
@@ -399,6 +431,9 @@ class ScrapingPOMDP:
             Dict with source name, priority, and reasoning
         """
         exclude = exclude or set()
+
+        # Update staleness beliefs before selection
+        self._update_staleness_beliefs()
 
         if self.agent is not None and JAX_AVAILABLE:
             try:

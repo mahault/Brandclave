@@ -604,14 +604,14 @@ def _run_scraper_job_standalone(source_name: str) -> dict:
 
 def _run_adaptive_scraper() -> dict:
     """
-    POMDP-driven adaptive scraper that picks ONE source based on expected info gain.
+    POMDP-driven adaptive scraper that picks sources based on Expected Free Energy.
 
-    This function:
-    1. Uses POMDP to select the best source to scrape (highest expected info gain)
-    2. Runs only that ONE scraper
-    3. Updates POMDP beliefs with the result
+    The POMDP balances:
+    1. Pragmatic value: sources that yield good content (exploitation)
+    2. Epistemic value: sources with stale/uncertain state (exploration)
 
-    This is much more memory-efficient than running all scrapers at once.
+    Sources that haven't been scraped in a while will have increased uncertainty,
+    making them more valuable to scrape (info gain).
     """
     from scripts.run_crawlers import get_scraper_class, SCRAPERS
 
@@ -622,12 +622,34 @@ def _run_adaptive_scraper() -> dict:
         recommendation = scheduler.scraping_pomdp.select_next_source()
         source_name = recommendation.get("source")
         reason = recommendation.get("reason", "POMDP selection")
-        logger.info(f"POMDP selected source: {source_name} ({reason})")
+
+        # Log detailed selection info
+        if "efe_values" in recommendation:
+            efe_values = recommendation["efe_values"]
+            # Find top 3 candidates for logging
+            sorted_sources = sorted(efe_values.items(), key=lambda x: x[1])[:3]
+            candidates = ", ".join([f"{s}={v:.2f}" for s, v in sorted_sources])
+            logger.info(f"POMDP selected: {source_name} | Top candidates: {candidates}")
+        else:
+            logger.info(f"POMDP selected source: {source_name} ({reason})")
+
+        # Log source states for debugging
+        if scheduler.scraping_pomdp is not None:
+            status = scheduler.scraping_pomdp.get_status()
+            sources_info = status.get("sources", {})
+            stale_sources = [
+                name for name, info in sources_info.items()
+                if info.get("freshness", 1.0) < 0.3
+            ]
+            if stale_sources:
+                logger.info(f"Stale sources needing attention: {stale_sources}")
     else:
-        # Fallback: round-robin through lightweight sources
+        # Fallback: cycle through hospitality sources
         import random
-        lightweight_sources = ["skift", "hoteldive", "hotelmanagement", "siteminder"]
-        source_name = random.choice(lightweight_sources)
+        hospitality_sources = ["skift", "hoteldive", "hotelmanagement", "hospitalitynet",
+                               "tophotelnews", "ehlinsights", "ehotelier", "siteminder"]
+        available = [s for s in hospitality_sources if s in SCRAPERS]
+        source_name = random.choice(available) if available else "skift"
         logger.info(f"Fallback selected source: {source_name}")
 
     if not source_name or source_name not in SCRAPERS:

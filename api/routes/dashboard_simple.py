@@ -1411,8 +1411,10 @@ async def dashboard_v2():
                 const moveTypeSelect = document.getElementById('filter-move-type');
                 moveTypeSelect.innerHTML = '<option value="">All Move Types</option>';
                 (moveTypesData.move_types || []).forEach(mt => {
-                    const display = mt.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    moveTypeSelect.innerHTML += '<option value="' + mt + '">' + display + '</option>';
+                    // Handle both object format {type, label} and string format
+                    const value = typeof mt === 'object' ? mt.type : mt;
+                    const display = typeof mt === 'object' ? mt.label : mt.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    if (value) moveTypeSelect.innerHTML += '<option value="' + value + '">' + display + '</option>';
                 });
 
                 // Populate market dropdown
@@ -2035,12 +2037,12 @@ async def dashboard_v2():
                 const topics = [...new Set(savedTrends.flatMap(t => t.topics || []))].slice(0, 3);
 
                 message = 'Help me build a hotel brand based on my research profile.';
-                if (regions.length) message += ' I\'m interested in ' + regions.slice(0, 2).join(' and ') + '.';
+                if (regions.length) message += ' I am interested in ' + regions.slice(0, 2).join(' and ') + '.';
                 if (segments.length) message += ' Target segment: ' + segments[0] + '.';
-                if (topics.length) message += ' Key themes I\'ve been tracking: ' + topics.join(', ') + '.';
+                if (topics.length) message += ' Key themes I have been tracking: ' + topics.join(', ') + '.';
             } else {
                 // No profile - ask for guidance
-                message = 'I want to build a hotel brand but I\'m not sure where to start. Can you help me figure out what kind of brand would be right?';
+                message = 'I want to build a hotel brand but I am not sure where to start. Can you help me figure out what kind of brand would be right?';
             }
 
             document.getElementById('chat-input').value = message;
