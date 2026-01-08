@@ -109,11 +109,27 @@ app.add_middleware(
 )
 
 
-# Health check
+# Health check (also serves as keep-alive endpoint for Render)
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": "0.5.0"}
+    """Health check endpoint - ping this every 14 min to prevent Render sleep."""
+    from datetime import datetime
+    try:
+        from scheduler.scheduler import get_scheduler
+        scheduler = get_scheduler()
+        scheduler_status = {
+            "running": scheduler.is_running,
+            "jobs": len(scheduler.get_jobs()) if scheduler.is_available else 0,
+        }
+    except Exception:
+        scheduler_status = {"running": False, "jobs": 0}
+
+    return {
+        "status": "healthy",
+        "version": "0.6.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "scheduler": scheduler_status,
+    }
 
 
 @app.get("/")
