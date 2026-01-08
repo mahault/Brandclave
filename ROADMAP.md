@@ -89,18 +89,43 @@
 
 ---
 
-## Phase 3: Build a Brand (MVP)
+## Phase 3: Build a Brand (MVP) 🚧 In Progress
 *The core product — automated brand creation*
 
-### Input Form (Started)
+### Input Form ✅
 - [x] City & location type selector
 - [x] Target ADR input
 - [x] Segment selector (lifestyle, luxury, boutique, etc.)
 - [x] Developer goal input
 - [x] Attach What's Hot signals option (via "Turn Into Brand" from trends)
 
+### Architecture: Multi-Step Pipeline
+*5-stage LLM pipeline with RAG context enrichment (~12,700 tokens/blueprint, ~$0.002)*
+
+```
+Input Form → Stage 1 → Stage 2 → Stage 3 → Stage 4 → Stage 5 → Blueprint
+              ↓         ↓         ↓         ↓         ↓
+            RAG       RAG       RAG      RAG(lite)  (none)
+```
+
+**Stage 1: Foundation** — brand names (primary + 2 alts), one-liner, thesis
+**Stage 2: Strategic** — pillars, positioning, unmet desires solved
+**Stage 3: Experience** — guest personas, signature experiences, guest journey
+**Stage 4: Atmosphere** — design direction, F&B concepts, revenue logic
+**Stage 5: Summary** — investor summary (synthesizes all stages)
+
+### Implementation Steps
+- [x] `db/models.py` — Add BrandBlueprintModel
+- [x] `services/brand_blueprint/schemas.py` — Pydantic models
+- [x] `services/brand_blueprint/prompts.py` — Stage prompt templates
+- [x] `services/brand_blueprint/stages/` — 5 stage implementations
+- [x] `services/brand_blueprint/pipeline.py` — Orchestrator
+- [x] `services/brand_blueprint/repository.py` — Database CRUD
+- [x] `api/routes/brand_blueprint.py` — API endpoints
+- [x] Dashboard frontend update — progress UI, structured display
+
 ### Brand Blueprint Output (MVP)
-- [ ] **Brand name** — AI-generated unique name
+- [ ] **Brand name** — primary + 2 alternates
 - [ ] **One-liner** — single sentence essence
 - [ ] **Thesis** — core brand philosophy
 - [ ] **Pillars** — 3-5 brand pillars
@@ -113,6 +138,10 @@
 - [ ] **Unmet guest desires solved** — linked to demand data
 - [ ] **F&B micro-concepts** — restaurant/bar ideas
 - [ ] **Investor summary** — one-page pitch
+
+### Storage
+- [ ] SQLite database persistence (BrandBlueprintModel)
+- [ ] localStorage sync for offline access
 
 ---
 

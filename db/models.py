@@ -178,3 +178,61 @@ class ProcessingJobModel(Base):
     items_failed: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text)
     metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
+class BrandBlueprintModel(Base):
+    """SQLAlchemy model for generated brand blueprints."""
+
+    __tablename__ = "brand_blueprints"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+
+    # Input data
+    location: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    segment: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    adr: Mapped[float] = mapped_column(Float, nullable=False)
+    rooms: Mapped[int] = mapped_column(Integer, nullable=False)
+    developer_goal: Mapped[str] = mapped_column(Text, nullable=False)
+    source_trend_id: Mapped[str | None] = mapped_column(String(36))
+    profile_data_json: Mapped[dict | None] = mapped_column(JSON)
+
+    # Stage 1: Foundation
+    brand_name_primary: Mapped[str] = mapped_column(String(200), nullable=False)
+    brand_name_alt_1: Mapped[str | None] = mapped_column(String(200))
+    brand_name_alt_2: Mapped[str | None] = mapped_column(String(200))
+    one_liner: Mapped[str] = mapped_column(String(500), nullable=False)
+    thesis: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Stage 2: Strategic
+    pillars: Mapped[list] = mapped_column(JSON, default=list)
+    positioning_statement: Mapped[str] = mapped_column(Text, nullable=False)
+    unmet_desires_solved: Mapped[list] = mapped_column(JSON, default=list)
+
+    # Stage 3: Experience
+    guest_personas: Mapped[list] = mapped_column(JSON, default=list)
+    signature_experiences: Mapped[list] = mapped_column(JSON, default=list)
+    guest_journey: Mapped[dict | None] = mapped_column(JSON)
+
+    # Stage 4: Atmosphere & Revenue
+    design_direction: Mapped[str] = mapped_column(Text, nullable=False)
+    fnb_concepts: Mapped[list] = mapped_column(JSON, default=list)
+    revenue_logic: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Stage 5: Summary
+    investor_summary: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Metadata
+    status: Mapped[str] = mapped_column(String(20), default="completed")
+    confidence: Mapped[float] = mapped_column(Float, default=0.8)
+    warnings: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Token tracking
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # User association (for future auth)
+    user_id: Mapped[str | None] = mapped_column(String(36), index=True)

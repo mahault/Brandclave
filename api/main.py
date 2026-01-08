@@ -148,6 +148,7 @@ async def root():
             "scheduler": "/api/scheduler/status",
             "monitoring": "/api/monitoring/dashboard",
             "chat": "/api/chat",
+            "brand_blueprint": "/api/brand-blueprint",
         },
     }
 
@@ -161,6 +162,7 @@ from api.routes.scheduler import router as scheduler_router
 from api.routes.monitoring import router as monitoring_router
 from api.routes.dashboard_simple import router as dashboard_simple_router
 from api.routes.chat import router as chat_router
+from api.routes.brand_blueprint import router as brand_blueprint_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
@@ -170,6 +172,7 @@ app.include_router(scheduler_router, prefix="/api", tags=["Scheduler"])
 app.include_router(monitoring_router, prefix="/api", tags=["Monitoring"])
 app.include_router(dashboard_simple_router, prefix="/api", tags=["Dashboard"])
 app.include_router(chat_router, prefix="/api", tags=["Chat"])
+app.include_router(brand_blueprint_router, prefix="/api", tags=["Brand Blueprint"])
 
 
 if __name__ == "__main__":

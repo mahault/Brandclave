@@ -621,6 +621,7 @@ async def dashboard_v2():
         <div id="citydesires" class="section">
             <div class="card">
                 <h2>🏙️ City Desires</h2>
+                <p style="color:#666;margin-bottom:15px;">Discover what travelers are craving in specific destinations. Uncover unmet needs, frustrations, and white-space opportunities from social conversations.</p>
                 <p style="color:#666;margin-bottom:15px;">Type a city to discover what travelers want but can't find.</p>
                 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
                     <input type="text" id="city-input" placeholder="City name (e.g., Lisbon)"
@@ -649,6 +650,7 @@ async def dashboard_v2():
         <div id="trends" class="section">
             <div class="card">
                 <h2>📈 Social Pulse Trends</h2>
+                <p style="color:#666;margin-bottom:15px;">Track emerging hospitality trends from Reddit, industry news, and social conversations. Discover what's gaining momentum and find white-space opportunities before your competitors.</p>
                 <div class="filter-bar">
                     <select id="filter-region" class="filter-select" onchange="applyFilters()">
                         <option value="">All Regions</option>
@@ -672,6 +674,7 @@ async def dashboard_v2():
         <div id="moves" class="section">
             <div class="card">
                 <h2>♟️ Hotelier Bets</h2>
+                <p style="color:#666;margin-bottom:15px;">Monitor strategic moves by hotel companies worldwide. Track launches, acquisitions, repositionings, and partnerships to understand where the industry is heading and identify competitive signals.</p>
                 <div class="filter-bar">
                     <select id="filter-company" onchange="applyMoveFilters()">
                         <option value="">All Companies</option>
@@ -716,6 +719,7 @@ async def dashboard_v2():
         <div id="content" class="section">
             <div class="card">
                 <h2>📰 Recent Content</h2>
+                <p style="color:#666;margin-bottom:15px;">Browse the latest scraped articles, social posts, and news from our 12+ hospitality sources. This raw content feeds our trend detection and move extraction engines.</p>
                 <div id="content-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
@@ -723,6 +727,7 @@ async def dashboard_v2():
         <div id="scrapers" class="section">
             <div class="card">
                 <h2>🔧 Scraper Status</h2>
+                <p style="color:#666;margin-bottom:15px;">Monitor the health and activity of our data collection system. Our POMDP-driven scheduler intelligently prioritizes sources based on expected information gain.</p>
                 <div id="scrapers-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
@@ -730,7 +735,7 @@ async def dashboard_v2():
         <div id="chat" class="section">
             <div class="card">
                 <h2>💬 BrandClave Chat</h2>
-                <p style="margin-bottom:15px;color:#666;">Ask about trends, market opportunities, or get help building a brand concept.</p>
+                <p style="margin-bottom:15px;color:#666;">Your AI-powered hospitality intelligence assistant. Ask about market trends, explore opportunities in specific cities, or get help ideating a brand concept with RAG-powered insights from our data.</p>
 
                 <div id="chat-messages" style="min-height:300px;max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:15px;margin-bottom:15px;background:#fafafa;">
                     <div class="chat-welcome">
@@ -761,7 +766,7 @@ async def dashboard_v2():
         <div id="projects" class="section">
             <div class="card">
                 <h2>📁 My Projects</h2>
-                <p style="margin-bottom:15px;color:#666;">Your saved trends and moves build a profile that informs brand generation.</p>
+                <p style="margin-bottom:15px;color:#666;">Save trends and strategic moves to build a research profile. Your saved items inform brand generation, helping BrandClave understand your interests and create more relevant concepts.</p>
 
                 <!-- Profile Insights -->
                 <div id="profile-insights" class="profile-insights-card">
@@ -2493,16 +2498,23 @@ async def build_a_brand_page():
         <div id="loading-container" class="card" style="display:none;">
             <div class="loading-indicator">
                 <div class="spinner"></div>
-                <p>Generating your brand concept...</p>
-                <p style="font-size:0.9em;color:#666;margin-top:10px;">
-                    Analyzing trends, market gaps, and opportunities...
-                </p>
+                <p id="loading-stage">Generating your brand concept...</p>
+                <div id="stage-progress" style="margin-top:15px;text-align:left;max-width:300px;margin-left:auto;margin-right:auto;">
+                    <div class="stage-item" data-stage="foundation"><span class="stage-icon">&#9679;</span> Foundation (names, thesis)</div>
+                    <div class="stage-item" data-stage="strategic"><span class="stage-icon">&#9675;</span> Strategic (pillars, positioning)</div>
+                    <div class="stage-item" data-stage="experience"><span class="stage-icon">&#9675;</span> Experience (personas, journey)</div>
+                    <div class="stage-item" data-stage="atmosphere"><span class="stage-icon">&#9675;</span> Atmosphere (design, F&B)</div>
+                    <div class="stage-item" data-stage="summary"><span class="stage-icon">&#9675;</span> Summary (investor pitch)</div>
+                </div>
             </div>
         </div>
 
         <div id="result-container">
             <div class="blueprint-card">
-                <h2 id="bp-name">Brand Name</h2>
+                <div id="bp-name-options" style="margin-bottom:15px;">
+                    <h2 id="bp-name">Brand Name</h2>
+                    <div id="bp-alternates" style="font-size:0.9em;color:#666;margin-top:5px;"></div>
+                </div>
                 <p class="blueprint-oneliner" id="bp-oneliner">One-liner</p>
 
                 <div class="blueprint-section">
@@ -2516,8 +2528,23 @@ async def build_a_brand_page():
                 </div>
 
                 <div class="blueprint-section">
+                    <h3>Positioning Statement</h3>
+                    <p id="bp-positioning"></p>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Target Guest Personas</h3>
+                    <div id="bp-personas"></div>
+                </div>
+
+                <div class="blueprint-section">
                     <h3>Signature Experiences</h3>
                     <div id="bp-experiences"></div>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Guest Journey</h3>
+                    <div id="bp-journey"></div>
                 </div>
 
                 <div class="blueprint-section">
@@ -2526,13 +2553,23 @@ async def build_a_brand_page():
                 </div>
 
                 <div class="blueprint-section">
-                    <h3>Target Guests</h3>
-                    <p id="bp-personas"></p>
+                    <h3>F&B Concepts</h3>
+                    <div id="bp-fnb"></div>
                 </div>
 
                 <div class="blueprint-section">
-                    <h3>Why It Will Succeed</h3>
-                    <p id="bp-success"></p>
+                    <h3>Revenue Logic</h3>
+                    <p id="bp-revenue"></p>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Investor Summary</h3>
+                    <p id="bp-investor" style="background:#f8f8f8;padding:15px;border-radius:8px;"></p>
+                </div>
+
+                <div id="bp-metadata" style="margin-top:20px;font-size:0.85em;color:#888;">
+                    <span id="bp-confidence"></span>
+                    <span id="bp-tokens" style="margin-left:15px;"></span>
                 </div>
             </div>
 
@@ -2627,35 +2664,53 @@ async def build_a_brand_page():
             const loadingEl = document.getElementById('loading-container');
             const resultEl = document.getElementById('result-container');
 
+            // Validate inputs
+            const location = document.getElementById('brand-location').value;
+            const segment = document.getElementById('brand-segment').value;
+            const adr = document.getElementById('brand-adr').value;
+            const rooms = document.getElementById('brand-rooms').value || 100;
+            const goal = document.getElementById('brand-goal').value;
+
+            if (!location || !adr || !goal) {
+                alert('Please fill in Location, Target ADR, and Developer Goal.');
+                return;
+            }
+
             btn.disabled = true;
             loadingEl.style.display = 'block';
             resultEl.style.display = 'none';
 
-            // Gather inputs
-            const inputs = {
-                location: document.getElementById('brand-location').value,
-                segment: document.getElementById('brand-segment').value,
-                adr: document.getElementById('brand-adr').value,
-                rooms: document.getElementById('brand-rooms').value,
-                goal: document.getElementById('brand-goal').value,
-                source_trend: sourceTrend,
-                profile: profileData
-            };
+            // Reset stage indicators
+            document.querySelectorAll('.stage-item').forEach(el => {
+                el.querySelector('.stage-icon').innerHTML = '&#9675;';
+                el.style.color = '#666';
+            });
 
             try {
-                // Build the prompt
-                const message = buildBrandPrompt(inputs);
-
-                const res = await fetch('/api/chat', {
+                // Call the new blueprint generation API
+                const res = await fetch('/api/brand-blueprint/generate-simple', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({
+                        location: location,
+                        segment: segment,
+                        adr: parseFloat(adr),
+                        rooms: parseInt(rooms),
+                        developer_goal: goal,
+                        source_trend_id: sourceTrend ? sourceTrend.source_trend_id : null
+                    })
                 });
 
                 const data = await res.json();
 
-                if (res.ok) {
-                    displayBlueprint(data.response, inputs);
+                if (res.ok && data.blueprint) {
+                    // Update all stage indicators to complete
+                    document.querySelectorAll('.stage-item').forEach(el => {
+                        el.querySelector('.stage-icon').innerHTML = '&#10003;';
+                        el.style.color = '#27ae60';
+                    });
+
+                    displayBlueprint(data.blueprint);
                     resultEl.style.display = 'block';
                 } else {
                     alert('Generation failed: ' + (data.detail || 'Unknown error'));
@@ -2721,26 +2776,86 @@ async def build_a_brand_page():
             return prompt;
         }
 
-        function displayBlueprint(response, inputs) {
-            currentBlueprint = {
-                inputs: inputs,
-                response: response,
-                generated_at: new Date().toISOString()
-            };
+        function displayBlueprint(blueprint) {
+            currentBlueprint = blueprint;
 
-            // Parse sections from response
-            const sections = parseResponse(response);
+            // Brand names with alternates
+            const names = blueprint.brand_names || {};
+            document.getElementById('bp-name').textContent = names.primary || 'Brand Concept';
+            if (names.alternate_1 || names.alternate_2) {
+                document.getElementById('bp-alternates').textContent =
+                    'Alternates: ' + [names.alternate_1, names.alternate_2].filter(Boolean).join(', ');
+            }
 
-            document.getElementById('bp-name').textContent = sections.name || 'Brand Concept';
-            document.getElementById('bp-oneliner').textContent = sections.oneliner || '';
-            document.getElementById('bp-thesis').textContent = sections.thesis || '';
-            document.getElementById('bp-pillars').innerHTML = sections.pillars.map(p => '<li>' + p + '</li>').join('');
-            document.getElementById('bp-experiences').innerHTML = sections.experiences.map(e =>
-                '<div class="experience-card"><p>' + e + '</p></div>'
+            document.getElementById('bp-oneliner').textContent = blueprint.one_liner || '';
+            document.getElementById('bp-thesis').textContent = blueprint.thesis || '';
+
+            // Pillars
+            const pillars = blueprint.pillars || [];
+            document.getElementById('bp-pillars').innerHTML = pillars.map(p => '<li>' + p + '</li>').join('');
+
+            // Positioning
+            document.getElementById('bp-positioning').textContent = blueprint.positioning_statement || '';
+
+            // Guest personas
+            const personas = blueprint.guest_personas || [];
+            document.getElementById('bp-personas').innerHTML = personas.map(p =>
+                '<div class="experience-card">' +
+                '<strong>' + (p.name || '') + '</strong>' +
+                '<p>' + (p.description || '') + '</p>' +
+                '<p style="font-size:0.9em;color:#666;">Spend: ' + (p.spend_behavior || '') + '</p>' +
+                '</div>'
             ).join('');
-            document.getElementById('bp-design').textContent = sections.design || '';
-            document.getElementById('bp-personas').textContent = sections.personas || '';
-            document.getElementById('bp-success').textContent = sections.success || '';
+
+            // Signature experiences
+            const experiences = blueprint.signature_experiences || [];
+            document.getElementById('bp-experiences').innerHTML = experiences.map(e =>
+                '<div class="experience-card">' +
+                '<strong>' + (e.name || '') + '</strong>' +
+                '<p>' + (e.description || '') + '</p>' +
+                '<p style="font-size:0.9em;color:#27ae60;">' + (e.why_it_matters || '') + '</p>' +
+                '</div>'
+            ).join('');
+
+            // Guest journey
+            const journey = blueprint.guest_journey || {};
+            if (journey.arrival || journey.stay || journey.departure) {
+                document.getElementById('bp-journey').innerHTML =
+                    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;">' +
+                    '<div class="experience-card"><strong>Arrival</strong><p>' + (journey.arrival || '') + '</p></div>' +
+                    '<div class="experience-card"><strong>Stay</strong><p>' + (journey.stay || '') + '</p></div>' +
+                    '<div class="experience-card"><strong>Departure</strong><p>' + (journey.departure || '') + '</p></div>' +
+                    '</div>';
+            }
+
+            // Design direction
+            document.getElementById('bp-design').textContent = blueprint.design_direction || '';
+
+            // F&B concepts
+            const fnb = blueprint.fnb_concepts || [];
+            document.getElementById('bp-fnb').innerHTML = fnb.map(f =>
+                '<div class="experience-card">' +
+                '<strong>' + (f.name || '') + '</strong>' +
+                '<p>' + (f.concept || '') + '</p>' +
+                '<p style="font-size:0.9em;color:#666;">Vibe: ' + (f.vibe || '') + '</p>' +
+                '</div>'
+            ).join('');
+
+            // Revenue logic
+            document.getElementById('bp-revenue').textContent = blueprint.revenue_logic || '';
+
+            // Investor summary
+            document.getElementById('bp-investor').textContent = blueprint.investor_summary || '';
+
+            // Metadata
+            const confidence = Math.round((blueprint.confidence || 0) * 100);
+            document.getElementById('bp-confidence').textContent = 'Confidence: ' + confidence + '%';
+
+            const tokens = blueprint.token_usage || {};
+            if (tokens.total_tokens) {
+                document.getElementById('bp-tokens').textContent =
+                    'Tokens: ' + tokens.total_tokens + ' (~$' + (tokens.estimated_cost_usd || 0).toFixed(3) + ')';
+            }
         }
 
         function parseResponse(text) {
