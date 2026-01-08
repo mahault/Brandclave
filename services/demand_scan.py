@@ -63,10 +63,11 @@ class DemandScanService:
         trends = self._get_regional_trends(features.get("region"))
         demand_fit = self._compute_demand_fit(features, trends)
 
-        # Step 6: Identify gaps and opportunities
+        # Step 6: Identify gaps, opportunities, and misalignments
         gaps = self._identify_experience_gaps(features, trends)
         opportunities = self._identify_opportunities(features, trends)
         advantages = self._identify_competitive_advantages(features, trends)
+        misalignment_flags = self._identify_positioning_misalignment(features)
         recommendations = self._generate_recommendations(features, gaps, opportunities)
 
         # Ensure we have a property name
@@ -95,6 +96,7 @@ class DemandScanService:
             "experience_gaps": gaps,
             "opportunity_lanes": opportunities,
             "competitive_advantages": advantages,
+            "positioning_misalignment_flags": misalignment_flags,
             "recommendations": recommendations,
             "matching_trend_ids": demand_fit["matching_trend_ids"],
             "scraped_at": datetime.utcnow().isoformat(),
@@ -385,6 +387,72 @@ class DemandScanService:
 
         return advantages[:5]
 
+    def _identify_positioning_misalignment(
+        self,
+        features: dict,
+    ) -> list[str]:
+        """Identify positioning misalignments and inconsistencies.
+
+        Detects when property claims don't match offerings, such as
+        luxury positioning with budget amenities.
+
+        Args:
+            features: Property features dict
+
+        Returns:
+            List of misalignment flag descriptions
+        """
+        flags = []
+
+        price = features.get("price_segment", "unknown")
+        amenities = [a.lower() for a in features.get("amenities", [])]
+        themes = [t.lower() for t in features.get("themes", [])]
+        positioning = (features.get("brand_positioning") or "").lower()
+        amenities_text = " ".join(amenities)
+
+        # 1. Luxury pricing without luxury amenities
+        luxury_indicators = {"spa", "fine dining", "butler", "concierge", "valet", "pool"}
+        has_luxury_amenities = any(li in amenities_text for li in luxury_indicators)
+
+        if price in ["luxury", "ultra_luxury"] and not has_luxury_amenities:
+            flags.append("Price-tier mismatch: Luxury pricing without premium amenities (spa, concierge, fine dining)")
+
+        # 2. Wellness positioning without wellness offerings
+        wellness_indicators = {"spa", "yoga", "meditation", "massage", "wellness", "sauna", "steam"}
+        has_wellness = any(wi in amenities_text for wi in wellness_indicators)
+        wellness_positioned = "wellness" in themes or "wellness" in positioning or "mindfulness" in positioning
+
+        if wellness_positioned and not has_wellness:
+            flags.append("Theme mismatch: Wellness positioning without spa or wellness facilities")
+
+        # 3. Boutique positioning without character elements
+        boutique_indicators = {"design", "art", "unique", "curated", "bespoke", "artisan"}
+        has_boutique_elements = any(bi in amenities_text or bi in positioning for bi in boutique_indicators)
+
+        if "boutique" in themes and not has_boutique_elements:
+            flags.append("Theme mismatch: Boutique positioning without distinctive design or character elements")
+
+        # 4. Conflicting themes
+        conflicting_pairs = [
+            ("budget", "luxury"),
+            ("budget", "ultra_luxury"),
+            ("business", "romantic"),
+            ("family", "adults-only"),
+        ]
+        for t1, t2 in conflicting_pairs:
+            if t1 in themes and t2 in themes:
+                flags.append(f"Conflicting positioning: {t1.title()} and {t2.title()} themes mixed")
+
+        # 5. Eco/sustainable positioning without evidence
+        eco_indicators = {"solar", "recycl", "sustain", "organic", "eco", "green", "carbon"}
+        has_eco_evidence = any(ei in amenities_text or ei in positioning for ei in eco_indicators)
+        eco_positioned = "eco" in themes or "sustainable" in themes or "green" in themes
+
+        if eco_positioned and not has_eco_evidence:
+            flags.append("Theme mismatch: Eco/sustainable positioning without visible sustainability practices")
+
+        return flags[:5]
+
     def _generate_recommendations(
         self,
         features: dict,
@@ -483,6 +551,7 @@ class DemandScanService:
                 experience_gaps=property_data.get("experience_gaps", []),
                 opportunity_lanes=property_data.get("opportunity_lanes", []),
                 competitive_advantages=property_data.get("competitive_advantages", []),
+                positioning_misalignment_flags=property_data.get("positioning_misalignment_flags", []),
                 recommendations=property_data.get("recommendations", []),
                 matching_trend_ids=property_data.get("matching_trend_ids", []),
                 source_content_id=property_data.get("source_content_id"),
@@ -605,6 +674,7 @@ class DemandScanService:
             "experience_gaps": model.experience_gaps or [],
             "opportunity_lanes": model.opportunity_lanes or [],
             "competitive_advantages": model.competitive_advantages or [],
+            "positioning_misalignment_flags": model.positioning_misalignment_flags or [],
             "recommendations": model.recommendations or [],
             "matching_trend_ids": model.matching_trend_ids or [],
             "scraped_at": model.scraped_at.isoformat() if model.scraped_at else None,

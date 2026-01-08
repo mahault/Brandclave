@@ -43,6 +43,7 @@ class PropertyResponse(BaseModel):
     experience_gaps: list[str]
     opportunity_lanes: list[str]
     competitive_advantages: list[str]
+    positioning_misalignment_flags: list[str]
     recommendations: list[str]
     matching_trend_ids: list[str]
     scraped_at: Optional[str]

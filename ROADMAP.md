@@ -1,8 +1,8 @@
 # BrandClave AI — Development Roadmap
 
-## Current Status: ~35% Complete
+## Current Status: ~40% Complete
 **Backend intelligence layer exists** — scraping, trends, moves, city desires, demand scan, chat with RAG.
-**Recently completed** — Social Pulse Phase 2 (filters, white space scores, save to project, Build a Brand page).
+**Recently completed** — Phase 2 complete: Social Pulse, Hotelier Bets, and Demand Scan enhancements.
 **Not yet built** — Full brand blueprint output, project management, breakthrough features, React frontend.
 
 ---
@@ -37,12 +37,47 @@
 - [x] Add **Filters** — by company, move type, region
 - [x] Add **"Save to Project"** button
 
-### Demand Scan Enhancements
-- [ ] Generate **Demand Fit Score (0-100)**
-- [ ] Show **Positioning Misalignment Flags**
-- [ ] Add **Experience Gap Snapshot** (2-3 themes)
-- [ ] Add **Opportunity Lanes** (strategic trajectories)
-- [ ] Add **"Send to Build a Brand"** CTA
+### Demand Scan Enhancements ✅
+
+**Dashboard Tab UI** ✅
+- [x] Add Demand Scan tab to dashboard navigation
+- [x] Property URL input form with scan button
+- [x] Previously scanned properties list with cards
+- [ ] Property detail modal with full analysis (future)
+
+**Demand Fit Score (0-100)** ✅
+- [x] Convert existing 0-1 float to 0-100 integer display
+- [x] Color-coded badge: High (70+, green), Medium (40-69, yellow), Low (<40, red)
+- [ ] Visual gauge/meter component (future)
+
+**Positioning Misalignment Flags** ✅
+- [x] Detect when property claims don't match offerings (e.g., "luxury" with budget amenities)
+- [x] Detect price-tier mismatch (luxury price, midscale experience)
+- [x] Detect theme confusion (conflicting positioning signals)
+- [x] Display as warning badges on property cards
+
+**Experience Gap Snapshot** ✅
+- [x] Show top 2-3 trending experiences property is missing
+- [x] Link gaps to specific trend data with strength %
+- [x] Priority ordering by trend strength
+
+**Opportunity Lanes** ✅
+- [x] Format as strategic trajectory cards
+- [x] Show demand driver + positioning recommendation
+- [ ] Include competitive landscape insight (future)
+
+**Actions** ✅
+- [x] Add **"Send to Build a Brand"** CTA button
+- [x] Pre-fill Build a Brand form with property context
+- [x] Add **"Save to Project"** button
+
+**Tests** ✅
+- [x] `test_demand_fit_score_0_to_100`: Verify score conversion and badge colors
+- [x] `test_positioning_misalignment_detection`: Test luxury/budget mismatch detection
+- [x] `test_experience_gap_snapshot`: Verify top 2-3 gaps are returned
+- [x] `test_opportunity_lanes_format`: Check strategic trajectory format
+- [x] `test_send_to_build_brand`: Verify form pre-fill works
+- [x] `test_demand_scan_api`: End-to-end API test
 
 ---
 

@@ -151,6 +151,7 @@ class PropertyFeaturesModel(Base):
     experience_gaps: Mapped[list | None] = mapped_column(JSON, default=list)
     opportunity_lanes: Mapped[list | None] = mapped_column(JSON, default=list)
     competitive_advantages: Mapped[list | None] = mapped_column(JSON, default=list)
+    positioning_misalignment_flags: Mapped[list | None] = mapped_column(JSON, default=list)
     recommendations: Mapped[list | None] = mapped_column(JSON, default=list)
 
     # Matching trends

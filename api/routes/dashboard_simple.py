@@ -452,6 +452,113 @@ async def dashboard_v2():
             margin-bottom: 10px;
         }
         .concept-card h4 { margin-bottom: 8px; }
+
+        /* Demand Scan */
+        .property-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s;
+        }
+        .property-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.12); }
+        .property-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        .property-card h3 { margin: 0; color: #1a1a2e; font-size: 1.2em; }
+        .property-card .location { color: #666; font-size: 0.9em; margin-top: 4px; }
+
+        /* Demand Fit Score Badge */
+        .demand-score {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 1em;
+        }
+        .demand-high { background: #d4edda; color: #155724; }
+        .demand-medium { background: #fff3cd; color: #856404; }
+        .demand-low { background: #f8d7da; color: #721c24; }
+
+        /* Misalignment Flags */
+        .misalignment-flag {
+            display: inline-flex;
+            align-items: center;
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin: 3px;
+        }
+        .misalignment-flag::before { content: "⚠️ "; }
+
+        /* Property Sections */
+        .property-section {
+            margin-bottom: 15px;
+        }
+        .property-section-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .gap-item {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            margin: 2px;
+        }
+        .opportunity-item {
+            display: flex;
+            align-items: center;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            margin-bottom: 6px;
+        }
+        .opportunity-item::before { content: "→ "; font-weight: bold; margin-right: 6px; }
+
+        .property-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .property-action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .property-action-btn.btn-brand {
+            background: #e94560;
+            color: white;
+        }
+        .property-action-btn.btn-brand:hover { background: #d63850; }
+        .property-action-btn.btn-save {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .property-action-btn.btn-save:hover { background: #e0e0e0; }
+        .property-action-btn.btn-save.saved {
+            background: #d4edda;
+            color: #155724;
+        }
     </style>
 </head>
 <body>
@@ -472,6 +579,7 @@ async def dashboard_v2():
             <button class="tab" onclick="showTab('citydesires')">City Desires</button>
             <button class="tab" onclick="showTab('trends')">Social Pulse</button>
             <button class="tab" onclick="showTab('moves')">Hotelier Bets</button>
+            <button class="tab" onclick="showTab('demandscan')">🔍 Demand Scan</button>
             <button class="tab" onclick="showTab('content')">Content</button>
             <button class="tab" onclick="showTab('scrapers')">Scrapers</button>
             <button class="tab" onclick="showTab('chat')">💬 Chat</button>
@@ -578,6 +686,30 @@ async def dashboard_v2():
                     <span id="moves-saved-count" class="saved-count"></span>
                 </div>
                 <div id="moves-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
+            </div>
+        </div>
+
+        <div id="demandscan" class="section">
+            <div class="card">
+                <h2>🔍 Demand Scan</h2>
+                <p style="color:#666;margin-bottom:15px;">Analyze any hotel website against current demand trends. Get fit scores, experience gaps, and opportunities.</p>
+
+                <!-- URL Input Form -->
+                <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                    <input type="text" id="property-url-input" placeholder="Enter hotel website URL (e.g., https://www.example-hotel.com)"
+                           style="padding:12px 15px;border:1px solid #ddd;border-radius:6px;font-size:1em;flex:1;min-width:250px;">
+                    <button onclick="scanProperty()" id="scan-btn"
+                            style="padding:12px 24px;background:#e94560;color:white;border:none;border-radius:6px;cursor:pointer;font-size:1em;font-weight:600;">
+                        Scan Property
+                    </button>
+                </div>
+
+                <!-- Scan Status -->
+                <div id="scan-status" style="display:none;margin-bottom:20px;padding:15px;border-radius:8px;"></div>
+
+                <!-- Previously Scanned Properties -->
+                <h3 style="margin:20px 0 15px;color:#1a1a2e;">Previously Scanned Properties</h3>
+                <div id="properties-list"><div class="empty"><div class="icon">🏨</div>No properties scanned yet. Enter a URL above to analyze a property.</div></div>
             </div>
         </div>
 
@@ -854,6 +986,9 @@ async def dashboard_v2():
                     document.getElementById('scrapers-list').innerHTML = '<div class="empty"><div class="icon">🔧</div>No scraper data</div>';
                 }
 
+                // Load scanned properties (don't wait for it)
+                loadScannedProperties();
+
                 setStatus('✅', 'Data loaded at ' + new Date().toLocaleTimeString());
 
             } catch (err) {
@@ -932,6 +1067,233 @@ async def dashboard_v2():
                 </div>
             `;
         }
+
+        // =============================================
+        // Demand Scan Functions
+        // =============================================
+
+        let allProperties = [];
+
+        async function scanProperty() {
+            const urlInput = document.getElementById('property-url-input');
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                showScanStatus('error', 'Please enter a valid URL');
+                return;
+            }
+
+            // Validate URL format
+            try {
+                new URL(url);
+            } catch {
+                showScanStatus('error', 'Invalid URL format. Please enter a complete URL including https://');
+                return;
+            }
+
+            const scanBtn = document.getElementById('scan-btn');
+            scanBtn.disabled = true;
+            scanBtn.textContent = 'Scanning...';
+            showScanStatus('info', 'Analyzing property website... This may take 30-60 seconds.');
+
+            try {
+                const response = await fetch('/api/demand-scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.status === 'exists') {
+                        showScanStatus('warning', 'Property was previously scanned. Showing existing analysis.');
+                    } else {
+                        showScanStatus('success', 'Property analyzed successfully!');
+                    }
+                    urlInput.value = '';
+                    loadScannedProperties();
+                } else {
+                    showScanStatus('error', data.detail || 'Failed to scan property. Please check the URL and try again.');
+                }
+            } catch (err) {
+                console.error('Scan error:', err);
+                showScanStatus('error', 'Network error. Please try again.');
+            } finally {
+                scanBtn.disabled = false;
+                scanBtn.textContent = 'Scan Property';
+            }
+        }
+
+        function showScanStatus(type, message) {
+            const statusEl = document.getElementById('scan-status');
+            const colors = {
+                error: { bg: '#fee2e2', color: '#991b1b' },
+                success: { bg: '#d4edda', color: '#155724' },
+                warning: { bg: '#fff3cd', color: '#856404' },
+                info: { bg: '#e0e7ff', color: '#4338ca' }
+            };
+            const style = colors[type] || colors.info;
+            statusEl.style.display = 'block';
+            statusEl.style.background = style.bg;
+            statusEl.style.color = style.color;
+            statusEl.textContent = message;
+
+            if (type !== 'info') {
+                setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+            }
+        }
+
+        async function loadScannedProperties() {
+            try {
+                const response = await fetch('/api/demand-scan?limit=20');
+                const data = await response.json();
+                allProperties = data.properties || [];
+
+                const container = document.getElementById('properties-list');
+                if (allProperties.length > 0) {
+                    container.innerHTML = allProperties.map((p, i) => renderPropertyCard(p, i)).join('');
+                } else {
+                    container.innerHTML = '<div class="empty"><div class="icon">🏨</div>No properties scanned yet. Enter a URL above to analyze a property.</div>';
+                }
+            } catch (err) {
+                console.error('Load properties error:', err);
+            }
+        }
+
+        function renderPropertyCard(p, idx) {
+            // Calculate demand score as 0-100
+            const score = p.demand_fit_score ? Math.round(p.demand_fit_score * 100) : 0;
+            const scoreClass = score >= 70 ? 'demand-high' : score >= 40 ? 'demand-medium' : 'demand-low';
+            const scoreLabel = score >= 70 ? 'High Fit' : score >= 40 ? 'Moderate Fit' : 'Low Fit';
+
+            // Experience gaps (top 3)
+            const gaps = (p.experience_gaps || []).slice(0, 3);
+            const gapsHtml = gaps.length > 0
+                ? gaps.map(g => `<span class="gap-item">${truncate(g.split(' (')[0], 30)}</span>`).join('')
+                : '<span style="color:#888;font-size:0.85em;">No major gaps identified</span>';
+
+            // Opportunity lanes (top 2)
+            const opportunities = (p.opportunity_lanes || []).slice(0, 2);
+            const oppsHtml = opportunities.length > 0
+                ? opportunities.map(o => `<div class="opportunity-item">${truncate(o, 80)}</div>`).join('')
+                : '<span style="color:#888;font-size:0.85em;">No opportunities identified</span>';
+
+            // Misalignment flags
+            const flags = p.positioning_misalignment_flags || [];
+            const flagsHtml = flags.length > 0
+                ? `<div class="property-section">
+                    <div class="property-section-title">Positioning Issues</div>
+                    ${flags.map(f => `<span class="misalignment-flag">${truncate(f.split(':')[1] || f, 50)}</span>`).join('')}
+                   </div>`
+                : '';
+
+            // Property themes
+            const themes = (p.themes || []).slice(0, 4);
+            const themesHtml = themes.length > 0
+                ? themes.map(t => `<span class="topic-tag">${t}</span>`).join('')
+                : '';
+
+            return `
+                <div class="property-card" data-property-id="${p.id}">
+                    <div class="property-card-header">
+                        <div>
+                            <h3>${p.name || 'Unnamed Property'}</h3>
+                            <div class="location">${p.location || p.region || 'Location unknown'}</div>
+                            <div style="margin-top:8px;">${themesHtml}</div>
+                        </div>
+                        <div class="demand-score ${scoreClass}">
+                            ${score}% ${scoreLabel}
+                        </div>
+                    </div>
+
+                    ${flagsHtml}
+
+                    <div class="property-section">
+                        <div class="property-section-title">Experience Gaps</div>
+                        ${gapsHtml}
+                    </div>
+
+                    <div class="property-section">
+                        <div class="property-section-title">Opportunity Lanes</div>
+                        ${oppsHtml}
+                    </div>
+
+                    <div class="property-actions">
+                        <button class="property-action-btn btn-brand" onclick="sendPropertyToBuildBrand(${idx})">
+                            🚀 Build a Brand
+                        </button>
+                        <button class="property-action-btn btn-save" onclick="savePropertyToProject(${idx})">
+                            💾 Save to Project
+                        </button>
+                        <a href="${p.url}" target="_blank" class="property-action-btn btn-save" style="text-decoration:none;">
+                            🔗 Visit Site
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function sendPropertyToBuildBrand(idx) {
+            const p = allProperties[idx];
+            if (!p) return;
+
+            // Store property data for Build a Brand page
+            const brandData = {
+                type: 'property',
+                property_name: p.name,
+                location: p.location || '',
+                segment: p.price_segment || (p.themes && p.themes[0]) || '',
+                context: `Property analysis of ${p.name}. Demand fit: ${Math.round((p.demand_fit_score || 0) * 100)}%`,
+                gaps: p.experience_gaps || [],
+                opportunities: p.opportunity_lanes || [],
+                themes: p.themes || []
+            };
+            localStorage.setItem('brandclave_brand_prefill', JSON.stringify(brandData));
+
+            // Navigate to Build a Brand page
+            window.location.href = '/monitoring/build-a-brand';
+        }
+
+        function savePropertyToProject(idx) {
+            const p = allProperties[idx];
+            if (!p) return;
+
+            // Get existing saved properties
+            const saved = JSON.parse(localStorage.getItem('brandclave_saved_properties') || '[]');
+
+            // Check if already saved
+            const existingIdx = saved.findIndex(s => s.id === p.id);
+            if (existingIdx >= 0) {
+                // Remove if already saved
+                saved.splice(existingIdx, 1);
+                localStorage.setItem('brandclave_saved_properties', JSON.stringify(saved));
+                loadScannedProperties();
+                return;
+            }
+
+            // Add to saved
+            saved.push({
+                id: p.id,
+                type: 'property',
+                name: p.name,
+                location: p.location,
+                demand_fit_score: p.demand_fit_score,
+                saved_at: new Date().toISOString()
+            });
+            localStorage.setItem('brandclave_saved_properties', JSON.stringify(saved));
+            loadScannedProperties();
+        }
+
+        // Allow Enter key to trigger scan
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlInput = document.getElementById('property-url-input');
+            if (urlInput) {
+                urlInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') scanProperty();
+                });
+            }
+        });
 
         // =============================================
         // Filter Functions
