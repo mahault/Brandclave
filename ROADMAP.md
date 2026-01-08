@@ -1,8 +1,8 @@
 # BrandClave AI — Development Roadmap
 
-## Current Status: ~40% Complete
+## Current Status: ~42% Complete
 **Backend intelligence layer exists** — scraping, trends, moves, city desires, demand scan, chat with RAG.
-**Recently completed** — Phase 2 complete: Social Pulse, Hotelier Bets, and Demand Scan enhancements.
+**Recently completed** — Phase 2 complete + POMDP adaptive scraping improvements.
 **Not yet built** — Full brand blueprint output, project management, breakthrough features, React frontend.
 
 ---
@@ -19,6 +19,14 @@
 - [x] 12 data sources (Reddit, Skift, Hotel Dive, etc.)
 - [x] PyMDP active inference for adaptive scraping
 - [x] Quality filtering for trend descriptions
+
+### ✅ POMDP Scraping Improvements (Jan 2026)
+- [x] Staleness-based exploration — freshness beliefs decay over time
+- [x] Increased exploration bonus — better coverage of all sources
+- [x] Debug endpoints — `/api/scheduler/pomdp/beliefs` to inspect POMDP state
+- [x] Manual scrape endpoint — `/api/scheduler/scrape-all` for bulk refresh
+- [x] EFE logging — shows top candidates and stale sources needing attention
+- [x] Keep-alive for Render — `/health` endpoint with scheduler status
 
 ---
 
