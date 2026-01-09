@@ -81,8 +81,8 @@ class DesireSignal:
 class DesireTheme:
     """A clustered theme of desires for a city."""
 
-    theme_name: str  # e.g., "Design-forward affordable stays"
-    description: str  # What this theme represents
+    theme_name: str  # e.g., "Solo Travelers Seeking Community"
+    description: str  # What this theme represents (the unmet need)
     city: str
     country: str
     intensity_score: float  # 0-1, how strong is this desire
@@ -94,6 +94,13 @@ class DesireTheme:
     example_snippets: list[str] = field(default_factory=list)
     supply_gap: float = 0.0  # 0-1, how underserved is this (desire vs supply)
     opportunity_score: float = 0.0  # Combined score for white space
+
+    # LLM-synthesized insights (new fields)
+    unmet_need: str = ""  # What travelers want but can't find
+    why_supply_fails: str = ""  # Why current hotels don't meet this need
+    solving_features: list[str] = field(default_factory=list)  # Features that would solve it
+    target_guest: str = ""  # Who specifically would value this
+    opportunity_insight: str = ""  # Business opportunity description
 
     def to_dict(self) -> dict:
         return {
@@ -110,6 +117,12 @@ class DesireTheme:
             "example_snippets": self.example_snippets[:5],  # Limit to 5
             "supply_gap": self.supply_gap,
             "opportunity_score": self.opportunity_score,
+            # LLM-synthesized fields
+            "unmet_need": self.unmet_need,
+            "why_supply_fails": self.why_supply_fails,
+            "solving_features": self.solving_features,
+            "target_guest": self.target_guest,
+            "opportunity_insight": self.opportunity_insight,
         }
 
 

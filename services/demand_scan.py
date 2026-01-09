@@ -261,9 +261,10 @@ class DemandScanService:
             trends: List of trend dicts
 
         Returns:
-            List of gap descriptions
+            List of gap descriptions (deduplicated)
         """
         gaps = []
+        seen_trend_names = set()  # Track unique trend names to avoid duplicates
 
         property_offerings = set()
         for amenity in features.get("amenities", []):
@@ -273,27 +274,34 @@ class DemandScanService:
         for theme in features.get("themes", []):
             property_offerings.add(theme.lower())
 
-        # Check high-strength trends
+        # Check high-strength trends, deduplicate by name
         strong_trends = [t for t in trends if t["strength_score"] > 0.3]
 
         for trend in strong_trends[:10]:
+            trend_name = trend["name"]
+            trend_name_lower = trend_name.lower()
+
+            # Skip if we've already seen this trend name
+            if trend_name_lower in seen_trend_names:
+                continue
+
             trend_topics = [t.lower() for t in trend.get("topics", [])]
-            trend_name = trend["name"].lower()
 
             # Check if property covers this trend
             covered = any(
                 topic in " ".join(property_offerings)
                 for topic in trend_topics
             ) or any(
-                offering in trend_name
+                offering in trend_name_lower
                 for offering in property_offerings
             )
 
             if not covered:
                 strength_pct = int(trend["strength_score"] * 100)
                 gaps.append(
-                    f"{trend['name']} (trending at {strength_pct}% strength)"
+                    f"{trend_name} (trending at {strength_pct}% strength)"
                 )
+                seen_trend_names.add(trend_name_lower)
 
         return gaps[:5]
 
@@ -408,26 +416,32 @@ class DemandScanService:
         amenities = [a.lower() for a in features.get("amenities", [])]
         themes = [t.lower() for t in features.get("themes", [])]
         positioning = (features.get("brand_positioning") or "").lower()
-        amenities_text = " ".join(amenities)
+        experiences = [e.lower() for e in features.get("experiences", [])]
+        dining = [d.lower() for d in features.get("dining_options", [])]
+        room_types = [r.lower() for r in features.get("room_types", [])]
+
+        # Build comprehensive text from all property data for searching
+        all_offerings_text = " ".join(amenities + experiences + dining + room_types + [positioning])
 
         # 1. Luxury pricing without luxury amenities
-        luxury_indicators = {"spa", "fine dining", "butler", "concierge", "valet", "pool"}
-        has_luxury_amenities = any(li in amenities_text for li in luxury_indicators)
+        luxury_indicators = {"spa", "fine dining", "butler", "concierge", "valet", "pool", "suite", "premium"}
+        has_luxury_amenities = any(li in all_offerings_text for li in luxury_indicators)
 
         if price in ["luxury", "ultra_luxury"] and not has_luxury_amenities:
             flags.append("Price-tier mismatch: Luxury pricing without premium amenities (spa, concierge, fine dining)")
 
         # 2. Wellness positioning without wellness offerings
-        wellness_indicators = {"spa", "yoga", "meditation", "massage", "wellness", "sauna", "steam"}
-        has_wellness = any(wi in amenities_text for wi in wellness_indicators)
+        # Check ALL sources: amenities, experiences, dining, positioning, room types
+        wellness_indicators = {"spa", "yoga", "meditation", "massage", "wellness", "sauna", "steam", "fitness", "gym", "health"}
+        has_wellness = any(wi in all_offerings_text for wi in wellness_indicators)
         wellness_positioned = "wellness" in themes or "wellness" in positioning or "mindfulness" in positioning
 
         if wellness_positioned and not has_wellness:
             flags.append("Theme mismatch: Wellness positioning without spa or wellness facilities")
 
         # 3. Boutique positioning without character elements
-        boutique_indicators = {"design", "art", "unique", "curated", "bespoke", "artisan"}
-        has_boutique_elements = any(bi in amenities_text or bi in positioning for bi in boutique_indicators)
+        boutique_indicators = {"design", "art", "unique", "curated", "bespoke", "artisan", "character", "historic", "heritage"}
+        has_boutique_elements = any(bi in all_offerings_text for bi in boutique_indicators)
 
         if "boutique" in themes and not has_boutique_elements:
             flags.append("Theme mismatch: Boutique positioning without distinctive design or character elements")
@@ -444,8 +458,8 @@ class DemandScanService:
                 flags.append(f"Conflicting positioning: {t1.title()} and {t2.title()} themes mixed")
 
         # 5. Eco/sustainable positioning without evidence
-        eco_indicators = {"solar", "recycl", "sustain", "organic", "eco", "green", "carbon"}
-        has_eco_evidence = any(ei in amenities_text or ei in positioning for ei in eco_indicators)
+        eco_indicators = {"solar", "recycl", "sustain", "organic", "eco", "green", "carbon", "environment"}
+        has_eco_evidence = any(ei in all_offerings_text for ei in eco_indicators)
         eco_positioned = "eco" in themes or "sustainable" in themes or "green" in themes
 
         if eco_positioned and not has_eco_evidence:

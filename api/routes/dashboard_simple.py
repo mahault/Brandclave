@@ -1175,13 +1175,13 @@ async def dashboard_v2():
             // Experience gaps (top 3)
             const gaps = (p.experience_gaps || []).slice(0, 3);
             const gapsHtml = gaps.length > 0
-                ? gaps.map(g => `<span class="gap-item">${truncate(g.split(' (')[0], 30)}</span>`).join('')
+                ? gaps.map(g => `<span class="gap-item">${truncate(g.split(' (')[0], 50)}</span>`).join('')
                 : '<span style="color:#888;font-size:0.85em;">No major gaps identified</span>';
 
             // Opportunity lanes (top 2)
             const opportunities = (p.opportunity_lanes || []).slice(0, 2);
             const oppsHtml = opportunities.length > 0
-                ? opportunities.map(o => `<div class="opportunity-item">${truncate(o, 80)}</div>`).join('')
+                ? opportunities.map(o => `<div class="opportunity-item">${truncate(o, 120)}</div>`).join('')
                 : '<span style="color:#888;font-size:0.85em;">No opportunities identified</span>';
 
             // Misalignment flags
@@ -1189,7 +1189,7 @@ async def dashboard_v2():
             const flagsHtml = flags.length > 0
                 ? `<div class="property-section">
                     <div class="property-section-title">Positioning Issues</div>
-                    ${flags.map(f => `<span class="misalignment-flag">${truncate(f.split(':')[1] || f, 50)}</span>`).join('')}
+                    ${flags.map(f => `<span class="misalignment-flag">${truncate(f.split(':')[1] || f, 100)}</span>`).join('')}
                    </div>`
                 : '';
 

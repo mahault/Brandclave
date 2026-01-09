@@ -28,6 +28,18 @@
 - [x] EFE logging — shows top candidates and stale sources needing attention
 - [x] Keep-alive for Render — `/health` endpoint with scheduler status
 
+### ✅ City Desires LLM Synthesis (Jan 2026)
+- [x] Created `city_desires_prompts.py` with 6 prompt templates for theme/concept synthesis
+- [x] Integrated Mistral LLM client for theme synthesis
+- [x] Batch synthesis for efficiency (synthesize multiple themes in one LLM call)
+- [x] LLM-generated concept lanes with positioning and differentiators
+- [x] Graceful fallback to keyword concatenation if LLM unavailable
+
+### ✅ Demand Scan Bug Fixes (Jan 2026)
+- [x] Fixed duplicate experience gaps — deduplication by trend name
+- [x] Improved wellness detection — now checks amenities, experiences, dining, rooms, and positioning
+- [x] Increased UI truncation limits — gaps 30→50, opportunities 80→120, flags 50→100 chars
+
 ---
 
 ## Phase 2: What's Hot Enhancements
