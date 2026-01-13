@@ -347,17 +347,52 @@ class CityDesireEngine:
         return segments
 
     def _extract_keywords(self, text: str) -> list[str]:
-        """Extract relevant keywords from text."""
-        # Simple keyword extraction - look for common hotel/travel terms
-        travel_terms = [
-            "boutique", "design", "modern", "luxury", "budget", "affordable",
-            "central", "walkable", "quiet", "rooftop", "pool", "breakfast",
-            "wifi", "workspace", "gym", "spa", "view", "balcony", "kitchen",
-            "historic", "trendy", "hip", "safe", "clean", "friendly",
-            "authentic", "local", "nightlife", "beach", "mountain",
-        ]
-        found = [term for term in travel_terms if term in text]
-        return found[:10]
+        """Extract relevant keywords from text that represent actual desires.
+
+        Focuses on experience-related terms, not generic words like 'hotel' or 'stay'.
+        """
+        # Prioritized keyword categories (most insightful first)
+        desire_keywords = {
+            # Specific experiences
+            "rooftop": 3, "terrace": 3, "pool": 2, "spa": 2, "sauna": 2,
+            "yoga": 3, "meditation": 3, "wellness": 2, "massage": 2,
+            "coworking": 3, "workspace": 2, "remote work": 3,
+            "brunch": 2, "restaurant": 1, "bar": 1, "cocktails": 2,
+
+            # Location qualities
+            "walkable": 3, "central": 2, "downtown": 2, "neighborhood": 2,
+            "quiet": 2, "peaceful": 2, "lively": 2, "nightlife": 2,
+            "old town": 3, "historic center": 3, "waterfront": 3,
+
+            # Style/vibe
+            "boutique": 3, "design": 2, "modern": 2, "minimalist": 3,
+            "cozy": 2, "charming": 2, "trendy": 2, "hip": 2,
+            "authentic": 3, "local": 2, "unique": 2, "character": 3,
+            "artsy": 3, "eclectic": 3, "instagram": 2,
+
+            # Value propositions
+            "affordable": 2, "value": 2, "cheap": 1, "free breakfast": 3,
+            "all-inclusive": 3, "deals": 1,
+
+            # Practical needs
+            "kitchen": 2, "kitchenette": 2, "laundry": 2,
+            "parking": 2, "family-friendly": 3, "pet-friendly": 3,
+            "late checkout": 3, "early checkin": 3,
+
+            # Atmosphere
+            "views": 2, "balcony": 2, "terrace": 2, "garden": 2,
+            "rooftop bar": 3, "infinity pool": 3,
+        }
+
+        found = []
+        text_lower = text.lower()
+        for term, priority in desire_keywords.items():
+            if term in text_lower:
+                found.append((term, priority))
+
+        # Sort by priority (higher = more insightful) and return terms
+        found.sort(key=lambda x: x[1], reverse=True)
+        return [term for term, _ in found[:10]]
 
     def _cluster_into_themes(self, city: str, country: str) -> list[DesireTheme]:
         """Cluster signals into desire themes."""
@@ -424,13 +459,25 @@ class CityDesireEngine:
             llm_data = llm_results.get(theme_key)
             if llm_data:
                 theme_name = llm_data.get("theme_name", self._generate_theme_name(group["category"], keywords))
-                description = llm_data.get("unmet_need", self._generate_theme_description(theme_name, keywords))
-                # Enrich description with why_supply_fails if available
-                if llm_data.get("why_supply_fails"):
-                    description = f"{description} {llm_data['why_supply_fails']}"
+                unmet_need = llm_data.get("unmet_need", "")
+                why_supply_fails = llm_data.get("why_supply_fails", "")
+                solving_features = llm_data.get("solving_features", [])
+                target_guest = llm_data.get("target_guest", "")
+
+                # Create a rich description combining the insights
+                description = unmet_need
+                if why_supply_fails:
+                    description = f"{description}\n\n**Why current supply fails:** {why_supply_fails}"
+                if solving_features:
+                    features_str = ", ".join(solving_features[:3])
+                    description = f"{description}\n\n**What would solve this:** {features_str}"
             else:
                 theme_name = self._generate_theme_name(group["category"], keywords)
                 description = self._generate_theme_description(theme_name, keywords)
+                unmet_need = description
+                why_supply_fails = ""
+                solving_features = []
+                target_guest = ""
 
             theme = DesireTheme(
                 theme_name=theme_name,
@@ -446,13 +493,12 @@ class CityDesireEngine:
                 example_snippets=snippets,
                 supply_gap=round(frustration_score * 0.8, 2),  # Estimate
                 opportunity_score=round((intensity_score + frustration_score) / 2, 2),
+                # LLM-synthesized insight fields
+                unmet_need=unmet_need,
+                why_supply_fails=why_supply_fails,
+                solving_features=solving_features,
+                target_guest=target_guest,
             )
-
-            # Add LLM-generated solving features if available
-            if llm_data and llm_data.get("solving_features"):
-                theme.solving_features = llm_data["solving_features"]
-            if llm_data and llm_data.get("target_guest"):
-                theme.target_guest = llm_data["target_guest"]
 
             themes.append(theme)
 
@@ -461,17 +507,89 @@ class CityDesireEngine:
         return themes[:15]  # Top 15 themes
 
     def _generate_theme_name(self, category: DesireCategory, keywords: list[str]) -> str:
-        """Generate a readable theme name."""
+        """Generate a readable theme name from category and keywords."""
         if not keywords:
-            return f"{category.value.title()} Needs"
+            return f"Unmet {category.value.title()} Needs"
 
-        # Combine top keywords into a theme name
-        kw_str = " + ".join(keywords[:3]).title()
-        return f"{kw_str} {category.value.title()}"
+        # Create more descriptive theme names based on keywords
+        keyword_themes = {
+            "rooftop": "Rooftop Experience Seekers",
+            "workspace": "Remote Work Travelers",
+            "coworking": "Digital Nomad Demand",
+            "walkable": "Walkability Priority",
+            "boutique": "Boutique Character Demand",
+            "authentic": "Authenticity Seekers",
+            "wellness": "Wellness-Focused Travelers",
+            "nightlife": "Nightlife Proximity Demand",
+            "affordable": "Budget-Conscious Explorers",
+            "family": "Family Travel Needs",
+            "quiet": "Tranquility Seekers",
+            "central": "Central Location Priority",
+            "local": "Local Experience Demand",
+            "pool": "Pool Access Priority",
+            "views": "Scenic Views Demand",
+        }
 
-    def _generate_theme_description(self, theme_name: str, keywords: list[str]) -> str:
-        """Generate a description for the theme (fallback without LLM)."""
-        return f"Travelers are looking for {', '.join(keywords[:4])} options. This represents an opportunity for hotels that can deliver on these needs."
+        # Try to match a keyword theme
+        for kw in keywords[:3]:
+            for theme_kw, theme_name in keyword_themes.items():
+                if theme_kw in kw.lower():
+                    return theme_name
+
+        # Fallback: create a descriptive name from category
+        category_descriptions = {
+            DesireCategory.ACCOMMODATION: "Accommodation Gap",
+            DesireCategory.EXPERIENCE: "Experience Demand",
+            DesireCategory.AMENITY: "Amenity Expectations",
+            DesireCategory.LOCATION: "Location Priorities",
+            DesireCategory.SERVICE: "Service Standards Gap",
+            DesireCategory.VIBE: "Atmosphere Preferences",
+            DesireCategory.VALUE: "Value Expectations",
+            DesireCategory.SAFETY: "Safety & Trust Concerns",
+        }
+        base_name = category_descriptions.get(category, "Traveler Needs")
+        if keywords:
+            return f"{keywords[0].title()} {base_name}"
+        return base_name
+
+    def _generate_theme_description(self, theme_name: str, keywords: list[str], snippets: list[str] = None) -> str:
+        """Generate a meaningful description for the theme (fallback without LLM).
+
+        Creates insight based on actual content patterns, not just keyword concatenation.
+        """
+        if not keywords:
+            return "Travelers in this city have expressed needs that current accommodation options aren't meeting."
+
+        # Create context-aware descriptions
+        kw_lower = [k.lower() for k in keywords]
+
+        if any(k in kw_lower for k in ["rooftop", "terrace", "views", "balcony"]):
+            return f"Travelers are seeking accommodations with outdoor spaces and scenic views. Many express frustration at limited rooftop or terrace access, especially in urban areas where properties rarely offer this despite demand."
+
+        if any(k in kw_lower for k in ["workspace", "coworking", "wifi", "remote work"]):
+            return f"Remote workers and digital nomads are looking for hotels with dedicated work spaces, reliable high-speed wifi, and flexible check-in/out times. Current options often treat this as an afterthought rather than a core offering."
+
+        if any(k in kw_lower for k in ["walkable", "central", "downtown", "location"]):
+            return f"Location convenience is a top priority, with travelers seeking walkable access to attractions, restaurants, and public transit. Budget options in central areas are particularly scarce, forcing a trade-off between location and price."
+
+        if any(k in kw_lower for k in ["boutique", "unique", "character", "authentic"]):
+            return f"Travelers want properties with personality and local character, not generic chain hotels. They're seeking authentic experiences that reflect the destination's culture, but supply is dominated by standardized offerings."
+
+        if any(k in kw_lower for k in ["affordable", "budget", "cheap", "value"]):
+            return f"Budget-conscious travelers are struggling to find quality accommodations at reasonable prices. They want clean, comfortable stays without paying for amenities they won't use, but mid-range options are limited."
+
+        if any(k in kw_lower for k in ["wellness", "spa", "yoga", "meditation"]):
+            return f"Wellness-focused travelers want more than just a spa - they're seeking holistic experiences including yoga, meditation spaces, healthy dining, and fitness facilities. True wellness properties remain rare."
+
+        if any(k in kw_lower for k in ["quiet", "peaceful", "tranquil"]):
+            return f"Travelers seeking tranquility have difficulty finding genuinely quiet properties. Noise from streets, neighboring rooms, and common areas is a frequent complaint, with soundproofing being an undervalued differentiator."
+
+        if any(k in kw_lower for k in ["nightlife", "bar", "lively"]):
+            return f"Travelers looking for vibrant nightlife experiences want properties in lively neighborhoods with on-site bars or easy access to entertainment. Many complain about areas that 'shut down' after dark."
+
+        # Generic fallback with keywords
+        kw_str = ", ".join(keywords[:3])
+        return f"Travelers discussing {kw_str} are expressing unmet needs in this city. There's an opportunity for properties that can deliver on these specific expectations."
 
     def _synthesize_theme_with_llm(
         self,
@@ -516,8 +634,17 @@ class CityDesireEngine:
                 temperature=0.6,
             )
 
+            # Strip markdown code blocks if present
+            json_str = response.strip()
+            if json_str.startswith("```"):
+                first_newline = json_str.find("\n")
+                if first_newline != -1:
+                    json_str = json_str[first_newline + 1:]
+                if json_str.endswith("```"):
+                    json_str = json_str[:-3].strip()
+
             # Parse JSON response
-            result = json.loads(response)
+            result = json.loads(json_str)
             return result
 
         except json.JSONDecodeError as e:
@@ -578,12 +705,24 @@ class CityDesireEngine:
                 temperature=0.6,
             )
 
+            # Strip markdown code blocks if present
+            json_str = response.strip()
+            if json_str.startswith("```"):
+                # Remove opening fence (```json or ```)
+                first_newline = json_str.find("\n")
+                if first_newline != -1:
+                    json_str = json_str[first_newline + 1:]
+                # Remove closing fence
+                if json_str.endswith("```"):
+                    json_str = json_str[:-3].strip()
+
             # Parse JSON array response
-            results = json.loads(response)
+            results = json.loads(json_str)
             return results
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse batch LLM response: {e}")
+            logger.debug(f"Raw response was: {response[:500] if response else 'empty'}")
             return []
         except Exception as e:
             logger.error(f"Batch LLM synthesis failed: {e}")
@@ -630,12 +769,22 @@ class CityDesireEngine:
                 temperature=0.7,
             )
 
+            # Strip markdown code blocks if present
+            json_str = response.strip()
+            if json_str.startswith("```"):
+                first_newline = json_str.find("\n")
+                if first_newline != -1:
+                    json_str = json_str[first_newline + 1:]
+                if json_str.endswith("```"):
+                    json_str = json_str[:-3].strip()
+
             # Parse JSON response
-            result = json.loads(response)
+            result = json.loads(json_str)
             return result.get("concepts", [])
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse concept lanes response: {e}")
+            logger.debug(f"Raw response was: {response[:500] if response else 'empty'}")
             return []
         except Exception as e:
             logger.error(f"Concept lane synthesis failed: {e}")

@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 from db.database import SessionLocal
 from db.models import PropertyFeaturesModel, TrendSignalModel
@@ -15,6 +16,31 @@ from processing.property_analysis import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_url(url: str) -> str:
+    """Normalize a URL by removing query parameters and fragments.
+
+    This prevents duplicate entries when the same property is scanned
+    with different tracking params (utm_source, gclid, etc.).
+
+    Args:
+        url: The URL to normalize
+
+    Returns:
+        Normalized URL without query params or fragments
+    """
+    parsed = urlparse(url)
+    # Reconstruct URL without query string or fragment
+    normalized = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path.rstrip('/'),  # Also normalize trailing slashes
+        '',  # params
+        '',  # query
+        '',  # fragment
+    ))
+    return normalized
 
 
 class DemandScanService:
@@ -37,7 +63,9 @@ class DemandScanService:
         Returns:
             Dict with property features and demand analysis, or None
         """
-        logger.info(f"Scanning property: {url}")
+        # Normalize URL to prevent duplicates from tracking params
+        normalized_url = normalize_url(url)
+        logger.info(f"Scanning property: {normalized_url}")
 
         # Step 1: Scrape the property website
         with PropertyScraper() as scraper:
@@ -75,9 +103,9 @@ class DemandScanService:
         if not property_name:
             property_name = self._extract_name_from_url(url)
 
-        # Build final result
+        # Build final result (use normalized URL for storage)
         result = {
-            "url": url,
+            "url": normalized_url,
             "name": property_name,
             "property_type": features.get("property_type", "hotel"),
             "brand_positioning": features.get("brand_positioning"),
@@ -317,26 +345,35 @@ class DemandScanService:
             trends: List of trend dicts
 
         Returns:
-            List of opportunity descriptions
+            List of opportunity descriptions (deduplicated)
         """
         opportunities = []
+        seen_trend_names = set()  # Track unique trend names to avoid duplicates
 
         # Look for high white-space trends
         whitespace_trends = sorted(
             trends,
             key=lambda t: t.get("white_space_score", 0),
             reverse=True,
-        )[:5]
+        )[:10]  # Check more trends but deduplicate
 
         for trend in whitespace_trends:
+            trend_name = trend["name"]
+            trend_name_lower = trend_name.lower()
+
+            # Skip if we've already seen this trend name
+            if trend_name_lower in seen_trend_names:
+                continue
+
             if trend.get("white_space_score", 0) > 0.3:
                 opportunities.append(
-                    f"Position as leader in '{trend['name']}' - high demand, low competition"
+                    f"Position as leader in '{trend_name}' - high demand, low competition"
                 )
+                seen_trend_names.add(trend_name_lower)
 
-        # Suggest based on property type
+        # Suggest based on property type (these are unique by nature)
         property_type = features.get("property_type", "hotel")
-        themes = features.get("themes", [])
+        themes = [t.lower() for t in features.get("themes", [])]
 
         if property_type == "boutique" and "design" not in themes:
             opportunities.append("Emphasize design-forward positioning for boutique appeal")
@@ -527,11 +564,15 @@ class DemandScanService:
         Returns:
             Property ID
         """
+        # Normalize URL before saving/checking
+        normalized_url = normalize_url(property_data["url"])
+        property_data["url"] = normalized_url
+
         db = SessionLocal()
         try:
-            # Check for existing
+            # Check for existing by normalized URL
             existing = db.query(PropertyFeaturesModel).filter(
-                PropertyFeaturesModel.url == property_data["url"]
+                PropertyFeaturesModel.url == normalized_url
             ).first()
 
             if existing:
@@ -614,10 +655,11 @@ class DemandScanService:
         Returns:
             Property dict or None
         """
+        normalized_url = normalize_url(url)
         db = SessionLocal()
         try:
             prop = db.query(PropertyFeaturesModel).filter(
-                PropertyFeaturesModel.url == url
+                PropertyFeaturesModel.url == normalized_url
             ).first()
 
             return self._model_to_dict(prop) if prop else None

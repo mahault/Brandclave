@@ -24,6 +24,18 @@ from .structure_learner import StructureLearner, Observation, Category
 logger = logging.getLogger(__name__)
 
 
+def _strip_markdown_json(response: str) -> str:
+    """Strip markdown code blocks from LLM response."""
+    json_str = response.strip()
+    if json_str.startswith("```"):
+        first_newline = json_str.find("\n")
+        if first_newline != -1:
+            json_str = json_str[first_newline + 1:]
+        if json_str.endswith("```"):
+            json_str = json_str[:-3].strip()
+    return json_str
+
+
 class AdaptiveCityAnalyzer:
     """
     Active inference-based city desire analyzer.
@@ -41,6 +53,7 @@ class AdaptiveCityAnalyzer:
         fit_threshold: float = 0.5,  # Cosine similarity threshold
         max_iterations: int = 10,  # Max active inference loops
         confidence_threshold: float = 0.7,  # When to stop exploring
+        use_llm: bool = True,  # Whether to use LLM for insight synthesis
     ):
         # Initialize embedding provider from NLP pipeline
         self._embedding_provider = None
@@ -53,6 +66,8 @@ class AdaptiveCityAnalyzer:
         )
         self.max_iterations = max_iterations
         self.confidence_threshold = confidence_threshold
+        self.use_llm = use_llm
+        self._llm = None
 
         self.client = httpx.Client(
             timeout=30,
@@ -67,6 +82,20 @@ class AdaptiveCityAnalyzer:
 
         # Embedding cache to avoid redundant API calls
         self._embedding_cache: dict[str, np.ndarray] = {}
+
+    @property
+    def llm(self):
+        """Lazy-load LLM client."""
+        if not self.use_llm:
+            return None
+        if self._llm is None:
+            try:
+                from processing.llm_utils import MistralLLM
+                self._llm = MistralLLM()
+            except (ValueError, ImportError) as e:
+                logger.warning(f"LLM not available: {e}")
+                self.use_llm = False
+        return self._llm
 
     def _init_embedding_provider(self):
         """Initialize the embedding provider from the NLP pipeline."""
@@ -417,6 +446,12 @@ class AdaptiveCityAnalyzer:
 
         # Convert learned categories to desire themes
         themes = []
+
+        # Synthesize insights with LLM if available
+        llm_insights = {}
+        if self.llm and structure["categories"]:
+            llm_insights = self._synthesize_insights_batch(city, country, structure["categories"])
+
         for cat in structure["categories"]:
             # Format sources for display
             sources = cat.get("sources", {})
@@ -428,16 +463,37 @@ class AdaptiveCityAnalyzer:
             # Get example snippets with attribution
             examples = cat.get("example_texts", [])
 
+            # Get LLM-synthesized insights for this category
+            cat_insights = llm_insights.get(cat["id"], {})
+
+            # Create rich theme with insights
+            theme_name = cat_insights.get("theme_name", cat["name"])
+            unmet_need = cat_insights.get("unmet_need", "")
+            why_supply_fails = cat_insights.get("why_supply_fails", "")
+            solving_features = cat_insights.get("solving_features", [])
+            target_guest = cat_insights.get("target_guest", "")
+
+            # Create description - either from LLM or fallback
+            if unmet_need:
+                description = unmet_need
+            else:
+                # Fallback description based on keywords
+                description = self._generate_fallback_description(cat["keywords"], examples)
+
             theme = {
-                "theme_name": cat["name"],
-                "description": f"Travelers discussing {', '.join(cat['keywords'][:3])}",
+                "theme_name": theme_name,
+                "description": description,
+                "unmet_need": unmet_need,
+                "why_supply_fails": why_supply_fails,
+                "solving_features": solving_features,
+                "target_guest": target_guest,
                 "intensity_score": min(cat["observation_count"] / 20, 1.0),
                 "frequency": cat["observation_count"],
                 "keywords": cat["keywords"],
                 "category": cat["id"],
-                "is_learned": True,  # Flag that this was learned, not predefined
-                "sources": source_list,  # e.g., [{"name": "reddit", "count": 5}, {"name": "youtube", "count": 2}]
-                "example_snippets": examples,  # e.g., [{"text": "...", "source": "reddit"}]
+                "is_learned": True,
+                "sources": source_list,
+                "example_snippets": examples,
             }
             themes.append(theme)
 
@@ -456,6 +512,11 @@ class AdaptiveCityAnalyzer:
             for src in theme["sources"]:
                 all_sources[src["name"]] = all_sources.get(src["name"], 0) + src["count"]
 
+        # Generate concept lanes with LLM
+        concept_lanes = []
+        if self.llm and themes:
+            concept_lanes = self._synthesize_concept_lanes(city, country, themes[:5])
+
         return {
             "city": city,
             "country": country,
@@ -463,13 +524,189 @@ class AdaptiveCityAnalyzer:
             "num_learned_categories": structure["num_categories"],
             "top_desires": themes[:10],
             "white_space_opportunities": opportunities,
+            "concept_lanes": concept_lanes,
             "model_confidence": self._compute_confidence(),
             "free_energy": self.structure_learner.get_free_energy(),
             "search_history": self.search_history,
-            "sources_summary": all_sources,  # Overall source breakdown
+            "sources_summary": all_sources,
             "generated_at": datetime.utcnow().isoformat(),
             "method": "active_inference_structure_learning",
         }
+
+    def _generate_fallback_description(self, keywords: list[str], examples: list[dict]) -> str:
+        """Generate a meaningful description without LLM."""
+        kw_lower = [k.lower() for k in keywords]
+
+        # Context-aware descriptions based on keywords
+        if any(k in kw_lower for k in ["rooftop", "terrace", "view", "balcony"]):
+            return "Travelers seeking accommodations with outdoor spaces and scenic views. Many express frustration at limited rooftop access in urban properties."
+
+        if any(k in kw_lower for k in ["workspace", "coworking", "wifi", "remote", "digital nomad"]):
+            return "Remote workers and digital nomads looking for hotels with dedicated work spaces and reliable wifi. Current options often treat this as an afterthought."
+
+        if any(k in kw_lower for k in ["walkable", "central", "location"]):
+            return "Location is a top priority - travelers want walkable access to attractions and transit. Budget options in central areas are particularly scarce."
+
+        if any(k in kw_lower for k in ["boutique", "design", "unique", "authentic"]):
+            return "Travelers want properties with personality and local character. They're seeking authentic experiences, not generic chain hotels."
+
+        if any(k in kw_lower for k in ["affordable", "budget", "cheap"]):
+            return "Budget-conscious travelers struggling to find quality at reasonable prices. They want value without sacrificing cleanliness and comfort."
+
+        if any(k in kw_lower for k in ["spa", "wellness", "yoga"]):
+            return "Wellness-focused travelers seeking holistic experiences beyond just a spa - yoga, meditation, healthy dining, and fitness facilities."
+
+        if any(k in kw_lower for k in ["safe", "solo", "female"]):
+            return "Safety-conscious travelers, especially solo and female travelers, prioritizing secure neighborhoods and well-reviewed properties."
+
+        if any(k in kw_lower for k in ["family", "kid"]):
+            return "Families seeking kid-friendly amenities, spacious rooms, and convenient locations for traveling with children."
+
+        # Generic but still useful fallback
+        if keywords:
+            return f"Travelers expressing interest in {', '.join(keywords[:3])}. This represents an opportunity for properties that can deliver on these specific needs."
+        return "Travelers have expressed needs that current accommodations aren't fully meeting."
+
+    def _synthesize_insights_batch(self, city: str, country: str, categories: list[dict]) -> dict:
+        """Use LLM to synthesize insights for multiple categories at once."""
+        import json
+
+        if not self.llm or not categories:
+            return {}
+
+        # Build clusters for batch synthesis
+        clusters = []
+        for i, cat in enumerate(categories[:8]):  # Limit to top 8
+            examples = cat.get("example_texts", [])
+            sample_quotes = [ex.get("text", "")[:200] for ex in examples[:3]] if examples else []
+
+            clusters.append({
+                "cluster_id": i,
+                "category_id": cat["id"],
+                "keywords": cat["keywords"][:5],
+                "frequency": cat["observation_count"],
+                "sample_quotes": sample_quotes,
+            })
+
+        system_prompt = """You are a hospitality industry analyst. Analyze traveler signals and transform keyword clusters into meaningful, actionable insights.
+
+For each cluster, provide:
+1. A compelling theme name (not keyword concatenation)
+2. The underlying unmet need (what travelers want but can't find)
+3. Why current supply fails to meet this need
+4. Specific features that would solve the problem
+
+Be specific and actionable. Focus on human insights, not data summaries.
+
+Output format: JSON array only, no markdown."""
+
+        user_prompt = f"""Analyze these {len(clusters)} theme clusters for {city}, {country}:
+
+{json.dumps(clusters, indent=2)}
+
+For each cluster, provide:
+
+[
+    {{
+        "cluster_id": 0,
+        "theme_name": "Compelling 3-6 word name",
+        "unmet_need": "What travelers want but can't find",
+        "why_supply_fails": "Why current options don't work",
+        "solving_features": ["Feature 1", "Feature 2", "Feature 3"],
+        "target_guest": "Specific traveler type"
+    }},
+    ...
+]
+
+Transform these keyword lists into human insights. What's the story?"""
+
+        try:
+            response = self.llm.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=2000,
+                temperature=0.6,
+            )
+
+            json_str = _strip_markdown_json(response)
+            results = json.loads(json_str)
+
+            # Map results back to category IDs
+            insights = {}
+            for result in results:
+                cluster_id = result.get("cluster_id", -1)
+                if 0 <= cluster_id < len(clusters):
+                    cat_id = clusters[cluster_id]["category_id"]
+                    insights[cat_id] = result
+
+            return insights
+
+        except Exception as e:
+            logger.warning(f"Failed to synthesize insights: {e}")
+            return {}
+
+    def _synthesize_concept_lanes(self, city: str, country: str, themes: list[dict]) -> list[dict]:
+        """Use LLM to generate hotel concept recommendations."""
+        import json
+
+        if not self.llm or not themes:
+            return []
+
+        # Build themes summary
+        themes_summary = ""
+        for i, theme in enumerate(themes[:5], 1):
+            themes_summary += f"{i}. **{theme['theme_name']}**\n"
+            themes_summary += f"   - Unmet need: {theme.get('unmet_need', theme['description'][:100])}\n"
+            themes_summary += f"   - Frequency: {theme['frequency']} mentions\n\n"
+
+        system_prompt = """You are a hospitality brand strategist who turns market insights into hotel concepts.
+
+Given desire themes for a city, create actionable hotel concept recommendations that would capture the identified white space.
+
+Rules:
+1. Concepts should be differentiated and ownable
+2. Include specific positioning, not generic descriptions
+3. Connect features to the underlying desires they solve
+4. Be creative but grounded in the data
+
+Output format: JSON only, no markdown."""
+
+        user_prompt = f"""Based on these desire themes for {city}, {country}, recommend hotel concepts:
+
+**Top Desire Themes:**
+{themes_summary}
+
+Provide 2-3 hotel concept recommendations as JSON:
+
+{{
+    "concepts": [
+        {{
+            "name": "Concept name (creative, memorable)",
+            "positioning": "One sentence positioning statement",
+            "solves": "The core unmet desire this addresses",
+            "key_differentiators": ["Differentiator 1", "Differentiator 2", "Differentiator 3"],
+            "target_guest": "Specific guest profile",
+            "price_position": "Budget/Midscale/Upscale/Luxury",
+            "why_it_wins": "Why this concept would outperform existing options"
+        }}
+    ]
+}}"""
+
+        try:
+            response = self.llm.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=1000,
+                temperature=0.7,
+            )
+
+            json_str = _strip_markdown_json(response)
+            result = json.loads(json_str)
+            return result.get("concepts", [])
+
+        except Exception as e:
+            logger.warning(f"Failed to synthesize concept lanes: {e}")
+            return []
 
 
 def analyze_city_adaptive(city: str, country: str = "") -> dict:
