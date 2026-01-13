@@ -2741,6 +2741,13 @@ async def build_a_brand_page():
             </button>
         </div>
 
+        <div class="card" id="saved-blueprints-section">
+            <h2 style="margin-bottom:15px;">Saved Blueprints</h2>
+            <div id="saved-blueprints-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px;">
+                <p style="color:#999;grid-column:1/-1;">Loading saved blueprints...</p>
+            </div>
+        </div>
+
         <div id="loading-container" class="card" style="display:none;">
             <div class="loading-indicator">
                 <div class="spinner"></div>
@@ -2763,6 +2770,20 @@ async def build_a_brand_page():
                 </div>
                 <p class="blueprint-oneliner" id="bp-oneliner">One-liner</p>
 
+                <div id="bp-inputs-section" class="blueprint-section" style="background:#f0f7ff;border:1px solid #d0e3f7;border-radius:8px;padding:15px;display:none;">
+                    <h3 style="font-size:0.95em;color:#2980b9;margin-bottom:10px;">Blueprint Parameters</h3>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:0.9em;">
+                        <div><strong style="color:#666;">Location:</strong> <span id="bp-input-location">-</span></div>
+                        <div><strong style="color:#666;">Segment:</strong> <span id="bp-input-segment">-</span></div>
+                        <div><strong style="color:#666;">Target ADR:</strong> $<span id="bp-input-adr">-</span></div>
+                        <div><strong style="color:#666;">Rooms:</strong> <span id="bp-input-rooms">-</span></div>
+                    </div>
+                    <div id="bp-input-goal-container" style="margin-top:10px;display:none;">
+                        <strong style="color:#666;">Developer Goal:</strong>
+                        <p id="bp-input-goal" style="margin:5px 0 0 0;font-style:italic;color:#555;"></p>
+                    </div>
+                </div>
+
                 <div class="blueprint-section">
                     <h3>Brand Thesis</h3>
                     <p id="bp-thesis"></p>
@@ -2776,6 +2797,12 @@ async def build_a_brand_page():
                 <div class="blueprint-section">
                     <h3>Positioning Statement</h3>
                     <p id="bp-positioning"></p>
+                </div>
+
+                <div class="blueprint-section">
+                    <h3>Unmet Desires Solved</h3>
+                    <p style="font-size:0.9em;color:#666;margin-bottom:12px;">Guest needs identified from market trends that this brand addresses</p>
+                    <div id="bp-desires"></div>
                 </div>
 
                 <div class="blueprint-section">
@@ -3059,6 +3086,26 @@ async def build_a_brand_page():
             }
 
             document.getElementById('bp-oneliner').textContent = blueprint.one_liner || '';
+
+            // Input parameters display
+            var inputs = blueprint.inputs || {};
+            var inputsSection = document.getElementById('bp-inputs-section');
+            if (inputs.location || inputs.segment || inputs.adr) {
+                document.getElementById('bp-input-location').textContent = inputs.location || '-';
+                document.getElementById('bp-input-segment').textContent = inputs.segment || '-';
+                document.getElementById('bp-input-adr').textContent = inputs.adr || '-';
+                document.getElementById('bp-input-rooms').textContent = inputs.rooms || '-';
+                if (inputs.developer_goal) {
+                    document.getElementById('bp-input-goal').textContent = inputs.developer_goal;
+                    document.getElementById('bp-input-goal-container').style.display = 'block';
+                } else {
+                    document.getElementById('bp-input-goal-container').style.display = 'none';
+                }
+                inputsSection.style.display = 'block';
+            } else {
+                inputsSection.style.display = 'none';
+            }
+
             document.getElementById('bp-thesis').textContent = blueprint.thesis || '';
 
             // Pillars
@@ -3071,6 +3118,27 @@ async def build_a_brand_page():
 
             // Positioning
             document.getElementById('bp-positioning').textContent = blueprint.positioning_statement || '';
+
+            // Unmet desires solved
+            var desires = blueprint.unmet_desires_solved || [];
+            var desiresHtml = '';
+            if (desires.length > 0) {
+                for (var di = 0; di < desires.length; di++) {
+                    var d = desires[di];
+                    var strength = Math.round((d.demand_strength || 0.5) * 100);
+                    var strengthColor = strength >= 70 ? '#27ae60' : (strength >= 40 ? '#f39c12' : '#e74c3c');
+                    desiresHtml += '<div class="experience-card">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                        '<strong>' + (d.desire || '') + '</strong>' +
+                        '<span style="background:' + strengthColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:0.8em;">' + strength + '% demand</span>' +
+                        '</div>' +
+                        '<p style="margin-top:8px;">' + (d.how_solved || '') + '</p>' +
+                        '</div>';
+                }
+            } else {
+                desiresHtml = '<p style="color:#999;font-style:italic;">No specific unmet desires identified</p>';
+            }
+            document.getElementById('bp-desires').innerHTML = desiresHtml;
 
             // Guest personas
             var personas = blueprint.guest_personas || [];
@@ -3282,8 +3350,83 @@ async def build_a_brand_page():
             generateBrandConcept();
         }
 
+        async function loadSavedBlueprints() {
+            var listEl = document.getElementById('saved-blueprints-list');
+            if (!listEl) return;
+
+            try {
+                var response = await fetch('/api/brand-blueprint?limit=10');
+                var data = await response.json();
+
+                if (!data.blueprints || data.blueprints.length === 0) {
+                    listEl.innerHTML = '<p style="color:#999;grid-column:1/-1;font-style:italic;">No saved blueprints yet. Generate your first brand concept above!</p>';
+                    return;
+                }
+
+                var html = '';
+                for (var i = 0; i < data.blueprints.length; i++) {
+                    var bp = data.blueprints[i];
+                    var names = bp.brand_names || {};
+                    var created = new Date(bp.generated_at).toLocaleDateString();
+                    html += '<div class="saved-blueprint-card" onclick="loadSavedBlueprint(\\'' + bp.id + '\\')" style="' +
+                        'background:#f8f9fa;border:1px solid #e9ecef;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;' +
+                        '">' +
+                        '<h4 style="margin:0 0 8px 0;color:#2c3e50;">' + (names.primary || 'Unnamed') + '</h4>' +
+                        '<p style="font-size:0.85em;color:#666;margin:0 0 8px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (bp.one_liner || '') + '</p>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8em;color:#999;">' +
+                        '<span>' + (bp.inputs?.location || '') + '</span>' +
+                        '<span>' + created + '</span>' +
+                        '</div>' +
+                        '</div>';
+                }
+                listEl.innerHTML = html;
+
+                // Add hover effects
+                var cards = listEl.querySelectorAll('.saved-blueprint-card');
+                cards.forEach(function(card) {
+                    card.addEventListener('mouseenter', function() {
+                        this.style.borderColor = '#2ecc71';
+                        this.style.transform = 'translateY(-2px)';
+                        this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                    });
+                    card.addEventListener('mouseleave', function() {
+                        this.style.borderColor = '#e9ecef';
+                        this.style.transform = 'translateY(0)';
+                        this.style.boxShadow = 'none';
+                    });
+                });
+
+            } catch (e) {
+                console.error('Error loading saved blueprints:', e);
+                listEl.innerHTML = '<p style="color:#e74c3c;grid-column:1/-1;">Failed to load saved blueprints</p>';
+            }
+        }
+
+        async function loadSavedBlueprint(id) {
+            try {
+                var response = await fetch('/api/brand-blueprint/' + id);
+                if (!response.ok) throw new Error('Blueprint not found');
+                var blueprint = await response.json();
+
+                // Display the blueprint
+                displayBlueprint(blueprint);
+
+                // Show result container, hide others
+                document.getElementById('result-container').style.display = 'block';
+                document.getElementById('loading-container').style.display = 'none';
+
+                // Scroll to result
+                document.getElementById('result-container').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (e) {
+                console.error('Error loading blueprint:', e);
+                alert('Failed to load blueprint: ' + e.message);
+            }
+        }
+
         // Initialize
         loadSourceTrend();
+        loadSavedBlueprints();
     </script>
 </body>
 </html>

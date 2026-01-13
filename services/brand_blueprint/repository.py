@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from db.database import get_db
+from db.database import get_db_session
 from db.models import BrandBlueprintModel
 from .schemas import (
     BrandBlueprintFull,
@@ -41,7 +41,7 @@ class BlueprintRepository:
     def session(self) -> Session:
         """Get or create a database session."""
         if self._session is None:
-            self._session = get_db()
+            self._session = get_db_session()
         return self._session
 
     def save(self, blueprint: BrandBlueprintFull) -> str:
