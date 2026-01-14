@@ -802,6 +802,17 @@ async def dashboard_v2():
                         <div class="empty"><div class="icon">♟️</div>No saved moves yet</div>
                     </div>
                 </div>
+
+                <!-- My Blueprints -->
+                <div style="margin-top:30px;padding-top:20px;border-top:1px solid #eee;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                        <h3>🏨 My Blueprints <span id="saved-blueprints-count" style="font-weight:normal;color:#666;"></span></h3>
+                        <a href="/api/monitoring/build-a-brand" style="color:#e94560;text-decoration:none;font-size:0.9em;">+ Create New Blueprint</a>
+                    </div>
+                    <div id="my-blueprints-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;">
+                        <div class="empty"><div class="icon">🏨</div>No blueprints yet. Create your first brand concept!</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1668,6 +1679,9 @@ async def dashboard_v2():
                 movesListEl.innerHTML = '<div class="empty"><div class="icon">♟️</div>No saved moves yet</div>';
             }
 
+            // Load and render blueprints from database
+            loadMyBlueprints();
+
             // Update profile insights
             updateProfileInsights(savedTrends, savedMoves);
 
@@ -1802,6 +1816,100 @@ async def dashboard_v2():
                 var movesHtml = '';
                 for (var j = 0; j < allMoves.length; j++) { movesHtml += renderMove(allMoves[j], j); }
                 document.getElementById('moves-list').innerHTML = movesHtml;
+            }
+        }
+
+        // =============================================
+        // My Blueprints Functions
+        // =============================================
+        var allBlueprints = [];
+
+        async function loadMyBlueprints() {
+            var listEl = document.getElementById('my-blueprints-list');
+            var countEl = document.getElementById('saved-blueprints-count');
+            if (!listEl) return;
+
+            try {
+                var response = await fetch('/api/brand-blueprint?limit=20');
+                var data = await response.json();
+
+                allBlueprints = data.blueprints || [];
+                countEl.textContent = allBlueprints.length > 0 ? '(' + allBlueprints.length + ')' : '';
+
+                if (allBlueprints.length === 0) {
+                    listEl.innerHTML = '<div class="empty"><div class="icon">🏨</div>No blueprints yet. Create your first brand concept!</div>';
+                    return;
+                }
+
+                var html = '';
+                for (var i = 0; i < allBlueprints.length; i++) {
+                    var bp = allBlueprints[i];
+                    var names = bp.brand_names || {};
+                    var inputs = bp.inputs || {};
+                    var created = new Date(bp.generated_at).toLocaleDateString();
+                    var confidence = Math.round((bp.confidence || 0) * 100);
+
+                    html += '<div class="blueprint-card-mini" style="background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:15px;transition:all 0.2s;">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
+                        '<h4 style="margin:0;color:#2c3e50;font-size:1.1em;">' + (names.primary || 'Unnamed Brand') + '</h4>' +
+                        '<span style="background:#27ae60;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.75em;">' + confidence + '%</span>' +
+                        '</div>' +
+                        '<p style="font-size:0.85em;color:#666;margin:0 0 10px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (bp.one_liner || '') + '</p>' +
+                        '<div style="font-size:0.8em;color:#999;margin-bottom:12px;">' +
+                        '<span>' + (inputs.location || '-') + '</span> • ' +
+                        '<span>' + (inputs.segment || '-') + '</span> • ' +
+                        '<span>$' + (inputs.adr || '-') + ' ADR</span>' +
+                        '</div>' +
+                        '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;">' +
+                        '<span style="font-size:0.75em;color:#aaa;">' + created + '</span>' +
+                        '<div style="display:flex;gap:8px;">' +
+                        '<button onclick="viewBlueprint(\\'' + bp.id + '\\')" style="padding:6px 12px;background:#e94560;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85em;">View</button>' +
+                        '<button onclick="deleteBlueprint(\\'' + bp.id + '\\')" style="padding:6px 12px;background:#fff;color:#e74c3c;border:1px solid #e74c3c;border-radius:6px;cursor:pointer;font-size:0.85em;">Delete</button>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                }
+                listEl.innerHTML = html;
+
+                // Add hover effects
+                var cards = listEl.querySelectorAll('.blueprint-card-mini');
+                cards.forEach(function(card) {
+                    card.addEventListener('mouseenter', function() {
+                        this.style.borderColor = '#e94560';
+                        this.style.transform = 'translateY(-2px)';
+                        this.style.boxShadow = '0 4px 15px rgba(233,69,96,0.15)';
+                    });
+                    card.addEventListener('mouseleave', function() {
+                        this.style.borderColor = '#e9ecef';
+                        this.style.transform = 'translateY(0)';
+                        this.style.boxShadow = 'none';
+                    });
+                });
+
+            } catch (e) {
+                console.error('Error loading blueprints:', e);
+                listEl.innerHTML = '<div class="empty" style="color:#e74c3c;"><div class="icon">⚠️</div>Failed to load blueprints</div>';
+            }
+        }
+
+        function viewBlueprint(id) {
+            // Navigate to Build a Brand page with the blueprint loaded
+            window.location.href = '/api/monitoring/build-a-brand?blueprint=' + id;
+        }
+
+        async function deleteBlueprint(id) {
+            if (!confirm('Are you sure you want to delete this blueprint?')) return;
+
+            try {
+                var response = await fetch('/api/brand-blueprint/' + id, { method: 'DELETE' });
+                if (response.ok) {
+                    loadMyBlueprints(); // Refresh the list
+                } else {
+                    alert('Failed to delete blueprint');
+                }
+            } catch (e) {
+                console.error('Error deleting blueprint:', e);
+                alert('Error deleting blueprint: ' + e.message);
             }
         }
 
