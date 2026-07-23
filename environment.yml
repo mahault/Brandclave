@@ -32,7 +32,9 @@ dependencies:
     - redis>=4.0.0
     - APScheduler>=3.10.0
     # Active Inference
-    - inferactively-pymdp>=0.0.7.1
+    # Must match requirements.txt: the POMDP code uses the JAX API
+    # (infer_policies(qs), sample_action(..., rng_key=...)), which is the 1.x line
+    - inferactively-pymdp>=1.0.0,<2.0
     - jax>=0.4.0
     - jaxlib>=0.4.0
 
