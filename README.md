@@ -227,7 +227,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your MISTRAL_API_KEY
 
-# Initialize database
+# Initialize database (local bootstrap; deployments run `python -m alembic upgrade head`)
 python -c "from db.database import init_db; init_db()"
 
 # Run the server

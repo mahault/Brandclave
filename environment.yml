@@ -12,6 +12,8 @@ dependencies:
     - python-dotenv>=1.0.0
     # Database
     - sqlalchemy>=2.0
+    - alembic>=1.13
+    - psycopg[binary]>=3.1
     - chromadb>=0.4.0
     # Scraping
     - httpx>=0.25.0

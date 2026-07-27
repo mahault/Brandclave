@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-07-27 (night)
+- Postgres-ready: Alembic wired to app settings (baseline `5cc92be0ef43`, all 11 tables, regression test vs model metadata), psycopg3 driver, provider-URL normalization (postgres:// → postgresql+psycopg://), pool_pre_ping + pooling on PG engines. Local DB stamped at baseline.
+- Scheduler extracted to a standalone worker entrypoint (`scripts/run_worker.py`) per plan §5.6.
+- `render.yaml` is now a full blueprint: managed Postgres + web (health check, migrations in preDeploy) + worker; only MISTRAL_API_KEY is manual. Actual provisioning blocked on a provider account (no CLIs/Docker on this machine).
+- 51 tests green, lint + boot clean.
+
 ## 2026-07-27 (evening)
 - Wrote `docs/ARCHITECTURE.md` — the platform orientation doc (ingestion registry, data layer, multi-tenancy, Signal Ledger, frontend, production engineering, deployment state, how-tos). README updated to match (auth endpoints, registry-driven "add a source" instructions).
 - Dashboard sign-in shipped: account button in the status bar, SENTIENT-styled register/sign-in modal, JWT stored client-side. Saved trends/moves now sync to `/api/projects/saved` when signed in — localStorage stays the fast render cache, the API is the durable store; existing anonymous saves migrate up automatically on first login; clear-all also clears server copies. Blueprint generate/list calls carry the Bearer token on both pages so blueprints are user-owned.
