@@ -284,6 +284,8 @@ Dashboard:       http://localhost:8000/api/monitoring/dashboard-v2
 Debug:           http://localhost:8000/api/monitoring/debug
 API Docs:        http://localhost:8000/docs
 
+Auth:            POST /api/auth/register | /api/auth/login | GET /api/auth/me
+Saved research:  GET/POST /api/projects/saved (Bearer token)
 Social Pulse:    GET  /api/social-pulse
 Trend Sources:   GET  /api/social-pulse/{id}/sources
 Hotelier Bets:   GET  /api/hotelier-bets
@@ -383,12 +385,15 @@ python scripts/test_api_endpoints.py
 python test_pymdp.py
 ```
 
-### Adding a New Scraper
+### Adding a New Source
 
-1. Create scraper in `ingestion/scrapers/`
-2. Register in `ingestion/factory.py`
-3. Add to `ScrapingPOMDP.SOURCES` list
-4. The POMDP will automatically learn its characteristics
+1. Add an entry to `configs/sources.yaml` (status, kind, priority, config)
+2. Create the scraper class (`BaseScraper` for content, `MetricScraper` for time series)
+3. That's it — the CLI, the POMDP action space and the scheduler all derive
+   from the registry (`ingestion/registry.py`), and the POMDP learns the new
+   source's characteristics automatically
+
+See `docs/ARCHITECTURE.md` for the full platform architecture.
 
 ---
 
