@@ -3,9 +3,11 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from db.models import UserModel
+from services.auth import get_optional_user
 from services.brand_blueprint.schemas import (
     BlueprintInputs,
     BrandBlueprintFull,
@@ -46,7 +48,10 @@ def get_pipeline() -> BlueprintPipeline:
 
 
 @router.post("/brand-blueprint/generate", response_model=BlueprintGenerateResponse)
-async def generate_blueprint(request: BlueprintGenerateRequest):
+async def generate_blueprint(
+    request: BlueprintGenerateRequest,
+    user: UserModel | None = Depends(get_optional_user),
+):
     """Generate a complete brand blueprint.
 
     This endpoint runs the 5-stage pipeline:
@@ -79,8 +84,8 @@ async def generate_blueprint(request: BlueprintGenerateRequest):
             progress_callback=progress_callback,
         )
 
-        # Save to database
-        blueprint_id = repository.save(blueprint)
+        # Save to database (owned by the authenticated user, if any)
+        blueprint_id = repository.save(blueprint, user_id=user.id if user else None)
         blueprint.id = blueprint_id
 
         return BlueprintGenerateResponse(
@@ -120,14 +125,21 @@ async def list_blueprints(
     offset: int = Query(0, ge=0),
     location: Optional[str] = Query(None, description="Filter by location"),
     segment: Optional[str] = Query(None, description="Filter by segment"),
+    user: UserModel | None = Depends(get_optional_user),
 ):
-    """List saved blueprints with optional filters."""
+    """List saved blueprints with optional filters.
+
+    Authenticated requests see their own blueprints plus anonymous ones
+    (user_id IS NULL, for backward compatibility); anonymous requests see
+    the unfiltered list as before.
+    """
     repository = BlueprintRepository()
     blueprints, total = repository.list(
         limit=limit,
         offset=offset,
         location=location,
         segment=segment,
+        user_id=user.id if user else None,
     )
 
     return BlueprintListResponse(
@@ -161,7 +173,10 @@ class SimpleGenerateRequest(BaseModel):
 
 
 @router.post("/brand-blueprint/generate-simple")
-async def generate_blueprint_simple(request: SimpleGenerateRequest):
+async def generate_blueprint_simple(
+    request: SimpleGenerateRequest,
+    user: UserModel | None = Depends(get_optional_user),
+):
     """Simplified endpoint for form submission.
 
     Converts simple form data to full request and generates blueprint.
@@ -177,4 +192,4 @@ async def generate_blueprint_simple(request: SimpleGenerateRequest):
         )
     )
 
-    return await generate_blueprint(full_request)
+    return await generate_blueprint(full_request, user=user)

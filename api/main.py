@@ -159,6 +159,8 @@ async def root():
             "chat": "/api/chat",
             "brand_blueprint": "/api/brand-blueprint",
             "signal_ledger": "/api/signal-ledger/predictions",
+            "auth": "/api/auth/register",
+            "projects": "/api/projects/saved",
         },
     }
 
@@ -174,6 +176,8 @@ from api.routes.dashboard_simple import router as dashboard_simple_router
 from api.routes.chat import router as chat_router
 from api.routes.brand_blueprint import router as brand_blueprint_router
 from api.routes.signal_ledger import router as signal_ledger_router
+from api.routes.auth import router as auth_router
+from api.routes.projects import router as projects_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
@@ -185,6 +189,8 @@ app.include_router(dashboard_simple_router, prefix="/api", tags=["Dashboard"])
 app.include_router(chat_router, prefix="/api", tags=["Chat"])
 app.include_router(brand_blueprint_router, prefix="/api", tags=["Brand Blueprint"])
 app.include_router(signal_ledger_router, prefix="/api", tags=["Signal Ledger"])
+app.include_router(auth_router, prefix="/api", tags=["Auth"])
+app.include_router(projects_router, prefix="/api", tags=["Projects"])
 
 
 if __name__ == "__main__":

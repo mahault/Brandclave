@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     genius_license_key: Optional[str] = None
     sentry_dsn: Optional[str] = None
 
+    # --- Auth ---
+    # Secret used to sign JWT access tokens (env JWT_SECRET). Optional: when
+    # unset, services.auth generates an ephemeral secret at boot and logs a
+    # warning that sessions won't survive restarts.
+    jwt_secret: Optional[str] = None
+
     # --- Storage ---
     database_url: str = "sqlite:///./data/brandclave.db"
     chroma_persist_dir: str = "./data/chroma"
