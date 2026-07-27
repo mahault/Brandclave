@@ -121,6 +121,64 @@ async def dashboard_v2():
         }
         .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
 
+        /* Account */
+        .auth-area { display: flex; align-items: center; gap: 10px; }
+        .status-bar .auth-area button { margin-left: 0; }
+        .auth-chip {
+            font-family: var(--font-mono);
+            font-size: 0.92em;
+            color: var(--gold);
+            letter-spacing: 0.04em;
+            text-shadow: 0 0 14px rgba(212,175,106,0.35);
+        }
+        .auth-modal-card {
+            background: var(--surface);
+            border: 1px solid var(--line-strong);
+            border-radius: 16px;
+            max-width: 400px;
+            width: 100%;
+            margin: 90px auto;
+            padding: 30px;
+            position: relative;
+            box-shadow: 0 40px 90px -30px rgba(0,0,0,0.9), 0 0 50px -20px rgba(212,175,106,0.25);
+        }
+        .auth-modal-card h2 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.2em;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .auth-modal-card h2::before {
+            content: '';
+            display: block;
+            width: 48px;
+            height: 3px;
+            background: var(--grad);
+            border-radius: 2px;
+            margin-bottom: 12px;
+        }
+        .auth-modal-sub { color: var(--ink-3); font-size: 0.85em; margin: 8px 0 18px; }
+        .auth-field {
+            display: block;
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            background: var(--surface-2);
+            border: 1px solid var(--line-strong);
+            border-radius: 10px;
+            color: var(--ink);
+            font-family: var(--font-body);
+            font-size: 0.95em;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .auth-field:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,106,0.14); }
+        .auth-field::placeholder { color: var(--ink-3); }
+        .auth-error { color: var(--rose); font-size: 0.85em; margin: 2px 0 12px; min-height: 1.2em; }
+        .auth-switch { font-size: 0.84em; color: var(--ink-3); margin-top: 16px; text-align: center; }
+        .auth-switch a { color: var(--gold); cursor: pointer; }
+        .auth-switch a:hover { text-decoration: underline; }
+
         .status-bar {
             background: linear-gradient(180deg, rgba(255,244,222,0.03), transparent), var(--surface);
             border: 1px solid var(--line);
@@ -885,6 +943,21 @@ async def dashboard_v2():
             <span class="icon" id="status-icon">⏳</span>
             <span id="status-text">Loading...</span>
             <button onclick="loadAllData()">Refresh</button>
+            <span class="auth-area" id="auth-area"></span>
+        </div>
+
+        <div class="modal-overlay" id="auth-modal">
+            <div class="auth-modal-card">
+                <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+                <h2 id="auth-modal-title">Sign in</h2>
+                <p class="auth-modal-sub">Your saved research and blueprints follow your account.</p>
+                <input type="text" id="auth-name" class="auth-field" placeholder="Display name" style="display:none;" autocomplete="name">
+                <input type="text" id="auth-email" class="auth-field" placeholder="Email" autocomplete="email">
+                <input type="password" id="auth-password" class="auth-field" placeholder="Password (8+ characters)" autocomplete="current-password" onkeypress="if(event.key==='Enter')submitAuth()">
+                <div class="auth-error" id="auth-error"></div>
+                <button class="btn-primary" style="width:100%;" id="auth-submit" onclick="submitAuth()">Sign in</button>
+                <div class="auth-switch" id="auth-switch">New here? <a onclick="toggleAuthMode()">Create an account</a></div>
+            </div>
         </div>
 
         <div class="tabs">
@@ -1238,6 +1311,151 @@ async def dashboard_v2():
         function truncate(str, len) {
             if (!str) return '';
             return str.length > len ? str.substring(0, len) + '...' : str;
+        }
+
+        // =============================================
+        // Account & saved-research sync
+        // localStorage stays the fast render cache; the API is the durable
+        // store when signed in. Existing anonymous saves migrate up on login.
+        // =============================================
+        var AUTH_TOKEN_KEY = 'brandclave_token';
+        var AUTH_USER_KEY = 'brandclave_user';
+        var authRegisterMode = false;
+        var serverSavedMap = {}; // "type:itemId" -> server saved-item id
+
+        function getAuthToken() { try { return localStorage.getItem(AUTH_TOKEN_KEY); } catch (e) { return null; } }
+        function getAuthUser() { try { return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || 'null'); } catch (e) { return null; } }
+        function authHeaders(extra) { var h = extra || {}; var t = getAuthToken(); if (t) { h['Authorization'] = 'Bearer ' + t; } return h; }
+
+        function renderAuthArea() {
+            var el = document.getElementById('auth-area');
+            if (!el) return;
+            var user = getAuthUser();
+            if (getAuthToken() && user) {
+                el.innerHTML = '<span class="auth-chip">' + escapeHtml(user.display_name || user.email) + '</span>' +
+                    '<button onclick="signOut()">Sign out</button>';
+            } else {
+                el.innerHTML = '<button onclick="openAuthModal()">Sign in</button>';
+            }
+        }
+
+        function openAuthModal() {
+            document.getElementById('auth-error').textContent = '';
+            document.getElementById('auth-modal').classList.add('active');
+            document.getElementById('auth-email').focus();
+        }
+        function closeAuthModal() { document.getElementById('auth-modal').classList.remove('active'); }
+        function toggleAuthMode() {
+            authRegisterMode = !authRegisterMode;
+            document.getElementById('auth-name').style.display = authRegisterMode ? 'block' : 'none';
+            document.getElementById('auth-modal-title').textContent = authRegisterMode ? 'Create your account' : 'Sign in';
+            document.getElementById('auth-submit').textContent = authRegisterMode ? 'Create account' : 'Sign in';
+            document.getElementById('auth-switch').innerHTML = authRegisterMode
+                ? 'Already have an account? <a onclick="toggleAuthMode()">Sign in</a>'
+                : 'New here? <a onclick="toggleAuthMode()">Create an account</a>';
+        }
+
+        async function submitAuth() {
+            var email = document.getElementById('auth-email').value.trim();
+            var password = document.getElementById('auth-password').value;
+            var errEl = document.getElementById('auth-error');
+            errEl.textContent = '';
+            if (!email || !password) { errEl.textContent = 'Email and password are required.'; return; }
+
+            var payload = { email: email, password: password };
+            if (authRegisterMode) {
+                var name = document.getElementById('auth-name').value.trim();
+                if (name) payload.display_name = name;
+            }
+            try {
+                var res = await fetch(authRegisterMode ? '/api/auth/register' : '/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var data = await res.json();
+                if (!res.ok) {
+                    var detail = data.detail;
+                    if (Array.isArray(detail)) detail = detail[0] && detail[0].msg;
+                    errEl.textContent = detail || 'That did not work. Check your details.';
+                    return;
+                }
+                localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+                localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+                document.getElementById('auth-password').value = '';
+                closeAuthModal();
+                renderAuthArea();
+                await syncSavedItems();
+                updateSavedCount();
+                if (typeof renderMyProjects === 'function') renderMyProjects();
+            } catch (e) {
+                errEl.textContent = 'Could not reach the server.';
+            }
+        }
+
+        function signOut() {
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(AUTH_USER_KEY);
+            serverSavedMap = {};
+            renderAuthArea();
+        }
+
+        async function syncSavedItems() {
+            if (!getAuthToken()) return;
+            try {
+                // Push local anonymous saves up (server 409s duplicates, which is fine)
+                var toPush = [];
+                var trends = getSavedProjects();
+                for (var i = 0; i < trends.length; i++) toPush.push({ item_type: 'trend', item_id: trends[i].id, title: trends[i].name || 'Untitled trend', snapshot: trends[i] });
+                var moves = getSavedMoves();
+                for (var j = 0; j < moves.length; j++) toPush.push({ item_type: 'move', item_id: moves[j].id, title: moves[j].title || 'Untitled move', snapshot: moves[j] });
+                for (var k = 0; k < toPush.length; k++) {
+                    await fetch('/api/projects/saved', {
+                        method: 'POST',
+                        headers: authHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify(toPush[k])
+                    }).catch(function () {});
+                }
+
+                // Pull the durable copy down and make it the local cache
+                var res = await fetch('/api/projects/saved', { headers: authHeaders() });
+                if (!res.ok) { if (res.status === 401) signOut(); return; }
+                var data = await res.json();
+                var items = data.items || [];
+                serverSavedMap = {};
+                var newTrends = [], newMoves = [];
+                for (var m = 0; m < items.length; m++) {
+                    var it = items[m];
+                    serverSavedMap[it.item_type + ':' + it.item_id] = it.id;
+                    var snap = it.snapshot || {};
+                    snap.id = it.item_id;
+                    if (it.item_type === 'trend') newTrends.push(snap);
+                    else if (it.item_type === 'move') newMoves.push(snap);
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newTrends));
+                localStorage.setItem(MOVES_STORAGE_KEY, JSON.stringify(newMoves));
+            } catch (e) {
+                console.error('Saved-items sync failed:', e);
+            }
+        }
+
+        function pushSavedItem(itemType, item, title) {
+            if (!getAuthToken() || !item || !item.id) return;
+            fetch('/api/projects/saved', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ item_type: itemType, item_id: item.id, title: title, snapshot: item })
+            }).then(function (res) { return res.ok ? res.json() : null; })
+              .then(function (data) { if (data && data.id) serverSavedMap[itemType + ':' + item.id] = data.id; })
+              .catch(function () {});
+        }
+
+        function deleteSavedItemRemote(itemType, itemId) {
+            if (!getAuthToken()) return;
+            var sid = serverSavedMap[itemType + ':' + itemId];
+            if (!sid) return;
+            delete serverSavedMap[itemType + ':' + itemId];
+            fetch('/api/projects/saved/' + sid, { method: 'DELETE', headers: authHeaders() }).catch(function () {});
         }
 
         async function loadAllData() {
@@ -1821,7 +2039,7 @@ async def dashboard_v2():
             var saved = getSavedProjects();
             for (var i = 0; i < saved.length; i++) { if (saved[i].id === trend.id) return false; }
 
-            saved.push({
+            var snapshot = {
                 id: trend.id,
                 name: trend.name || trend.trend_name,
                 description: trend.description,
@@ -1831,9 +2049,11 @@ async def dashboard_v2():
                 audience_segment: trend.audience_segment,
                 topics: trend.topics,
                 saved_at: new Date().toISOString()
-            });
+            };
+            saved.push(snapshot);
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+            pushSavedItem('trend', snapshot, snapshot.name || 'Untitled trend');
             return true;
         }
 
@@ -1842,6 +2062,7 @@ async def dashboard_v2():
             var filtered = [];
             for (var i = 0; i < saved.length; i++) { if (saved[i].id !== trendId) filtered.push(saved[i]); }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+            deleteSavedItemRemote('trend', trendId);
         }
 
         function isProjectSaved(trendId) {
@@ -1895,7 +2116,7 @@ async def dashboard_v2():
             var saved = getSavedMoves();
             for (var i = 0; i < saved.length; i++) { if (saved[i].id === move.id) return false; }
 
-            saved.push({
+            var snapshot = {
                 id: move.id,
                 title: move.title,
                 summary: move.summary,
@@ -1905,9 +2126,11 @@ async def dashboard_v2():
                 strategic_implications: move.strategic_implications,
                 source_name: move.source_name,
                 saved_at: new Date().toISOString()
-            });
+            };
+            saved.push(snapshot);
 
             localStorage.setItem(MOVES_STORAGE_KEY, JSON.stringify(saved));
+            pushSavedItem('move', snapshot, snapshot.title || 'Untitled move');
             return true;
         }
 
@@ -1916,6 +2139,7 @@ async def dashboard_v2():
             var filtered = [];
             for (var i = 0; i < saved.length; i++) { if (saved[i].id !== moveId) filtered.push(saved[i]); }
             localStorage.setItem(MOVES_STORAGE_KEY, JSON.stringify(filtered));
+            deleteSavedItemRemote('move', moveId);
         }
 
         function isMoveSaved(moveId) {
@@ -2113,6 +2337,11 @@ async def dashboard_v2():
 
         function clearAllSaved() {
             if (!confirm('Are you sure you want to clear all saved items?')) return;
+            // Clear the durable copies too when signed in
+            for (var key in serverSavedMap) {
+                fetch('/api/projects/saved/' + serverSavedMap[key], { method: 'DELETE', headers: authHeaders() }).catch(function () {});
+            }
+            serverSavedMap = {};
             localStorage.removeItem(STORAGE_KEY);
             localStorage.removeItem(MOVES_STORAGE_KEY);
             renderMyProjects();
@@ -2142,7 +2371,7 @@ async def dashboard_v2():
             if (!listEl) return;
 
             try {
-                var response = await fetch('/api/brand-blueprint?limit=20');
+                var response = await fetch('/api/brand-blueprint?limit=20', { headers: authHeaders() });
                 var data = await response.json();
 
                 allBlueprints = data.blueprints || [];
@@ -2846,9 +3075,12 @@ async def dashboard_v2():
         loadAllData();
         loadFilterOptions();
         loadMoveFilterOptions();
-        updateSavedCount();
-        updateMovesSavedCount();
-        renderMyProjects();
+        renderAuthArea();
+        syncSavedItems().then(function () {
+            updateSavedCount();
+            updateMovesSavedCount();
+            renderMyProjects();
+        });
 
         // Auto-refresh every 60 seconds
         setInterval(loadAllData, 60000);
@@ -3437,6 +3669,17 @@ async def build_a_brand_page():
         var profileData = null;
         var currentBlueprint = null;
 
+        // Shared auth token (set by the dashboard's sign-in); requests carry it
+        // so generated blueprints are owned by the signed-in user.
+        function authHeaders(extra) {
+            var h = extra || {};
+            try {
+                var t = localStorage.getItem('brandclave_token');
+                if (t) h['Authorization'] = 'Bearer ' + t;
+            } catch (e) {}
+            return h;
+        }
+
         // Load source trend or profile from sessionStorage
         function loadSourceTrend() {
             try {
@@ -3543,7 +3786,7 @@ async def build_a_brand_page():
                 // Call the new blueprint generation API
                 var res = await fetch('/api/brand-blueprint/generate-simple', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         location: location,
                         segment: segment,
@@ -3927,7 +4170,7 @@ async def build_a_brand_page():
             if (!listEl) return;
 
             try {
-                var response = await fetch('/api/brand-blueprint?limit=10');
+                var response = await fetch('/api/brand-blueprint?limit=10', { headers: authHeaders() });
                 var data = await response.json();
 
                 if (!data.blueprints || data.blueprints.length === 0) {

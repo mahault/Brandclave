@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-07-27 (evening)
+- Wrote `docs/ARCHITECTURE.md` — the platform orientation doc (ingestion registry, data layer, multi-tenancy, Signal Ledger, frontend, production engineering, deployment state, how-tos). README updated to match (auth endpoints, registry-driven "add a source" instructions).
+- Dashboard sign-in shipped: account button in the status bar, SENTIENT-styled register/sign-in modal, JWT stored client-side. Saved trends/moves now sync to `/api/projects/saved` when signed in — localStorage stays the fast render cache, the API is the durable store; existing anonymous saves migrate up automatically on first login; clear-all also clears server copies. Blueprint generate/list calls carry the Bearer token on both pages so blueprints are user-owned.
+- Generated a real JWT_SECRET into local `.env` (sessions now survive restarts).
+- Verified end to end against the running server: register 201 → me 200 → save 201 → list → re-login 200 → dashboard serves the auth UI. Bluesky + scheduler already pushed the corpus from 2,896 to 3,294 items.
+
 ## 2026-07-27 (later)
 - Made `configs/sources.yaml` load-bearing: new `ingestion/registry.py` is the single source of truth for all 40+ sources (active/planned/blocked + priority + per-source config). `run_crawlers.SCRAPERS`, the ScrapingPOMDP action space, scheduler fallbacks and API defaults all derive from it. Reddit and OTA scrapers marked blocked and excluded from the rotation.
 - New source kind: metric. `demand_metrics` table (unique per source/city/metric/date) + `MetricScraper` base that reuses BaseScraper.run() job tracking with an upsert persistence path.
