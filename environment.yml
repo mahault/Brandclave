@@ -27,6 +27,8 @@ dependencies:
     # API
     - fastapi>=0.109.0
     - uvicorn>=0.27.0
+    # Auth
+    - pyjwt>=2.8
     # Utilities
     - pyyaml>=6.0
     # Caching & Scheduling

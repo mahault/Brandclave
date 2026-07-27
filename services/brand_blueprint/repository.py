@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 from db.database import get_db_session
@@ -44,16 +44,19 @@ class BlueprintRepository:
             self._session = get_db_session()
         return self._session
 
-    def save(self, blueprint: BrandBlueprintFull) -> str:
+    def save(self, blueprint: BrandBlueprintFull, user_id: str | None = None) -> str:
         """Save a blueprint to the database.
 
         Args:
             blueprint: The blueprint to save
+            user_id: Owning user's ID, or None for anonymous blueprints
 
         Returns:
             The saved blueprint ID
         """
         model = BrandBlueprintModel(
+            # Ownership (None for anonymous blueprints)
+            user_id=user_id,
             # Inputs
             location=blueprint.inputs.location,
             segment=blueprint.inputs.segment,
@@ -120,6 +123,7 @@ class BlueprintRepository:
         offset: int = 0,
         location: str | None = None,
         segment: str | None = None,
+        user_id: str | None = None,
     ) -> tuple[list[BrandBlueprintFull], int]:
         """List blueprints with optional filters.
 
@@ -128,11 +132,23 @@ class BlueprintRepository:
             offset: Number to skip
             location: Optional location filter
             segment: Optional segment filter
+            user_id: When set, restrict to this user's blueprints plus
+                anonymous rows (user_id IS NULL) for backward compatibility.
+                When None (anonymous request), all blueprints are returned
+                as before.
 
         Returns:
             Tuple of (blueprints, total_count)
         """
         query = self.session.query(BrandBlueprintModel)
+
+        if user_id is not None:
+            query = query.filter(
+                or_(
+                    BrandBlueprintModel.user_id == user_id,
+                    BrandBlueprintModel.user_id.is_(None),
+                )
+            )
 
         if location:
             query = query.filter(BrandBlueprintModel.location.ilike(f"%{location}%"))

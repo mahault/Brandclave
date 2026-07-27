@@ -342,18 +342,10 @@ async def scrape_all_sources(
     """
     from scripts.run_crawlers import get_scraper_class, SCRAPERS
 
-    # Default to hospitality sources (not Reddit which has lots of data)
+    # Default to every registry-active source
     if sources is None:
-        sources = [
-            "skift",
-            "hoteldive",
-            "hotelmanagement",
-            "hospitalitynet",
-            "tophotelnews",
-            "ehlinsights",
-            "ehotelier",
-            "siteminder",
-        ]
+        from ingestion.registry import active_sources
+        sources = active_sources()
 
     results = []
     for source in sources:
@@ -369,7 +361,7 @@ async def scrape_all_sources(
             results.append({
                 "source": source,
                 "status": "completed",
-                "items": result.get("items_count", 0) or result.get("scraped", 0),
+                "items": result.get("items_scraped", 0),
             })
         except Exception as e:
             logger.error(f"Scraper {source} failed: {e}")

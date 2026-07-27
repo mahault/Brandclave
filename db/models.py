@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -278,6 +278,29 @@ class PredictionRecordModel(Base):
     metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
 
 
+class DemandMetricModel(Base):
+    """Geo-resolvable demand metric time series (e.g. Wikimedia pageviews per city).
+
+    One row per (source, city, metric, date). This is the quantitative backbone
+    for signal-to-city matching, kept separate from RawContent text.
+    """
+
+    __tablename__ = "demand_metrics"
+    __table_args__ = (
+        UniqueConstraint("source", "city", "metric", "date", name="uq_demand_metric_point"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    city: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    country: Mapped[str | None] = mapped_column(String(100), index=True)
+    metric: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
 class LedgerEventModel(Base):
     """Append-only event on a prediction: evidence, outcome, decision or note."""
 
@@ -299,3 +322,34 @@ class LedgerEventModel(Base):
     evidence_refs: Mapped[list | None] = mapped_column(JSON, default=list)
     recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
+class UserModel(Base):
+    """SQLAlchemy model for platform users (multi-tenant auth)."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(300), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
+class SavedItemModel(Base):
+    """SQLAlchemy model for research items a user has saved to their workspace."""
+
+    __tablename__ = "saved_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "item_type", "item_id", name="uq_saved_item_per_user"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    item_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "trend" | "move"
+    item_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(300))
+    snapshot_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

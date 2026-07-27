@@ -1,113 +1,356 @@
-# Registry of all data sources for BrandClave Aggregator
+# BrandClave source registry — LOAD-BEARING, read by ingestion/registry.py.
+#
+# Every data source the platform knows about, in one place. Adding a source is
+# one entry here plus (for content) a small scraper class.
+#
+#   kind:     content -> produces RawContent rows | metric -> produces demand_metrics rows
+#   status:   active  -> in the POMDP rotation and runnable now
+#             planned -> catalogued for rollout, not yet implemented (class omitted)
+#             blocked -> dead or ToS-blocked; kept for the record, never scheduled
+#   priority: rollout order for planned sources / attention weight for active ones
+#
+# Catalogue and legal notes come from REVIVAL-AND-COMMERCIAL-PLAN.md §4.
 
-social_sources:
+sources:
+  # ── Consumer voice ──────────────────────────────────────────────────────────
+  bluesky:
+    class: ingestion.social.bluesky_scraper.BlueskyScraper
+    kind: content
+    type: social
+    status: active
+    priority: high
+    note: "AT Protocol public search; unauthenticated, 3000 req/5min/IP; cleanest legal position"
+    config:
+      queries:
+        - "hotel stay"
+        - "boutique hotel"
+        - "where to stay"
+        - "hotel recommendation"
+        - "wellness retreat"
+        - "workcation"
+        - "digital nomad city"
+        - "airbnb vs hotel"
+      max_per_query: 50
+      lang: "en"
+
+  youtube:
+    class: ingestion.social.youtube_scraper.YouTubeScraper
+    kind: content
+    type: social
+    status: active
+    priority: high
+    note: "Data API v3; 100 search calls/day is the scarce budget; comments not stored beyond 30 days"
+
+  quora:
+    class: ingestion.social.quora_scraper.QuoraScraper
+    kind: content
+    type: social
+    status: active
+    priority: low
+    note: "verify terms and yield; demote or block if it stops returning"
+
+  mastodon:
+    kind: content
+    type: social
+    status: planned
+    priority: medium
+    note: "300 req/5min per instance; budget per instance, start with mastodon.social + travel instances"
+
+  travel_substacks:
+    kind: content
+    type: news
+    status: planned
+    priority: medium
+    note: "long-form consumer voice via RSS; curate 10-20 travel/design newsletters"
+
+  podcast_transcripts:
+    kind: content
+    type: social
+    status: planned
+    priority: low
+    note: "travel & lifestyle podcasts; richer signal than headlines"
+
   reddit:
-    enabled: true
-    api_type: "praw"  # Python Reddit API Wrapper
-    subreddits:
-      - "hotels"
-      - "travel"
-      - "solotravel"
-      - "luxurytravel"
-    frequency: "hourly"
-    priority: "high"
+    class: ingestion.social.reddit_scraper.RedditScraper
+    kind: content
+    type: social
+    status: blocked
+    priority: high
+    note: "public JSON 403 since 2026-03; official free tier is non-commercial by terms; commercial contract ≈ $0.24/1k on review"
 
-  tiktok:
-    enabled: false  # Requires approved API access
-    api_type: "official"
-    hashtags:
-      - "#hoteltok"
-      - "#luxuryhotel"
-      - "#boutiquehotel"
-    frequency: "daily"
-    priority: "medium"
+  # ── Geo-resolvable demand (metric backbone) ────────────────────────────────
+  wikimedia_pageviews:
+    class: ingestion.metrics.wikimedia_pageviews.WikimediaPageviewsScraper
+    kind: metric
+    type: metric
+    status: active
+    priority: high
+    note: "free, no key; daily destination interest back to 2015; requires descriptive User-Agent"
+    config:
+      days_back: 30
+      metric: "wikipedia_pageviews"
+      cities:
+        - { city: "Lisbon",        country: "Portugal",       article: "Lisbon" }
+        - { city: "Porto",         country: "Portugal",       article: "Porto" }
+        - { city: "Barcelona",     country: "Spain",          article: "Barcelona" }
+        - { city: "Tokyo",         country: "Japan",          article: "Tokyo" }
+        - { city: "Kyoto",         country: "Japan",          article: "Kyoto" }
+        - { city: "Bali",          country: "Indonesia",      article: "Bali" }
+        - { city: "Paris",         country: "France",         article: "Paris" }
+        - { city: "Dubai",         country: "UAE",            article: "Dubai" }
+        - { city: "Bengaluru",     country: "India",          article: "Bengaluru" }
+        - { city: "New York City", country: "USA",            article: "New_York_City" }
+        - { city: "Miami",         country: "USA",            article: "Miami" }
+        - { city: "Austin",        country: "USA",            article: "Austin,_Texas" }
+        - { city: "Mexico City",   country: "Mexico",         article: "Mexico_City" }
+        - { city: "Tulum",         country: "Mexico",         article: "Tulum" }
+        - { city: "Medellín",      country: "Colombia",       article: "Medellín" }
+        - { city: "Buenos Aires",  country: "Argentina",      article: "Buenos_Aires" }
+        - { city: "London",        country: "UK",             article: "London" }
+        - { city: "Rome",          country: "Italy",          article: "Rome" }
+        - { city: "Athens",        country: "Greece",         article: "Athens" }
+        - { city: "Istanbul",      country: "Turkey",         article: "Istanbul" }
+        - { city: "Marrakesh",     country: "Morocco",        article: "Marrakesh" }
+        - { city: "Cape Town",     country: "South Africa",   article: "Cape_Town" }
+        - { city: "Reykjavik",     country: "Iceland",        article: "Reykjavík" }
+        - { city: "Bangkok",       country: "Thailand",       article: "Bangkok" }
+        - { city: "Seoul",         country: "South Korea",    article: "Seoul" }
+        - { city: "Singapore",     country: "Singapore",      article: "Singapore" }
+        - { city: "Tbilisi",       country: "Georgia",        article: "Tbilisi" }
 
-  instagram:
-    enabled: false  # Requires Meta Business API
-    api_type: "official"
-    hashtags:
-      - "#boutiquehotel"
-      - "#hoteldesign"
-      - "#luxurytravel"
-    frequency: "daily"
-    priority: "medium"
+  eurostat_tourism:
+    kind: metric
+    type: metric
+    status: planned
+    priority: high
+    note: "tour_occ_* arrivals/occupancy by NUTS region incl. short-term rentals from 2018; free, no key"
 
-review_sources:
-  tripadvisor:
-    enabled: true
-    scraping_method: "httpx"  # Use httpx with conservative rate limiting
-    rate_limit: 50  # requests per hour (very conservative)
-    delay_min: 10  # seconds between requests
-    delay_max: 20
-    max_reviews_per_hotel: 50
-    default_hotels:
-      # Top hotels in key markets for initial data collection
-      - "g60763-d93450"   # Example: The Plaza, NYC
-      - "g187147-d197572" # Example: Ritz Paris
-    regions:
-      - "north_america"
-      - "europe"
-      - "asia"
-    frequency: "daily"
-    priority: "high"
+  us_ntto_arrivals:
+    kind: metric
+    type: metric
+    status: planned
+    priority: medium
+    note: "I-94/I-92 monthly international arrivals to the US, filterable by country"
 
-  booking:
-    enabled: true
-    scraping_method: "httpx"
-    rate_limit: 75  # requests per hour
-    delay_min: 8
-    delay_max: 15
-    max_reviews_per_property: 50
-    default_properties:
-      # Top properties for initial data collection
-      - "hotel/us/example-nyc"
-    frequency: "daily"
-    priority: "high"
+  osm_overpass:
+    kind: metric
+    type: metric
+    status: planned
+    priority: medium
+    note: "supply-side density (hotels/restaurants/attractions per area); ~10k req/day fair use"
 
-  google_reviews:
-    enabled: false  # Requires API key
-    api_type: "places"
-    frequency: "daily"
-    priority: "medium"
+  inside_airbnb:
+    kind: metric
+    type: metric
+    status: planned
+    priority: medium
+    note: "quarterly listings + review velocity (occupancy proxy); check per-city licence before commercial use"
 
-news_sources:
-  hospitalitynet:
-    enabled: true
-    type: "rss"
-    url: "https://www.hospitalitynet.org/news.rss"
-    frequency: "hourly"
-    priority: "high"
-    categories:
-      - "development"
-      - "brand_news"
-      - "trends"
+  # ── Societal-shift signal (the actual thesis) ───────────────────────────────
+  pew_research:
+    kind: content
+    type: news
+    status: planned
+    priority: high
+    note: "consumer and social attitude research; free"
 
+  wef_reports:
+    kind: content
+    type: news
+    status: planned
+    priority: medium
+    note: "future-of-travel / future-of-work themes"
+
+  edelman_trust:
+    kind: content
+    type: news
+    status: planned
+    priority: low
+    note: "annual trust barometer"
+
+  consulting_outlooks:
+    kind: content
+    type: news
+    status: planned
+    priority: medium
+    note: "McKinsey/Deloitte/PwC/Accenture consumer & travel outlooks, published openly"
+
+  # ── Adjacent culture (where shifts surface first) ───────────────────────────
+  dezeen:
+    kind: content
+    type: news
+    status: planned
+    priority: high
+    note: "design & architecture direction; free RSS"
+
+  archdaily:
+    kind: content
+    type: news
+    status: planned
+    priority: medium
+    note: "free RSS"
+
+  resident_advisor:
+    kind: content
+    type: news
+    status: planned
+    priority: medium
+    note: "nightlife, electronic music, event geography — Sarah's own signal examples live here"
+
+  eater:
+    kind: content
+    type: news
+    status: planned
+    priority: medium
+    note: "food culture by city"
+
+  global_wellness_institute:
+    kind: content
+    type: news
+    status: planned
+    priority: low
+    note: "wellness trend research"
+
+  # ── Trade press (working, demoted: one voice, not ten) ─────────────────────
   skift:
-    enabled: true
-    type: "scraper"
-    url: "https://skift.com/hospitality/"
-    scraping_method: "beautifulsoup"
-    frequency: "every_6_hours"
-    priority: "high"
+    class: ingestion.news.skift_rss.SkiftScraper
+    kind: content
+    type: news
+    status: active
+    priority: medium
+  hoteldive:
+    class: ingestion.news.hospitality_news.HotelDiveScraper
+    kind: content
+    type: news
+    status: active
+    priority: medium
+  hotelmanagement:
+    class: ingestion.news.hospitality_news.HotelManagementScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  tophotelnews:
+    class: ingestion.news.hospitality_news.TopHotelNewsScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  siteminder:
+    class: ingestion.news.hospitality_news.SiteMinderScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  ehlinsights:
+    class: ingestion.news.hospitality_news.EHLInsightsScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  ehotelier:
+    class: ingestion.news.hospitality_news.EHotelierScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  lodgingmagazine:
+    class: ingestion.news.hospitality_news.LodgingMagazineScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  luxuryhospitality:
+    class: ingestion.news.hospitality_news.LuxuryHospitalityScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
+  hotelbusiness:
+    class: ingestion.news.hospitality_news.HotelBusinessScraper
+    kind: content
+    type: news
+    status: active
+    priority: low
 
-  hotelnewsnow:
-    enabled: true
-    type: "scraper"
-    url: "https://www.hotelnewsnow.com/"
-    scraping_method: "beautifulsoup"
-    frequency: "every_6_hours"
-    priority: "medium"
+  # ── Unreliable trade press (intermittent anti-bot; runnable manually) ───────
+  hospitalitynet:
+    class: ingestion.news.hospitalitynet_rss.HospitalityNetScraper
+    kind: content
+    type: news
+    status: blocked
+    note: "Cloudflare; works intermittently — run manually if needed"
+  phocuswire:
+    class: ingestion.news.hospitality_news.PhocusWireScraper
+    kind: content
+    type: news
+    status: blocked
+  travelweekly:
+    class: ingestion.news.hospitality_news.TravelWeeklyScraper
+    kind: content
+    type: news
+    status: blocked
+  hotelnewsresource:
+    class: ingestion.news.hospitality_news.HotelNewsResourceScraper
+    kind: content
+    type: news
+    status: blocked
+  traveldailynews:
+    class: ingestion.news.hospitality_news.TravelDailyNewsScraper
+    kind: content
+    type: news
+    status: blocked
+  businesstravelnews:
+    class: ingestion.news.hospitality_news.BusinessTravelNewsScraper
+    kind: content
+    type: news
+    status: blocked
+  boutiquehotelier:
+    class: ingestion.news.hospitality_news.BoutiqueHotelierScraper
+    kind: content
+    type: news
+    status: blocked
+  hotelonline:
+    class: ingestion.news.hospitality_news.HotelOnlineScraper
+    kind: content
+    type: news
+    status: blocked
+  hoteltechreport:
+    class: ingestion.news.hospitality_news.HotelTechReportScraper
+    kind: content
+    type: news
+    status: blocked
+  cushmanwakefield:
+    class: ingestion.news.hospitality_news.CushmanWakefieldScraper
+    kind: content
+    type: news
+    status: blocked
+  costar:
+    class: ingestion.news.hospitality_news.CoStarScraper
+    kind: content
+    type: news
+    status: blocked
+  traveldaily:
+    class: ingestion.news.hospitality_news.TravelDailyScraper
+    kind: content
+    type: news
+    status: blocked
+  cbrehotels:
+    class: ingestion.news.hospitality_news.CBREHotelsScraper
+    kind: content
+    type: news
+    status: blocked
 
-property_sources:
-  direct_website:
-    enabled: true
-    scraping_method: "playwright"  # For JS-heavy sites
-    timeout: 30
-    screenshot: true
-    extract:
-      - "hero_text"
-      - "amenities"
-      - "room_descriptions"
-      - "pricing"
-      - "images"
-      - "location_info"
+  # ── OTA reviews (ToS-blocked; do not scrape — see plan §4.4) ────────────────
+  tripadvisor:
+    class: ingestion.reviews.tripadvisor_scraper.TripAdvisorScraper
+    kind: content
+    type: review
+    status: blocked
+    note: "ToS; legacy Content API sunsets 2026-08-31, replaced by Terra (quote-only) — BD conversation, not scraping"
+  booking:
+    class: ingestion.reviews.booking_scraper.BookingScraper
+    kind: content
+    type: review
+    status: blocked
+    note: "ToS; use licensed aggregators if brand review data matters"

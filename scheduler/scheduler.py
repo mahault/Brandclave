@@ -201,11 +201,12 @@ class ScraperScheduler:
             with scraper_class() as scraper:
                 result = scraper.run()
 
-            # Update POMDP with scrape result
+            # Update POMDP with scrape result (BaseScraper.run() key names)
             if self.scraping_pomdp is not None:
-                items_scraped = result.get("items_count", 0) or result.get("scraped", 0)
+                items_scraped = result.get("items_scraped", 0)
+                items_saved = result.get("items_saved", 0)
                 errors = 1 if result.get("status") == "failed" else 0
-                novelty = result.get("novelty_ratio", 0.5)
+                novelty = (items_saved / items_scraped) if items_scraped else 0.5
 
                 self.scraping_pomdp.observe_scrape_result(
                     source=source_name,
@@ -569,9 +570,12 @@ def _run_scraper_job_standalone(source_name: str) -> dict:
         # Update POMDP with scrape result (via singleton scheduler)
         scheduler = get_scheduler()
         if scheduler.scraping_pomdp is not None:
-            items_scraped = result.get("items_count", 0) or result.get("scraped", 0)
+            # BaseScraper.run() returns items_scraped/items_saved; saved counts
+            # only new-unique URLs, so saved/scraped is a real novelty signal.
+            items_scraped = result.get("items_scraped", 0)
+            items_saved = result.get("items_saved", 0)
             errors = 1 if result.get("status") == "failed" else 0
-            novelty = result.get("novelty_ratio", 0.5)
+            novelty = (items_saved / items_scraped) if items_scraped else 0.5
 
             scheduler.scraping_pomdp.observe_scrape_result(
                 source=source_name,
@@ -644,13 +648,16 @@ def _run_adaptive_scraper() -> dict:
             if stale_sources:
                 logger.info(f"Stale sources needing attention: {stale_sources}")
     else:
-        # Fallback: cycle through hospitality sources
+        # Fallback: pick randomly among registry-active sources
         import random
-        hospitality_sources = ["skift", "hoteldive", "hotelmanagement", "hospitalitynet",
-                               "tophotelnews", "ehlinsights", "ehotelier", "siteminder"]
-        available = [s for s in hospitality_sources if s in SCRAPERS]
+        from ingestion.registry import active_sources
+        available = [s for s in active_sources() if s in SCRAPERS]
         source_name = random.choice(available) if available else "skift"
         logger.info(f"Fallback selected source: {source_name}")
+
+    if source_name == "wait":
+        logger.info("POMDP chose to wait this cycle; no source scraped")
+        return {"source": "wait", "status": "skipped"}
 
     if not source_name or source_name not in SCRAPERS:
         logger.warning(f"Invalid source: {source_name}, using skift")
