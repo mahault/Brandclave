@@ -14,6 +14,7 @@ class SourceType(str, Enum):
     SOCIAL = "social"
     REVIEW = "review"
     PROPERTY = "property"
+    METRIC = "metric"
 
 
 class RawContent(BaseModel):

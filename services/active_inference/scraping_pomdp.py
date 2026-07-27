@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from ingestion.registry import active_sources
+
 logger = logging.getLogger(__name__)
 
 # JAX imports with graceful fallback
@@ -54,19 +56,13 @@ class ScrapingPOMDP:
     All inference is JIT-compiled via PyMDP/JAX.
     """
 
-    # Available scraping sources - ONLY reliable working sources
-    # Broken/blocked sources removed to avoid wasted time and errors
-    SOURCES = [
-        # High-volume social
-        "reddit", "youtube",
-        # Working RSS feeds (verified Dec 2025)
-        "skift", "hoteldive", "hotelmanagement", "siteminder",
-        "tophotelnews", "ehlinsights",
-        # Additional working sources
-        "ehotelier", "lodgingmagazine", "luxuryhospitality", "hotelbusiness",
-    ]
+    # Action space derives from the source registry (configs/sources.yaml):
+    # every source with status "active" is a scrapeable action. Adding a source
+    # to the registry automatically widens the action space; the B matrix is
+    # generic per action, so no per-source model edits are needed.
+    SOURCES = active_sources()
 
-    # All sources are now reliable
+    # All active sources are considered reliable (blocked ones never get here)
     RELIABLE_SOURCES = set(SOURCES)
 
     # Productivity levels (hidden states)

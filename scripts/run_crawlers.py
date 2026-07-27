@@ -14,45 +14,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Available scrapers - organized by reliability
+# Source registry lives in configs/sources.yaml (see ingestion/registry.py).
+# SCRAPERS keeps the historical dict shape for existing importers: it exposes
+# the ACTIVE sources only, so "run all" and the scheduler never touch blocked
+# ones. Blocked-but-implemented sources can still be run explicitly by name.
+from ingestion.registry import get_registry
+from ingestion.registry import get_scraper_class as _registry_get_scraper_class
+
 SCRAPERS = {
-    # === WORKING NEWS SOURCES (RSS feeds verified Dec 2025) ===
-    "skift": "ingestion.news.skift_rss.SkiftScraper",
-    "hoteldive": "ingestion.news.hospitality_news.HotelDiveScraper",
-    "hotelmanagement": "ingestion.news.hospitality_news.HotelManagementScraper",
-    "tophotelnews": "ingestion.news.hospitality_news.TopHotelNewsScraper",
-    "siteminder": "ingestion.news.hospitality_news.SiteMinderScraper",
-    "ehlinsights": "ingestion.news.hospitality_news.EHLInsightsScraper",
-    # NEW working sources (replacements for broken feeds)
-    "ehotelier": "ingestion.news.hospitality_news.EHotelierScraper",
-    "lodgingmagazine": "ingestion.news.hospitality_news.LodgingMagazineScraper",
-    "luxuryhospitality": "ingestion.news.hospitality_news.LuxuryHospitalityScraper",
-    "hotelbusiness": "ingestion.news.hospitality_news.HotelBusinessScraper",
-
-    # === WORKING SOCIAL SOURCES ===
-    "reddit": "ingestion.social.reddit_scraper.RedditScraper",
-    "youtube": "ingestion.social.youtube_scraper.YouTubeScraper",
-
-    # === UNRELIABLE (often blocked/broken - kept for occasional use) ===
-    # These may work intermittently; Cloudflare/anti-bot protection
-    "hospitalitynet": "ingestion.news.hospitalitynet_rss.HospitalityNetScraper",
-    "phocuswire": "ingestion.news.hospitality_news.PhocusWireScraper",
-    "travelweekly": "ingestion.news.hospitality_news.TravelWeeklyScraper",
-    "hotelnewsresource": "ingestion.news.hospitality_news.HotelNewsResourceScraper",
-    "traveldailynews": "ingestion.news.hospitality_news.TravelDailyNewsScraper",
-    "businesstravelnews": "ingestion.news.hospitality_news.BusinessTravelNewsScraper",
-    "boutiquehotelier": "ingestion.news.hospitality_news.BoutiqueHotelierScraper",
-    "hotelonline": "ingestion.news.hospitality_news.HotelOnlineScraper",
-    "hoteltechreport": "ingestion.news.hospitality_news.HotelTechReportScraper",
-    "cushmanwakefield": "ingestion.news.hospitality_news.CushmanWakefieldScraper",
-    "costar": "ingestion.news.hospitality_news.CoStarScraper",
-    "traveldaily": "ingestion.news.hospitality_news.TravelDailyScraper",
-    "cbrehotels": "ingestion.news.hospitality_news.CBREHotelsScraper",
-
-    # === BLOCKED BY ROBOTS.TXT/403 ===
-    "quora": "ingestion.social.quora_scraper.QuoraScraper",
-    "tripadvisor": "ingestion.reviews.tripadvisor_scraper.TripAdvisorScraper",
-    "booking": "ingestion.reviews.booking_scraper.BookingScraper",
+    name: spec.class_path
+    for name, spec in get_registry().items()
+    if spec.status == "active" and spec.class_path
 }
 
 
@@ -67,13 +39,8 @@ def setup_logging(verbose: bool = False):
 
 
 def get_scraper_class(source: str):
-    """Dynamically import and return scraper class."""
-    if source not in SCRAPERS:
-        raise ValueError(f"Unknown source: {source}. Available: {list(SCRAPERS.keys())}")
-
-    module_path, class_name = SCRAPERS[source].rsplit(".", 1)
-    module = __import__(module_path, fromlist=[class_name])
-    return getattr(module, class_name)
+    """Dynamically import and return scraper class (any implemented source)."""
+    return _registry_get_scraper_class(source)
 
 
 def run_scraper(source: str) -> dict:
