@@ -73,9 +73,16 @@ vectors. Tables: `raw_content`, `trend_signals`, `hotelier_moves`,
 `prediction_records` + `ledger_events` (Signal Ledger), `demand_metrics`,
 `users`, `saved_items`.
 
-> **Planned (mandatory before real users):** managed Postgres + pgvector —
-> collapses the two stores, survives redeploys, handles concurrent writers.
-> Alembic migrations come with it. See plan §5.1.
+**Postgres-ready (2026-07-27):** the codebase runs against managed Postgres by
+setting `DATABASE_URL` — provider-style `postgres://` URLs are normalized to the
+psycopg3 driver automatically, and the engine gets health checks + pooling on
+Postgres. Schema is managed by **Alembic** (`python -m alembic upgrade head`;
+baseline revision `5cc92be0ef43` covers all 11 tables; a regression test keeps
+migrations in sync with the models). `render.yaml` provisions database + web +
+scheduler worker (`scripts/run_worker.py`, so scraping survives web restarts).
+What still needs a human: creating the provider account and connecting the repo.
+pgvector consolidation of ChromaDB follows once a real Postgres exists to test
+against (plan §5.1).
 
 ## Multi-tenancy
 

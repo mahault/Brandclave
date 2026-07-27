@@ -1,16 +1,57 @@
+# Render blueprint: managed Postgres + web API + scheduler worker.
+# Connect the repo in the Render dashboard and this provisions everything;
+# only MISTRAL_API_KEY needs to be pasted in manually (sync: false).
+
+databases:
+  - name: brandclave-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
 services:
   - type: web
-    name: brandclave-demo
+    name: brandclave
     runtime: python
+    plan: standard # JAX + embeddings need >512MB; free tier cannot hold it
     buildCommand: pip install -r requirements.txt
+    preDeployCommand: python -m alembic upgrade head
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: DATABASE_URL
-        value: sqlite:///./data/brandclave.db
+        fromDatabase:
+          name: brandclave-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MISTRAL_API_KEY
+        sync: false
       - key: LOG_LEVEL
         value: INFO
+      - key: LOG_FORMAT
+        value: json
       - key: SCHEDULER_ENABLED
-        value: "true"
-    plan: free
+        value: "false" # the worker owns scheduling
+      - key: PREWARM_SERVICES
+        value: "false"
+
+  - type: worker
+    name: brandclave-worker
+    runtime: python
+    plan: standard
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/run_worker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: brandclave-db
+          property: connectionString
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: json
