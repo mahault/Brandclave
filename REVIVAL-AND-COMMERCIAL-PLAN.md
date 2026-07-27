@@ -102,6 +102,12 @@ Two consequences:
 
 Free and legally clean. This is the backbone.
 
+> **Status 2026-07-27:** this catalogue now lives operationally in `configs/sources.yaml`
+> (read by `ingestion/registry.py`), with per-source status (active/planned/blocked) and
+> priority. Bluesky and Wikimedia pageviews are live; the rest of the tables below are
+> encoded as `planned` entries and roll out in priority order. Reddit and the OTA scrapers
+> are marked `blocked` and excluded from the POMDP rotation.
+
 **Geo-resolvable demand — this is what makes signal-to-city computable**
 
 | Source | Access | Notes |
