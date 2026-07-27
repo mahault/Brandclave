@@ -17,198 +17,312 @@ async def dashboard_v2():
     <title>BrandClave Intelligence</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg: #0e0c09;
+            --surface: #17140f;
+            --surface-2: #201a12;
+            --surface-3: #2a2318;
+            --ink: #f2ecdf;
+            --ink-2: #b9ae9c;
+            --ink-3: #857a68;
+            --line: rgba(212,175,106,0.16);
+            --line-strong: rgba(212,175,106,0.34);
+            --gold: #d4af6a;
+            --gold-deep: #b8862e;
+            --gold-ink: #141008;
+            --violet: #8b7ce0;
+            --teal: #3aa88d;
+            --rose: #c25a78;
+            --blue: #4a8bc2;
+            --good: #3aa88d;
+            --warn: #b8862e;
+            --bad: #c25a78;
+            --grad: linear-gradient(90deg, #c25a78, #8b7ce0, #3aa88d, #d4af6a);
+            --font-display: 'Archivo', 'Segoe UI', sans-serif;
+            --font-body: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: var(--font-body);
+            background: var(--bg);
+            background-image: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(212,175,106,0.07), transparent);
             min-height: 100vh;
-            color: #333;
+            color: var(--ink);
         }
+        ::selection { background: rgba(212,175,106,0.30); }
+
         .hero {
-            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
-            color: white;
-            padding: 30px 20px;
+            padding: 56px 20px 36px;
             text-align: center;
+            border-bottom: 1px solid var(--line);
         }
-        .hero h1 { font-size: 2em; margin-bottom: 8px; }
-        .hero p { opacity: 0.9; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .hero::before {
+            content: 'HOSPITALITY DEMAND INTELLIGENCE';
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.7em;
+            letter-spacing: 0.35em;
+            color: var(--gold);
+            margin-bottom: 14px;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 2.4em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--ink);
+        }
+        .hero p { color: var(--ink-2); margin-top: 10px; font-size: 0.95em; }
+        .hero::after {
+            content: '';
+            display: block;
+            width: 120px;
+            height: 3px;
+            margin: 22px auto 0;
+            background: var(--grad);
+            border-radius: 2px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
 
         .status-bar {
-            background: rgba(255,255,255,0.1);
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-bottom: 22px;
             display: flex;
             align-items: center;
             gap: 10px;
-            color: white;
+            color: var(--ink-2);
+            font-family: var(--font-mono);
+            font-size: 0.85em;
         }
-        .status-bar .icon { font-size: 1.3em; }
+        .status-bar .icon { font-size: 1.1em; }
         .status-bar button {
             margin-left: auto;
-            padding: 8px 16px;
-            background: #e94560;
-            border: none;
-            border-radius: 6px;
-            color: white;
+            padding: 8px 18px;
+            background: transparent;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            color: var(--gold);
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
             cursor: pointer;
+            transition: all 0.2s;
         }
+        .status-bar button:hover { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
 
         .tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
+            gap: 4px;
+            margin-bottom: 26px;
             flex-wrap: wrap;
+            border-bottom: 1px solid var(--line);
         }
         .tab {
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.1);
+            padding: 12px 16px;
+            background: transparent;
             border: none;
-            border-radius: 8px;
-            color: white;
+            border-bottom: 2px solid transparent;
+            color: var(--ink-2);
+            font-family: var(--font-mono);
+            font-size: 0.78em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
             cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
         }
-        .tab:hover { background: rgba(255,255,255,0.2); }
-        .tab.active { background: #e94560; }
+        .tab:hover { color: var(--ink); }
+        .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
         .section { display: none; }
         .section.active { display: block; }
 
         .card {
-            background: white;
-            padding: 20px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            padding: 26px;
+            margin-bottom: 18px;
+            border-radius: 12px;
         }
-        .card h2 { color: #1a1a2e; margin-bottom: 15px; font-size: 1.3em; }
+        .card h2 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.15em;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--ink);
+            margin-bottom: 16px;
+        }
+        .card h2::before {
+            content: '';
+            display: block;
+            width: 48px;
+            height: 3px;
+            background: var(--grad);
+            border-radius: 2px;
+            margin-bottom: 12px;
+        }
 
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
         .metric {
             text-align: center;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
+            padding: 18px 15px;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: 10px;
         }
-        .metric-value { font-size: 1.8em; font-weight: bold; color: #0f3460; }
-        .metric-label { color: #666; font-size: 0.8em; margin-top: 4px; }
+        .metric-value {
+            font-family: var(--font-display);
+            font-size: 2em;
+            font-weight: 800;
+            color: var(--gold);
+        }
+        .metric-label {
+            color: var(--ink-3);
+            font-family: var(--font-mono);
+            font-size: 0.68em;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
 
         .trend-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
+            background: rgba(139,124,224,0.08);
+            border: 1px solid rgba(139,124,224,0.30);
+            border-left: 3px solid var(--violet);
+            color: var(--ink);
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            transition: transform 0.15s, border-color 0.15s;
         }
-        .trend-card h3 { margin-bottom: 8px; }
-        .trend-card p { opacity: 0.95; font-size: 0.9em; line-height: 1.4; }
-        
-        .trend-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .move-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-
-        .trend-meta { margin-top: 10px; font-size: 0.85em; opacity: 0.9; }
+        .trend-card h3 { margin-bottom: 8px; font-family: var(--font-display); font-weight: 600; }
+        .trend-card p { color: var(--ink-2); font-size: 0.9em; line-height: 1.5; }
+        .trend-card:hover { transform: translateY(-2px); border-color: var(--violet); }
+        .trend-meta { margin-top: 10px; font-size: 0.82em; color: var(--ink-2); font-family: var(--font-mono); }
 
         .move-card {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
+            background: rgba(58,168,141,0.08);
+            border: 1px solid rgba(58,168,141,0.30);
+            border-left: 3px solid var(--teal);
+            color: var(--ink);
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            transition: transform 0.15s, border-color 0.15s;
         }
-        .move-card h3 { margin-bottom: 5px; }
-        .move-card .company { font-size: 0.9em; opacity: 0.9; margin-bottom: 8px; }
-        .move-card p { font-size: 0.9em; line-height: 1.4; }
+        .move-card h3 { margin-bottom: 5px; font-family: var(--font-display); font-weight: 600; }
+        .move-card .company { font-size: 0.85em; color: var(--teal); font-family: var(--font-mono); letter-spacing: 0.06em; margin-bottom: 8px; }
+        .move-card p { font-size: 0.9em; line-height: 1.5; color: var(--ink-2); }
+        .move-card:hover { transform: translateY(-2px); border-color: var(--teal); }
         .move-badges { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
         .move-type-badge {
-            background: rgba(255,255,255,0.25);
+            background: rgba(58,168,141,0.18);
+            color: var(--teal);
             padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.75em;
+            border-radius: 999px;
+            font-family: var(--font-mono);
+            font-size: 0.7em;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            font-weight: 600;
         }
         .market-badge {
-            background: rgba(0,0,0,0.15);
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            color: var(--ink-2);
             padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.8em;
+            border-radius: 999px;
+            font-size: 0.78em;
         }
-        .move-actions {
-            margin-top: 10px;
-            display: flex;
-            gap: 8px;
-        }
+        .move-actions { margin-top: 10px; display: flex; gap: 8px; }
         .move-action-btn {
-            padding: 5px 12px;
-            border: none;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border: 1px solid var(--line-strong);
+            background: transparent;
+            color: var(--ink-2);
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 0.85em;
+            font-size: 0.82em;
             transition: all 0.2s;
         }
-        .move-action-btn.btn-save {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-        .move-action-btn.btn-save:hover { background: rgba(255,255,255,0.35); }
-        .move-action-btn.btn-save.saved {
-            background: rgba(255,255,255,0.9);
-            color: #11998e;
-        }
+        .move-action-btn.btn-save { background: transparent; color: var(--ink-2); }
+        .move-action-btn.btn-save:hover { color: var(--ink); border-color: var(--gold); }
+        .move-action-btn.btn-save.saved { background: var(--teal); border-color: var(--teal); color: var(--gold-ink); }
 
-        .content-item {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-        }
+        .content-item { padding: 14px 4px; border-bottom: 1px solid var(--line); }
         .content-item:last-child { border-bottom: none; }
-        .content-item h4 { color: #1a1a2e; margin-bottom: 5px; }
-        .content-item p { color: #666; font-size: 0.9em; }
-        .content-item .meta { font-size: 0.8em; color: #888; margin-top: 5px; }
+        .content-item h4 { color: var(--ink); margin-bottom: 5px; font-weight: 600; }
+        .content-item p { color: var(--ink-2); font-size: 0.9em; }
+        .content-item .meta { font-size: 0.78em; color: var(--ink-3); margin-top: 5px; font-family: var(--font-mono); }
         .content-item .source {
-            background: #e94560;
-            color: white;
+            background: rgba(212,175,106,0.16);
+            color: var(--gold);
             padding: 2px 8px;
             border-radius: 4px;
-            font-size: 0.75em;
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            letter-spacing: 0.06em;
         }
 
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: 600; }
-
-        .badge {
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--line); }
+        th {
+            background: transparent;
+            color: var(--ink-3);
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-weight: 500;
         }
-        .badge-success { background: #d4edda; color: #155724; }
-        .badge-warning { background: #fff3cd; color: #856404; }
+        td { color: var(--ink-2); font-size: 0.9em; }
 
-        .empty { text-align: center; padding: 40px; color: #888; }
-        .empty .icon { font-size: 3em; margin-bottom: 10px; }
+        .badge { padding: 3px 10px; border-radius: 4px; font-size: 0.78em; font-family: var(--font-mono); }
+        .badge-success { background: rgba(58,168,141,0.16); color: var(--teal); }
+        .badge-warning { background: rgba(184,134,46,0.16); color: var(--gold); }
 
-        .error { background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 8px; text-align: center; }
+        .empty { text-align: center; padding: 44px; color: var(--ink-3); }
+        .empty .icon { font-size: 2em; margin-bottom: 10px; opacity: 0.7; }
+
+        .error {
+            background: rgba(194,90,120,0.12);
+            border: 1px solid rgba(194,90,120,0.35);
+            color: var(--rose);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
 
         /* White Space Badge */
         .white-space-badge {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            background: rgba(255,255,255,0.2);
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: 600;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            color: var(--ink-2);
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            letter-spacing: 0.04em;
         }
-        .white-space-high { background: rgba(34, 197, 94, 0.3); }
-        .white-space-medium { background: rgba(251, 191, 36, 0.3); }
-        .white-space-low { background: rgba(239, 68, 68, 0.2); }
+        .white-space-high { background: rgba(58,168,141,0.18); color: var(--teal); border-color: rgba(58,168,141,0.35); }
+        .white-space-medium { background: rgba(184,134,46,0.18); color: var(--gold); border-color: rgba(212,175,106,0.35); }
+        .white-space-low { background: rgba(194,90,120,0.14); color: var(--rose); border-color: rgba(194,90,120,0.35); }
 
         /* Filter Bar */
         .filter-bar {
@@ -218,33 +332,47 @@ async def dashboard_v2():
             flex-wrap: wrap;
             align-items: center;
         }
-        .filter-select {
+        .filter-select, select {
             padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: white;
-            font-size: 0.9em;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            background: var(--surface-2);
+            color: var(--ink);
+            font-family: var(--font-body);
+            font-size: 0.88em;
             min-width: 140px;
             cursor: pointer;
         }
-        .filter-select:focus { outline: none; border-color: #667eea; }
-        .filter-reset {
+        .filter-select:focus, select:focus { outline: none; border-color: var(--gold); }
+        .filter-reset, button.filter-reset {
             padding: 8px 16px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            background: transparent;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            color: var(--ink-2);
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 0.88em;
         }
-        .filter-reset:hover { background: #e0e0e0; }
+        .filter-reset:hover { color: var(--ink); border-color: var(--gold); }
         .saved-count {
-            background: rgba(102, 126, 234, 0.1);
-            color: #667eea;
+            background: rgba(139,124,224,0.14);
+            color: var(--violet);
             padding: 4px 10px;
             border-radius: 4px;
-            font-size: 0.85em;
+            font-family: var(--font-mono);
+            font-size: 0.78em;
             margin-left: auto;
         }
+
+        input[type="text"], input[type="number"], textarea {
+            background: var(--surface-2);
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            color: var(--ink);
+            font-family: var(--font-body);
+        }
+        input[type="text"]:focus, input[type="number"]:focus, textarea:focus { outline: none; border-color: var(--gold); }
+        input::placeholder, textarea::placeholder { color: var(--ink-3); }
 
         /* Trend Action Buttons */
         .trend-actions {
@@ -252,23 +380,23 @@ async def dashboard_v2():
             gap: 8px;
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.2);
+            border-top: 1px solid var(--line);
         }
         .trend-action-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.85em;
+            padding: 6px 14px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            font-size: 0.82em;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 5px;
-            transition: transform 0.1s, opacity 0.1s;
+            transition: transform 0.1s, border-color 0.15s;
         }
-        .trend-action-btn:hover { transform: translateY(-1px); }
-        .btn-save { background: rgba(255,255,255,0.9); color: #333; }
-        .btn-save.saved { background: #22c55e; color: white; }
-        .btn-brand { background: #e94560; color: white; }
+        .trend-action-btn:hover { transform: translateY(-1px); border-color: var(--gold); }
+        .btn-save { background: transparent; color: var(--ink-2); }
+        .btn-save.saved { background: var(--teal); border-color: var(--teal); color: var(--gold-ink); }
+        .btn-brand { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); font-weight: 600; }
 
         /* Chat */
         .chat-message { margin-bottom: 15px; }
@@ -278,47 +406,42 @@ async def dashboard_v2():
             display: inline-block;
             max-width: 80%;
             padding: 12px 16px;
-            border-radius: 18px;
-            line-height: 1.4;
+            border-radius: 14px;
+            line-height: 1.5;
+            text-align: left;
         }
         .chat-message.user .chat-bubble {
-            background: #e94560;
-            color: white;
+            background: rgba(212,175,106,0.16);
+            border: 1px solid rgba(212,175,106,0.30);
+            color: var(--ink);
             border-bottom-right-radius: 4px;
         }
         .chat-message.assistant .chat-bubble {
-            background: white;
-            color: #333;
-            border: 1px solid #eee;
+            background: var(--surface-2);
+            color: var(--ink);
+            border: 1px solid var(--line);
             border-bottom-left-radius: 4px;
         }
-        .chat-confidence {
-            font-size: 0.75em;
-            margin-top: 4px;
-            opacity: 0.7;
-        }
-        .confidence-high { color: #22c55e; }
-        .confidence-medium { color: #f59e0b; }
-        .confidence-low { color: #ef4444; }
+        .chat-confidence { font-size: 0.72em; margin-top: 4px; font-family: var(--font-mono); }
+        .confidence-high { color: var(--teal); }
+        .confidence-medium { color: var(--gold); }
+        .confidence-low { color: var(--rose); }
         .suggestion-chip {
             padding: 8px 16px;
-            background: white;
-            border: 1px solid #e94560;
-            color: #e94560;
-            border-radius: 20px;
+            background: transparent;
+            border: 1px solid var(--line-strong);
+            color: var(--gold);
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 0.88em;
+            transition: all 0.2s;
         }
-        .suggestion-chip:hover { background: #e94560; color: white; }
-        .chat-typing {
-            display: flex;
-            gap: 4px;
-            padding: 10px 15px;
-        }
+        .suggestion-chip:hover { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+        .chat-typing { display: flex; gap: 4px; padding: 10px 15px; }
         .chat-typing span {
             width: 8px;
             height: 8px;
-            background: #999;
+            background: var(--gold);
             border-radius: 50%;
             animation: typing 1s infinite;
         }
@@ -331,48 +454,60 @@ async def dashboard_v2():
 
         /* My Projects */
         .profile-insights-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: var(--surface-2);
+            border: 1px solid rgba(139,124,224,0.30);
+            border-left: 3px solid var(--violet);
+            color: var(--ink);
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 15px;
         }
-        .profile-insights-card h3 { margin-bottom: 15px; }
+        .profile-insights-card h3 { margin-bottom: 15px; font-family: var(--font-display); font-weight: 600; }
         .profile-tag {
             display: inline-block;
-            background: rgba(255,255,255,0.2);
+            background: rgba(139,124,224,0.14);
+            color: var(--violet);
             padding: 5px 12px;
-            border-radius: 15px;
+            border-radius: 999px;
             margin: 3px;
-            font-size: 0.9em;
+            font-size: 0.85em;
         }
         .profile-section { margin-bottom: 12px; }
-        .profile-section-title { font-size: 0.85em; opacity: 0.9; margin-bottom: 6px; }
+        .profile-section-title {
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+            margin-bottom: 6px;
+        }
         .btn-primary {
             padding: 12px 24px;
-            background: #e94560;
-            color: white;
+            background: var(--gold);
+            color: var(--gold-ink);
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 1em;
+            font-size: 0.95em;
+            transition: background 0.2s;
         }
-        .btn-primary:hover { background: #d63850; }
-        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-primary:hover { background: #e2c184; }
+        .btn-primary:disabled { background: var(--surface-3); color: var(--ink-3); cursor: not-allowed; }
         .btn-secondary {
             padding: 12px 24px;
-            background: #6c757d;
-            color: white;
-            border: none;
+            background: transparent;
+            color: var(--ink-2);
+            border: 1px solid var(--line-strong);
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 1em;
+            font-size: 0.95em;
         }
-        .btn-secondary:hover { background: #5a6268; }
+        .btn-secondary:hover { color: var(--ink); border-color: var(--gold); }
         .saved-item-card {
-            background: #f8f9fa;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
             padding: 12px 15px;
             border-radius: 8px;
             margin-bottom: 10px;
@@ -380,152 +515,202 @@ async def dashboard_v2():
             justify-content: space-between;
             align-items: center;
         }
-        .saved-item-card h4 { margin-bottom: 4px; color: #1a1a2e; }
-        .saved-item-meta { font-size: 0.85em; color: #666; }
+        .saved-item-card h4 { margin-bottom: 4px; color: var(--ink); }
+        .saved-item-meta { font-size: 0.82em; color: var(--ink-3); }
         .saved-item-actions { display: flex; gap: 8px; }
         .btn-remove {
-            padding: 5px 10px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
+            padding: 5px 12px;
+            background: transparent;
+            color: var(--rose);
+            border: 1px solid rgba(194,90,120,0.4);
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 0.85em;
+            font-size: 0.82em;
         }
-        .btn-remove:hover { background: #c82333; }
+        .btn-remove:hover { background: var(--rose); color: var(--gold-ink); }
 
         /* Modal */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto; padding: 20px;
+            background: rgba(8,6,4,0.8); z-index: 1000; overflow-y: auto; padding: 20px;
         }
         .modal-overlay.active { display: flex; justify-content: center; align-items: flex-start; }
-        .modal-content { background: white; border-radius: 12px; max-width: 700px; width: 100%; margin: 40px auto; position: relative; }
-        .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; }
-        .modal-header.move-header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-        .modal-header h2 { margin: 0; font-size: 1.4em; line-height: 1.3; }
-        .modal-header .meta { opacity: 0.9; margin-top: 8px; font-size: 0.9em; }
+        .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--line-strong);
+            border-radius: 12px;
+            max-width: 700px; width: 100%; margin: 40px auto; position: relative;
+            overflow: hidden;
+        }
+        .modal-header {
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--line);
+            border-top: 3px solid var(--violet);
+            color: var(--ink);
+            padding: 20px;
+        }
+        .modal-header.move-header { background: var(--surface-2); border-top-color: var(--teal); }
+        .modal-header h2 { margin: 0; font-size: 1.3em; line-height: 1.3; font-family: var(--font-display); font-weight: 700; }
+        .modal-header .meta { color: var(--ink-2); margin-top: 8px; font-size: 0.85em; font-family: var(--font-mono); }
         .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
         .modal-section { margin-bottom: 20px; }
         .modal-section:last-child { margin-bottom: 0; }
-        .modal-section h3 { color: #1a1a2e; margin-bottom: 10px; font-size: 1.1em; }
-        .modal-section p { color: #444; line-height: 1.6; }
-        .modal-close { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.2em; }
-        .modal-close:hover { background: rgba(255,255,255,0.3); }
-        .source-quote { background: #f8f9fa; border-left: 3px solid #667eea; padding: 12px 15px; margin-bottom: 10px; border-radius: 0 8px 8px 0; font-style: italic; color: #555; font-size: 0.9em; }
-        .topic-tag { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 15px; font-size: 0.85em; margin: 3px; }
+        .modal-section h3 {
+            color: var(--gold);
+            margin-bottom: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.78em;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        .modal-section p { color: var(--ink-2); line-height: 1.6; }
+        .modal-close {
+            position: absolute; top: 15px; right: 15px;
+            background: transparent; border: 1px solid var(--line-strong);
+            color: var(--ink-2); width: 32px; height: 32px; border-radius: 50%;
+            cursor: pointer; font-size: 1.1em;
+        }
+        .modal-close:hover { color: var(--ink); border-color: var(--gold); }
+        .source-quote {
+            background: var(--surface-2);
+            border-left: 3px solid var(--gold);
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: var(--ink-2);
+            font-size: 0.9em;
+        }
+        .topic-tag {
+            display: inline-block;
+            background: rgba(139,124,224,0.14);
+            color: var(--violet);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.82em;
+            margin: 3px;
+        }
 
         .quick-city {
-            padding: 5px 12px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            padding: 5px 14px;
+            background: transparent;
+            border: 1px solid var(--line-strong);
+            color: var(--ink-2);
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 0.85em;
+            font-size: 0.82em;
             margin: 2px;
+            transition: all 0.2s;
         }
-        .quick-city:hover { background: #e0e0e0; }
+        .quick-city:hover { color: var(--gold); border-color: var(--gold); }
 
         .desire-card {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
+            background: rgba(194,90,120,0.08);
+            border: 1px solid rgba(194,90,120,0.30);
+            border-left: 3px solid var(--rose);
+            color: var(--ink);
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 12px;
         }
-        .desire-card h4 { margin-bottom: 8px; }
-        .desire-card p { font-size: 0.9em; opacity: 0.95; }
-        .desire-meta { margin-top: 10px; font-size: 0.85em; opacity: 0.9; }
+        .desire-card h4 { margin-bottom: 8px; font-family: var(--font-display); font-weight: 600; }
+        .desire-card p { font-size: 0.9em; color: var(--ink-2); line-height: 1.5; }
+        .desire-meta { margin-top: 10px; font-size: 0.82em; color: var(--ink-2); font-family: var(--font-mono); }
 
         .opportunity-card {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
+            background: rgba(74,139,194,0.08);
+            border: 1px solid rgba(74,139,194,0.30);
+            border-left: 3px solid var(--blue);
+            color: var(--ink);
+            padding: 14px 16px;
+            border-radius: 10px;
             margin-bottom: 8px;
         }
 
         .concept-card {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: #333;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
+            background: rgba(212,175,106,0.08);
+            border: 1px solid rgba(212,175,106,0.35);
+            border-left: 3px solid var(--gold);
+            color: var(--ink);
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 12px;
         }
-        .concept-card h4 { margin-bottom: 8px; }
+        .concept-card h4 { margin-bottom: 8px; font-family: var(--font-display); font-weight: 600; }
 
         /* Demand Scan */
         .property-card {
-            background: white;
-            border: 1px solid #e0e0e0;
+            background: var(--surface);
+            border: 1px solid var(--line);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: all 0.2s;
+            transition: border-color 0.2s, transform 0.15s;
         }
-        .property-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.12); }
+        .property-card:hover { border-color: var(--line-strong); transform: translateY(-2px); }
         .property-card-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 15px;
         }
-        .property-card h3 { margin: 0; color: #1a1a2e; font-size: 1.2em; }
-        .property-card .location { color: #666; font-size: 0.9em; margin-top: 4px; }
+        .property-card h3 { margin: 0; color: var(--ink); font-size: 1.15em; font-family: var(--font-display); font-weight: 600; }
+        .property-card .location { color: var(--ink-3); font-size: 0.85em; margin-top: 4px; font-family: var(--font-mono); }
 
         /* Demand Fit Score Badge */
         .demand-score {
             padding: 8px 15px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 1em;
+            border-radius: 999px;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            font-size: 0.9em;
         }
-        .demand-high { background: #d4edda; color: #155724; }
-        .demand-medium { background: #fff3cd; color: #856404; }
-        .demand-low { background: #f8d7da; color: #721c24; }
+        .demand-high { background: rgba(58,168,141,0.18); color: var(--teal); border: 1px solid rgba(58,168,141,0.35); }
+        .demand-medium { background: rgba(184,134,46,0.18); color: var(--gold); border: 1px solid rgba(212,175,106,0.35); }
+        .demand-low { background: rgba(194,90,120,0.14); color: var(--rose); border: 1px solid rgba(194,90,120,0.35); }
 
         /* Misalignment Flags */
         .misalignment-flag {
             display: inline-flex;
             align-items: center;
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(194,90,120,0.12);
+            color: var(--rose);
             padding: 4px 10px;
             border-radius: 4px;
-            font-size: 0.8em;
+            font-size: 0.78em;
             margin: 3px;
         }
-        .misalignment-flag::before { content: "⚠️ "; }
+        .misalignment-flag::before { content: "! "; font-weight: 700; margin-right: 4px; }
 
         /* Property Sections */
-        .property-section {
-            margin-bottom: 15px;
-        }
+        .property-section { margin-bottom: 15px; }
         .property-section-title {
-            font-size: 0.85em;
-            font-weight: 600;
-            color: #666;
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            font-weight: 500;
+            color: var(--ink-3);
             margin-bottom: 8px;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
         }
         .gap-item {
             display: inline-block;
-            background: #fef3c7;
-            color: #92400e;
+            background: rgba(184,134,46,0.14);
+            color: var(--gold);
             padding: 4px 10px;
             border-radius: 4px;
-            font-size: 0.85em;
+            font-size: 0.82em;
             margin: 2px;
         }
         .opportunity-item {
             display: flex;
             align-items: center;
-            background: #dbeafe;
-            color: #1e40af;
+            background: rgba(74,139,194,0.10);
+            color: var(--blue);
             padding: 8px 12px;
             border-radius: 6px;
-            font-size: 0.9em;
+            font-size: 0.88em;
             margin-bottom: 6px;
         }
         .opportunity-item::before { content: "→ "; font-weight: bold; margin-right: 6px; }
@@ -535,30 +720,32 @@ async def dashboard_v2():
             gap: 10px;
             margin-top: 15px;
             padding-top: 15px;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--line);
         }
         .property-action-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
+            padding: 8px 18px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 0.88em;
             font-weight: 500;
             transition: all 0.2s;
         }
         .property-action-btn.btn-brand {
-            background: #e94560;
-            color: white;
+            background: var(--gold);
+            border-color: var(--gold);
+            color: var(--gold-ink);
         }
-        .property-action-btn.btn-brand:hover { background: #d63850; }
+        .property-action-btn.btn-brand:hover { background: #e2c184; }
         .property-action-btn.btn-save {
-            background: #f0f0f0;
-            color: #333;
+            background: transparent;
+            color: var(--ink-2);
         }
-        .property-action-btn.btn-save:hover { background: #e0e0e0; }
+        .property-action-btn.btn-save:hover { color: var(--ink); border-color: var(--gold); }
         .property-action-btn.btn-save.saved {
-            background: #d4edda;
-            color: #155724;
+            background: rgba(58,168,141,0.18);
+            border-color: rgba(58,168,141,0.4);
+            color: var(--teal);
         }
     </style>
 </head>
@@ -580,16 +767,16 @@ async def dashboard_v2():
             <button class="tab" onclick="showTab('citydesires')">City Desires</button>
             <button class="tab" onclick="showTab('trends')">Social Pulse</button>
             <button class="tab" onclick="showTab('moves')">Hotelier Bets</button>
-            <button class="tab" onclick="showTab('demandscan')">🔍 Demand Scan</button>
+            <button class="tab" onclick="showTab('demandscan')">Demand Scan</button>
             <button class="tab" onclick="showTab('content')">Content</button>
             <button class="tab" onclick="showTab('scrapers')">Scrapers</button>
-            <button class="tab" onclick="showTab('chat')">💬 Chat</button>
-            <button class="tab" onclick="showTab('projects')" id="projects-tab">📁 My Projects</button>
+            <button class="tab" onclick="showTab('chat')">Chat</button>
+            <button class="tab" onclick="showTab('projects')" id="projects-tab">My Projects</button>
         </div>
 
         <div id="overview" class="section active">
             <div class="card">
-                <h2>📊 Metrics</h2>
+                <h2>Metrics</h2>
                 <div class="metrics-grid">
                     <div class="metric">
                         <div class="metric-value" id="m-content">-</div>
@@ -610,32 +797,32 @@ async def dashboard_v2():
                 </div>
             </div>
             <div class="card">
-                <h2>📈 Latest Trend</h2>
+                <h2>Latest Trend</h2>
                 <div id="latest-trend"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
             <div class="card">
-                <h2>♟️ Latest Move</h2>
+                <h2>Latest Move</h2>
                 <div id="latest-move"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
 
         <div id="citydesires" class="section">
             <div class="card">
-                <h2>🏙️ City Desires</h2>
-                <p style="color:#666;margin-bottom:15px;">Discover what travelers are craving in specific destinations. Uncover unmet needs, frustrations, and white-space opportunities from social conversations.</p>
-                <p style="color:#666;margin-bottom:15px;">Type a city to discover what travelers want but can't find.</p>
+                <h2>City Desires</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Discover what travelers are craving in specific destinations. Uncover unmet needs, frustrations, and white-space opportunities from social conversations.</p>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Type a city to discover what travelers want but can't find.</p>
                 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
                     <input type="text" id="city-input" placeholder="City name (e.g., Lisbon)"
-                           style="padding:10px 15px;border:1px solid #ddd;border-radius:6px;font-size:1em;flex:1;min-width:150px;">
+                           style="padding:10px 15px;border:1px solid var(--line-strong);border-radius:6px;font-size:1em;flex:1;min-width:150px;">
                     <input type="text" id="country-input" placeholder="Country (optional)"
-                           style="padding:10px 15px;border:1px solid #ddd;border-radius:6px;font-size:1em;width:150px;">
+                           style="padding:10px 15px;border:1px solid var(--line-strong);border-radius:6px;font-size:1em;width:150px;">
                     <button onclick="analyzeCity()" id="analyze-btn"
-                            style="padding:10px 20px;background:#e94560;color:white;border:none;border-radius:6px;cursor:pointer;font-size:1em;">
+                            style="padding:10px 20px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;cursor:pointer;font-size:1em;">
                         Analyze
                     </button>
                 </div>
                 <div style="margin-bottom:15px;">
-                    <span style="color:#888;font-size:0.9em;">Popular: </span>
+                    <span style="color:var(--ink-3);font-size:0.9em;">Popular: </span>
                     <button onclick="quickCity('Lisbon','Portugal')" class="quick-city">Lisbon</button>
                     <button onclick="quickCity('Barcelona','Spain')" class="quick-city">Barcelona</button>
                     <button onclick="quickCity('Tokyo','Japan')" class="quick-city">Tokyo</button>
@@ -650,8 +837,8 @@ async def dashboard_v2():
 
         <div id="trends" class="section">
             <div class="card">
-                <h2>📈 Social Pulse Trends</h2>
-                <p style="color:#666;margin-bottom:15px;">Track emerging hospitality trends from Reddit, industry news, and social conversations. Discover what's gaining momentum and find white-space opportunities before your competitors.</p>
+                <h2>Social Pulse Trends</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Track emerging hospitality trends from Reddit, industry news, and social conversations. Discover what's gaining momentum and find white-space opportunities before your competitors.</p>
                 <div class="filter-bar">
                     <select id="filter-region" class="filter-select" onchange="applyFilters()">
                         <option value="">All Regions</option>
@@ -674,8 +861,8 @@ async def dashboard_v2():
 
         <div id="moves" class="section">
             <div class="card">
-                <h2>♟️ Hotelier Bets</h2>
-                <p style="color:#666;margin-bottom:15px;">Monitor strategic moves by hotel companies worldwide. Track launches, acquisitions, repositionings, and partnerships to understand where the industry is heading and identify competitive signals.</p>
+                <h2>Hotelier Bets</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Monitor strategic moves by hotel companies worldwide. Track launches, acquisitions, repositionings, and partnerships to understand where the industry is heading and identify competitive signals.</p>
                 <div class="filter-bar">
                     <select id="filter-company" onchange="applyMoveFilters()">
                         <option value="">All Companies</option>
@@ -686,7 +873,7 @@ async def dashboard_v2():
                     <select id="filter-market" onchange="applyMoveFilters()">
                         <option value="">All Markets</option>
                     </select>
-                    <button onclick="resetMoveFilters()" style="background:#6c757d;">Reset</button>
+                    <button onclick="resetMoveFilters()" class="filter-reset">Reset</button>
                     <span id="moves-saved-count" class="saved-count"></span>
                 </div>
                 <div id="moves-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
@@ -695,15 +882,15 @@ async def dashboard_v2():
 
         <div id="demandscan" class="section">
             <div class="card">
-                <h2>🔍 Demand Scan</h2>
-                <p style="color:#666;margin-bottom:15px;">Analyze any hotel website against current demand trends. Get fit scores, experience gaps, and opportunities.</p>
+                <h2>Demand Scan</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Analyze any hotel website against current demand trends. Get fit scores, experience gaps, and opportunities.</p>
 
                 <!-- URL Input Form -->
                 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
                     <input type="text" id="property-url-input" placeholder="Enter hotel website URL (e.g., https://www.example-hotel.com)"
-                           style="padding:12px 15px;border:1px solid #ddd;border-radius:6px;font-size:1em;flex:1;min-width:250px;">
+                           style="padding:12px 15px;border:1px solid var(--line-strong);border-radius:6px;font-size:1em;flex:1;min-width:250px;">
                     <button onclick="scanProperty()" id="scan-btn"
-                            style="padding:12px 24px;background:#e94560;color:white;border:none;border-radius:6px;cursor:pointer;font-size:1em;font-weight:600;">
+                            style="padding:12px 24px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;cursor:pointer;font-size:1em;font-weight:600;">
                         Scan Property
                     </button>
                 </div>
@@ -712,38 +899,38 @@ async def dashboard_v2():
                 <div id="scan-status" style="display:none;margin-bottom:20px;padding:15px;border-radius:8px;"></div>
 
                 <!-- Previously Scanned Properties -->
-                <h3 style="margin:20px 0 15px;color:#1a1a2e;">Previously Scanned Properties</h3>
+                <h3 style="margin:20px 0 15px;color:var(--ink);">Previously Scanned Properties</h3>
                 <div id="properties-list"><div class="empty"><div class="icon">🏨</div>No properties scanned yet. Enter a URL above to analyze a property.</div></div>
             </div>
         </div>
 
         <div id="content" class="section">
             <div class="card">
-                <h2>📰 Recent Content</h2>
-                <p style="color:#666;margin-bottom:15px;">Browse the latest scraped articles, social posts, and news from our 12+ hospitality sources. This raw content feeds our trend detection and move extraction engines.</p>
+                <h2>Recent Content</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Browse the latest scraped articles, social posts, and news from our 12+ hospitality sources. This raw content feeds our trend detection and move extraction engines.</p>
                 <div id="content-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
 
         <div id="scrapers" class="section">
             <div class="card">
-                <h2>🔧 Scraper Status</h2>
-                <p style="color:#666;margin-bottom:15px;">Monitor the health and activity of our data collection system. Our POMDP-driven scheduler intelligently prioritizes sources based on expected information gain.</p>
+                <h2>Scraper Status</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Monitor the health and activity of our data collection system. Our POMDP-driven scheduler intelligently prioritizes sources based on expected information gain.</p>
                 <div id="scrapers-list"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
             </div>
         </div>
 
         <div id="chat" class="section">
             <div class="card">
-                <h2>💬 BrandClave Chat</h2>
-                <p style="margin-bottom:15px;color:#666;">Your AI-powered hospitality intelligence assistant. Ask about market trends, explore opportunities in specific cities, or get help ideating a brand concept with RAG-powered insights from our data.</p>
+                <h2>BrandClave Chat</h2>
+                <p style="margin-bottom:15px;color:var(--ink-2);">Your AI-powered hospitality intelligence assistant. Ask about market trends, explore opportunities in specific cities, or get help ideating a brand concept with RAG-powered insights from our data.</p>
 
-                <div id="chat-messages" style="min-height:300px;max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:15px;margin-bottom:15px;background:#fafafa;">
+                <div id="chat-messages" style="min-height:300px;max-height:500px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:15px;margin-bottom:15px;background:var(--surface-2);">
                     <div class="chat-welcome">
                         <div style="text-align:center;padding:40px 20px;">
                             <div style="font-size:3em;margin-bottom:15px;">🤖</div>
-                            <h3 style="color:#1a1a2e;margin-bottom:10px;">Hello! I'm your hospitality intelligence assistant.</h3>
-                            <p style="color:#666;">Try asking me about:</p>
+                            <h3 style="color:var(--ink);margin-bottom:10px;">Hello! I'm your hospitality intelligence assistant.</h3>
+                            <p style="color:var(--ink-2);">Try asking me about:</p>
                             <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:15px;">
                                 <button onclick="sendSuggestion('What are the top wellness trends in hotels?')" class="suggestion-chip">Wellness trends</button>
                                 <button onclick="sendSuggestion('What opportunities exist in the boutique hotel market in Lisbon?')" class="suggestion-chip">Lisbon opportunities</button>
@@ -755,23 +942,23 @@ async def dashboard_v2():
 
                 <div style="display:flex;gap:10px;">
                     <input type="text" id="chat-input" placeholder="Ask about trends, opportunities, or help building a brand..."
-                           style="flex:1;padding:12px 15px;border:1px solid #ddd;border-radius:8px;font-size:1em;"
+                           style="flex:1;padding:12px 15px;border:1px solid var(--line-strong);border-radius:8px;font-size:1em;"
                            onkeypress="if(event.key==='Enter')sendMessage()">
-                    <button onclick="sendMessage()" style="padding:12px 25px;background:#e94560;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Send</button>
+                    <button onclick="sendMessage()" style="padding:12px 25px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;cursor:pointer;font-weight:600;">Send</button>
                 </div>
 
-                <div id="chat-state" style="margin-top:10px;font-size:0.85em;color:#888;"></div>
+                <div id="chat-state" style="margin-top:10px;font-size:0.85em;color:var(--ink-3);"></div>
             </div>
         </div>
 
         <div id="projects" class="section">
             <div class="card">
-                <h2>📁 My Projects</h2>
-                <p style="margin-bottom:15px;color:#666;">Save trends and strategic moves to build a research profile. Your saved items inform brand generation, helping BrandClave understand your interests and create more relevant concepts.</p>
+                <h2>My Projects</h2>
+                <p style="margin-bottom:15px;color:var(--ink-2);">Save trends and strategic moves to build a research profile. Your saved items inform brand generation, helping BrandClave understand your interests and create more relevant concepts.</p>
 
                 <!-- Profile Insights -->
                 <div id="profile-insights" class="profile-insights-card">
-                    <h3>🎯 Your Interest Profile</h3>
+                    <h3>Your Interest Profile</h3>
                     <div id="profile-content">
                         <div class="empty"><div class="icon">💡</div>Save trends and moves to build your profile</div>
                     </div>
@@ -780,16 +967,16 @@ async def dashboard_v2():
                 <!-- Actions -->
                 <div style="display:flex;gap:10px;margin:20px 0;">
                     <button onclick="buildBrandFromProfile()" class="btn-primary" id="build-from-profile-btn" disabled>
-                        🚀 Build Brand from Profile
+                        Build Brand from Profile
                     </button>
                     <button onclick="clearAllSaved()" class="btn-secondary">
-                        🗑️ Clear All
+                        Clear All
                     </button>
                 </div>
 
                 <!-- Saved Trends -->
                 <div style="margin-top:20px;">
-                    <h3 style="margin-bottom:10px;">📊 Saved Trends <span id="saved-trends-count" style="font-weight:normal;color:#666;"></span></h3>
+                    <h3 style="margin-bottom:10px;">Saved Trends <span id="saved-trends-count" style="font-weight:normal;color:var(--ink-2);"></span></h3>
                     <div id="saved-trends-list">
                         <div class="empty"><div class="icon">📊</div>No saved trends yet</div>
                     </div>
@@ -797,17 +984,17 @@ async def dashboard_v2():
 
                 <!-- Saved Moves -->
                 <div style="margin-top:20px;">
-                    <h3 style="margin-bottom:10px;">♟️ Saved Moves <span id="saved-moves-count" style="font-weight:normal;color:#666;"></span></h3>
+                    <h3 style="margin-bottom:10px;">Saved Moves <span id="saved-moves-count" style="font-weight:normal;color:var(--ink-2);"></span></h3>
                     <div id="saved-moves-list">
                         <div class="empty"><div class="icon">♟️</div>No saved moves yet</div>
                     </div>
                 </div>
 
                 <!-- My Blueprints -->
-                <div style="margin-top:30px;padding-top:20px;border-top:1px solid #eee;">
+                <div style="margin-top:30px;padding-top:20px;border-top:1px solid var(--line);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <h3>🏨 My Blueprints <span id="saved-blueprints-count" style="font-weight:normal;color:#666;"></span></h3>
-                        <a href="/api/monitoring/build-a-brand" style="color:#e94560;text-decoration:none;font-size:0.9em;">+ Create New Blueprint</a>
+                        <h3>My Blueprints <span id="saved-blueprints-count" style="font-weight:normal;color:var(--ink-2);"></span></h3>
+                        <a href="/api/monitoring/build-a-brand" style="color:var(--gold);text-decoration:none;font-size:0.9em;">+ Create New Blueprint</a>
                     </div>
                     <div id="my-blueprints-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;">
                         <div class="empty"><div class="icon">🏨</div>No blueprints yet. Create your first brand concept!</div>
@@ -838,7 +1025,7 @@ async def dashboard_v2():
                 var ws = Math.round((t.white_space_score || 0) * 100);
                 var wsClass = ws >= 70 ? 'white-space-high' : ws >= 40 ? 'white-space-medium' : 'white-space-low';
                 var wsLabel = ws >= 70 ? 'High Opportunity - underserved market' : ws >= 40 ? 'Moderate Opportunity' : 'Low - competitive market';
-                h += '<div class="modal-section"><h3>🎯 White Space Analysis</h3>';
+                h += '<div class="modal-section"><h3>White Space Analysis</h3>';
                 h += '<p><span class="white-space-badge ' + wsClass + '" style="font-size:1em;padding:6px 12px;">' + ws + '% - ' + wsLabel + '</span></p>';
                 if (t.region) h += '<p style="margin-top:10px;"><strong>Region:</strong> ' + t.region + '</p>';
                 if (t.audience_segment) h += '<p><strong>Segment:</strong> ' + t.audience_segment + '</p>';
@@ -894,7 +1081,7 @@ async def dashboard_v2():
             }
 
             // Source
-            if (m.source_url) h += '<div class="modal-section"><h3>Source</h3><p><a href="' + m.source_url + '" target="_blank" style="color:#667eea;">' + (m.source_name || 'View article') + '</a></p></div>';
+            if (m.source_url) h += '<div class="modal-section"><h3>Source</h3><p><a href="' + m.source_url + '" target="_blank" style="color:var(--violet);">' + (m.source_name || 'View article') + '</a></p></div>';
 
             document.getElementById('modal-body').innerHTML = h || '<p>No additional details.</p>';
             document.getElementById('modal-overlay').classList.add('active');
@@ -1038,12 +1225,12 @@ async def dashboard_v2():
                 '<h3>' + truncate(name, 60) + '</h3>' +
                 '<p>' + truncate(t.description || t.why_it_matters || '', 200) + '</p>' +
                 '<div class="trend-meta">' +
-                '<span class="white-space-badge ' + wsClass + '">🎯 ' + whiteSpace + '% ' + wsLabel + '</span>' +
+                '<span class="white-space-badge ' + wsClass + '">' + whiteSpace + '% ' + wsLabel + '</span>' +
                 ' | Strength: ' + score + ' | ' + (t.volume || 0) + ' sources' +
                 '</div></div>' +
                 '<div class="trend-actions">' +
                 '<button class="trend-action-btn btn-save ' + savedClass + '" onclick="event.stopPropagation(); toggleSaveProject(' + idx + ')">' + savedText + '</button>' +
-                '<button class="trend-action-btn btn-brand" onclick="event.stopPropagation(); turnIntoBrand(' + idx + ')">🚀 Build a Brand</button>' +
+                '<button class="trend-action-btn btn-brand" onclick="event.stopPropagation(); turnIntoBrand(' + idx + ')">Build a Brand</button>' +
                 '</div></div>';
         }
 
@@ -1133,10 +1320,10 @@ async def dashboard_v2():
         function showScanStatus(type, message) {
             var statusEl = document.getElementById('scan-status');
             var colors = {
-                error: { bg: '#fee2e2', color: '#991b1b' },
-                success: { bg: '#d4edda', color: '#155724' },
-                warning: { bg: '#fff3cd', color: '#856404' },
-                info: { bg: '#e0e7ff', color: '#4338ca' }
+                error: { bg: 'rgba(194,90,120,0.12)', color: 'var(--bad)' },
+                success: { bg: 'rgba(58,168,141,0.16)', color: 'var(--good)' },
+                warning: { bg: 'rgba(184,134,46,0.16)', color: 'var(--warn)' },
+                info: { bg: 'rgba(139,124,224,0.14)', color: 'var(--violet)' }
             };
             var style = colors[type] || colors.info;
             statusEl.style.display = 'block';
@@ -1182,7 +1369,7 @@ async def dashboard_v2():
                     gapsHtml += '<span class="gap-item">' + truncate(gaps[gi].split(' (')[0], 50) + '</span>';
                 }
             } else {
-                gapsHtml = '<span style="color:#888;font-size:0.85em;">No major gaps identified</span>';
+                gapsHtml = '<span style="color:var(--ink-3);font-size:0.85em;">No major gaps identified</span>';
             }
 
             // Opportunity lanes (top 2)
@@ -1193,7 +1380,7 @@ async def dashboard_v2():
                     oppsHtml += '<div class="opportunity-item">' + truncate(opportunities[oi], 120) + '</div>';
                 }
             } else {
-                oppsHtml = '<span style="color:#888;font-size:0.85em;">No opportunities identified</span>';
+                oppsHtml = '<span style="color:var(--ink-3);font-size:0.85em;">No opportunities identified</span>';
             }
 
             // Misalignment flags
@@ -1227,7 +1414,7 @@ async def dashboard_v2():
                 '<div class="property-section"><div class="property-section-title">Experience Gaps</div>' + gapsHtml + '</div>' +
                 '<div class="property-section"><div class="property-section-title">Opportunity Lanes</div>' + oppsHtml + '</div>' +
                 '<div class="property-actions">' +
-                '<button class="property-action-btn btn-brand" onclick="sendPropertyToBuildBrand(' + idx + ')">🚀 Build a Brand</button>' +
+                '<button class="property-action-btn btn-brand" onclick="sendPropertyToBuildBrand(' + idx + ')">Build a Brand</button>' +
                 '<button class="property-action-btn btn-save" onclick="savePropertyToProject(' + idx + ')">💾 Save to Project</button>' +
                 '<a href="' + p.url + '" target="_blank" class="property-action-btn btn-save" style="text-decoration:none;">🔗 Visit Site</a>' +
                 '</div></div>';
@@ -1763,13 +1950,13 @@ async def dashboard_v2():
             if (topCompanies.length > 0) {
                 var coHtml = '';
                 for (var coi = 0; coi < topCompanies.length; coi++) { coHtml += '<span class="profile-tag">' + topCompanies[coi][0] + '</span>'; }
-                html += '<div class="profile-section"><div class="profile-section-title">🏨 Companies Watched</div>' + coHtml + '</div>';
+                html += '<div class="profile-section"><div class="profile-section-title">Companies Watched</div>' + coHtml + '</div>';
             }
 
             if (topMoveTypes.length > 0) {
                 var mtHtml = '';
                 for (var mti = 0; mti < topMoveTypes.length; mti++) { mtHtml += '<span class="profile-tag">' + topMoveTypes[mti][0].replace('_', ' ') + '</span>'; }
-                html += '<div class="profile-section"><div class="profile-section-title">♟️ Move Types</div>' + mtHtml + '</div>';
+                html += '<div class="profile-section"><div class="profile-section-title">Move Types</div>' + mtHtml + '</div>';
             }
 
             profileEl.innerHTML = html || '<div style="opacity:0.8;">Collecting insights...</div>';
@@ -1849,22 +2036,22 @@ async def dashboard_v2():
                     var created = new Date(bp.generated_at).toLocaleDateString();
                     var confidence = Math.round((bp.confidence || 0) * 100);
 
-                    html += '<div class="blueprint-card-mini" style="background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:15px;transition:all 0.2s;">' +
+                    html += '<div class="blueprint-card-mini" style="background:var(--surface);border:1px solid var(--surface-3);border-radius:10px;padding:15px;transition:all 0.2s;">' +
                         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
-                        '<h4 style="margin:0;color:#2c3e50;font-size:1.1em;">' + (names.primary || 'Unnamed Brand') + '</h4>' +
-                        '<span style="background:#27ae60;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.75em;">' + confidence + '%</span>' +
+                        '<h4 style="margin:0;color:var(--ink);font-size:1.1em;">' + (names.primary || 'Unnamed Brand') + '</h4>' +
+                        '<span style="background:var(--good);color:var(--ink);padding:2px 8px;border-radius:4px;font-size:0.75em;">' + confidence + '%</span>' +
                         '</div>' +
-                        '<p style="font-size:0.85em;color:#666;margin:0 0 10px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (bp.one_liner || '') + '</p>' +
-                        '<div style="font-size:0.8em;color:#999;margin-bottom:12px;">' +
+                        '<p style="font-size:0.85em;color:var(--ink-2);margin:0 0 10px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (bp.one_liner || '') + '</p>' +
+                        '<div style="font-size:0.8em;color:var(--ink-3);margin-bottom:12px;">' +
                         '<span>' + (inputs.location || '-') + '</span> • ' +
                         '<span>' + (inputs.segment || '-') + '</span> • ' +
                         '<span>$' + (inputs.adr || '-') + ' ADR</span>' +
                         '</div>' +
                         '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;">' +
-                        '<span style="font-size:0.75em;color:#aaa;">' + created + '</span>' +
+                        '<span style="font-size:0.75em;color:var(--ink-3);">' + created + '</span>' +
                         '<div style="display:flex;gap:8px;">' +
-                        '<button onclick="viewBlueprint(\\'' + bp.id + '\\')" style="padding:6px 12px;background:#e94560;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85em;">View</button>' +
-                        '<button onclick="deleteBlueprint(\\'' + bp.id + '\\')" style="padding:6px 12px;background:#fff;color:#e74c3c;border:1px solid #e74c3c;border-radius:6px;cursor:pointer;font-size:0.85em;">Delete</button>' +
+                        '<button onclick="viewBlueprint(\\'' + bp.id + '\\')" style="padding:6px 12px;background:var(--gold);color:var(--ink);border:none;border-radius:6px;cursor:pointer;font-size:0.85em;">View</button>' +
+                        '<button onclick="deleteBlueprint(\\'' + bp.id + '\\')" style="padding:6px 12px;background:var(--surface);color:var(--bad);border:1px solid var(--bad);border-radius:6px;cursor:pointer;font-size:0.85em;">Delete</button>' +
                         '</div>' +
                         '</div>' +
                         '</div>';
@@ -1875,12 +2062,12 @@ async def dashboard_v2():
                 var cards = listEl.querySelectorAll('.blueprint-card-mini');
                 cards.forEach(function(card) {
                     card.addEventListener('mouseenter', function() {
-                        this.style.borderColor = '#e94560';
+                        this.style.borderColor = 'var(--gold)';
                         this.style.transform = 'translateY(-2px)';
                         this.style.boxShadow = '0 4px 15px rgba(233,69,96,0.15)';
                     });
                     card.addEventListener('mouseleave', function() {
-                        this.style.borderColor = '#e9ecef';
+                        this.style.borderColor = 'var(--surface-3)';
                         this.style.transform = 'translateY(0)';
                         this.style.boxShadow = 'none';
                     });
@@ -1888,7 +2075,7 @@ async def dashboard_v2():
 
             } catch (e) {
                 console.error('Error loading blueprints:', e);
-                listEl.innerHTML = '<div class="empty" style="color:#e74c3c;"><div class="icon">⚠️</div>Failed to load blueprints</div>';
+                listEl.innerHTML = '<div class="empty" style="color:var(--bad);"><div class="icon">⚠️</div>Failed to load blueprints</div>';
             }
         }
 
@@ -2145,9 +2332,9 @@ async def dashboard_v2():
             var sourcesEntries = [];
             for (var k in sourcesSummary) { if (sourcesSummary.hasOwnProperty(k)) sourcesEntries.push([k, sourcesSummary[k]]); }
             sourcesEntries.sort(function(a, b) { return b[1] - a[1]; });
-            var sourcesHtml = sourcesEntries.map(function(entry) { return '<span style="background:#e8f4fd;padding:3px 8px;border-radius:12px;font-size:0.85em;margin-right:6px;">' + entry[0] + ': ' + entry[1] + '</span>'; }).join('');
+            var sourcesHtml = sourcesEntries.map(function(entry) { return '<span style="background:var(--surface-2);padding:3px 8px;border-radius:12px;font-size:0.85em;margin-right:6px;">' + entry[0] + ': ' + entry[1] + '</span>'; }).join('');
 
-            var html = '<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:20px;">' +
+            var html = '<div style="background:var(--surface-2);padding:15px;border-radius:8px;margin-bottom:20px;">' +
                 '<h3 style="margin-bottom:10px;">' + data.city + ', ' + data.country + '</h3>' +
                 '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;">' +
                 '<div><strong>' + (data.total_signals || 0) + '</strong> signals</div>' +
@@ -2165,18 +2352,18 @@ async def dashboard_v2():
                     var sourceColors = {
                         'reddit': '#ff4500',
                         'youtube': '#ff0000',
-                        'tripadvisor': '#00af87',
+                        'tripadvisor': 'var(--good)',
                         'twitter': '#1da1f2',
                         'instagram': '#e1306c'
                     };
                     var cardId = 'desire-card-' + idx;
                     var sourceBadges = (d.sources || [])
                         .map(function(s) {
-                            var color = sourceColors[s.name.toLowerCase()] || '#666';
+                            var color = sourceColors[s.name.toLowerCase()] || 'var(--ink-2)';
                             var sourceName = s.name.toLowerCase();
-                            return '<span class="source-badge" data-card="' + cardId + '" data-source="' + sourceName + '" style="display:inline-block;background:' + color + ';color:white;padding:2px 8px;border-radius:12px;font-size:0.75em;margin-right:4px;cursor:pointer;">' + s.name + ' (' + s.count + ')</span>';
+                            return '<span class="source-badge" data-card="' + cardId + '" data-source="' + sourceName + '" style="display:inline-block;background:' + color + ';color:var(--ink);padding:2px 8px;border-radius:12px;font-size:0.75em;margin-right:4px;cursor:pointer;">' + s.name + ' (' + s.count + ')</span>';
                         })
-                        .join('') || '<span style="color:#999;font-size:0.85em;">No source data</span>';
+                        .join('') || '<span style="color:var(--ink-3);font-size:0.85em;">No source data</span>';
 
                     // Get all example snippets for expandable section
                     var examplesHtml = '';
@@ -2187,7 +2374,7 @@ async def dashboard_v2():
                         function renderQuote(snippet, hidden) {
                             var text = typeof snippet === 'string' ? snippet : (snippet.text || '');
                             var source = typeof snippet === 'object' ? snippet.source : 'traveler';
-                            var sourceColor = sourceColors[source.toLowerCase()] || '#666';
+                            var sourceColor = sourceColors[source.toLowerCase()] || 'var(--ink-2)';
                             if (text) {
                                 var hiddenStyle = hidden ? 'display:none;' : '';
                                 return '<div class="desire-quote" data-source="' + source.toLowerCase() + '" style="' + hiddenStyle + 'margin-bottom:8px;padding:8px 10px;background:rgba(0,0,0,0.02);border-radius:4px;font-size:0.85em;border-left:3px solid ' + sourceColor + ';"><span style="font-style:italic;">"' + text.substring(0, 180) + '..."</span> <span style="color:' + sourceColor + ';font-weight:500;">- ' + source + '</span></div>';
@@ -2207,12 +2394,12 @@ async def dashboard_v2():
                         if (visibleQuotes || hiddenQuotes) {
                             var expandBtnHtml = '';
                             if (hasMore) {
-                                expandBtnHtml = '<div class="expand-btn" data-card="' + cardId + '" data-count="' + moreCount + '" style="margin-top:8px;padding:6px 12px;background:#f5f5f5;border-radius:4px;font-size:0.8em;color:#4a90a4;cursor:pointer;text-align:center;">Show ' + moreCount + ' more quotes</div>';
+                                expandBtnHtml = '<div class="expand-btn" data-card="' + cardId + '" data-count="' + moreCount + '" style="margin-top:8px;padding:6px 12px;background:var(--surface-2);border-radius:4px;font-size:0.8em;color:var(--blue);cursor:pointer;text-align:center;">Show ' + moreCount + ' more quotes</div>';
                             }
                             examplesHtml = '<div style="margin-top:12px;" id="' + cardId + '-quotes">' +
                                 '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-                                '<span style="font-size:0.8em;color:#666;text-transform:uppercase;letter-spacing:0.5px;">What travelers are saying:</span>' +
-                                '<span class="show-all-btn" data-card="' + cardId + '" style="font-size:0.75em;color:#4a90a4;cursor:pointer;">Show all</span>' +
+                                '<span style="font-size:0.8em;color:var(--ink-2);text-transform:uppercase;letter-spacing:0.5px;">What travelers are saying:</span>' +
+                                '<span class="show-all-btn" data-card="' + cardId + '" style="font-size:0.75em;color:var(--blue);cursor:pointer;">Show all</span>' +
                                 '</div>' +
                                 '<div class="quotes-container">' + visibleQuotes + hiddenQuotes + '</div>' +
                                 expandBtnHtml +
@@ -2223,16 +2410,16 @@ async def dashboard_v2():
                     // Build insights section
                     var insightsHtml = '';
                     if (d.unmet_need) {
-                        insightsHtml += '<div style="margin-top:10px;"><strong style="color:#d32f2f;">Unmet Need:</strong> ' + d.unmet_need + '</div>';
+                        insightsHtml += '<div style="margin-top:10px;"><strong style="color:var(--bad);">Unmet Need:</strong> ' + d.unmet_need + '</div>';
                     }
                     if (d.why_supply_fails) {
-                        insightsHtml += '<div style="margin-top:6px;"><strong style="color:#f57c00;">Why Supply Fails:</strong> ' + d.why_supply_fails + '</div>';
+                        insightsHtml += '<div style="margin-top:6px;"><strong style="color:var(--warn);">Why Supply Fails:</strong> ' + d.why_supply_fails + '</div>';
                     }
                     if (d.solving_features && d.solving_features.length > 0) {
-                        insightsHtml += '<div style="margin-top:6px;"><strong style="color:#388e3c;">What Would Solve This:</strong> ' + d.solving_features.slice(0, 3).join(' • ') + '</div>';
+                        insightsHtml += '<div style="margin-top:6px;"><strong style="color:var(--good);">What Would Solve This:</strong> ' + d.solving_features.slice(0, 3).join(' • ') + '</div>';
                     }
                     if (d.target_guest) {
-                        insightsHtml += '<div style="margin-top:6px;"><strong style="color:#1976d2;">Target Guest:</strong> ' + d.target_guest + '</div>';
+                        insightsHtml += '<div style="margin-top:6px;"><strong style="color:var(--blue);">Target Guest:</strong> ' + d.target_guest + '</div>';
                     }
 
                     // Fallback to description if no structured insights
@@ -2246,7 +2433,7 @@ async def dashboard_v2():
                         '<div>' + sourceBadges + '</div>' +
                         '</div>' +
                         insightsHtml +
-                        '<div class="desire-meta" style="margin-top:12px;padding-top:10px;border-top:1px solid #eee;font-size:0.9em;color:#666;">' +
+                        '<div class="desire-meta" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:0.9em;color:var(--ink-2);">' +
                         '<strong>' + (d.frequency || 0) + '</strong> mentions • ' +
                         '<strong>' + ((d.intensity_score || 0) * 100).toFixed(0) + '%</strong> intensity' +
                         '</div>' +
@@ -2265,7 +2452,7 @@ async def dashboard_v2():
 
             // Concept Lanes
             if (data.concept_lanes && data.concept_lanes.length > 0) {
-                html += '<h3 style="margin:20px 0 10px;">🎯 Concept Lanes</h3>';
+                html += '<h3 style="margin:20px 0 10px;">Concept Lanes</h3>';
                 html += data.concept_lanes.slice(0, 3).map(function(c) {
                     var name = c.name || c.concept || 'Hotel Concept';
                     var positioning = c.positioning || c.rationale || '';
@@ -2277,7 +2464,7 @@ async def dashboard_v2():
 
                     var detailsHtml = '';
                     if (positioning) {
-                        detailsHtml += '<div style="margin-top:8px;font-style:italic;color:#555;">' + positioning + '</div>';
+                        detailsHtml += '<div style="margin-top:8px;font-style:italic;color:var(--ink-2);">' + positioning + '</div>';
                     }
                     if (solves) {
                         detailsHtml += '<div style="margin-top:8px;"><strong>Solves:</strong> ' + solves + '</div>';
@@ -2289,10 +2476,10 @@ async def dashboard_v2():
                         detailsHtml += '<div style="margin-top:6px;"><strong>Target:</strong> ' + targetGuest + '</div>';
                     }
                     if (pricePosition) {
-                        detailsHtml += '<span style="display:inline-block;margin-top:8px;background:#e8f4fd;padding:3px 10px;border-radius:12px;font-size:0.85em;">' + pricePosition + '</span>';
+                        detailsHtml += '<span style="display:inline-block;margin-top:8px;background:var(--surface-2);padding:3px 10px;border-radius:12px;font-size:0.85em;">' + pricePosition + '</span>';
                     }
                     if (whyWins) {
-                        detailsHtml += '<div style="margin-top:10px;padding:8px;background:#f0f8e8;border-radius:4px;font-size:0.9em;"><strong>Why it wins:</strong> ' + whyWins + '</div>';
+                        detailsHtml += '<div style="margin-top:10px;padding:8px;background:var(--surface-2);border-radius:4px;font-size:0.9em;"><strong>Why it wins:</strong> ' + whyWins + '</div>';
                     }
 
                     return '<div class="concept-card"><h4>' + name + '</h4>' + detailsHtml + '</div>';
@@ -2304,7 +2491,7 @@ async def dashboard_v2():
                 html += '<h3 style="margin:20px 0 10px;">👥 Underserved Segments</h3>';
                 html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
                 html += data.underserved_segments.map(function(s) {
-                    return '<span style="background:#e0e0e0;padding:5px 12px;border-radius:20px;font-size:0.9em;">' + s + '</span>';
+                    return '<span style="background:var(--surface-3);padding:5px 12px;border-radius:20px;font-size:0.9em;">' + s + '</span>';
                 }).join('');
                 html += '</div>';
             }
@@ -2504,13 +2691,13 @@ async def dashboard_v2():
                         messagesDiv.innerHTML += '<div class="chat-message assistant"><button onclick="window.location.href=\\'/api/monitoring/dashboard-v2#build\\'" class="suggestion-chip" style="margin-top:10px;">➡️ Continue to Build a Brand</button></div>';
                     }
                 } else {
-                    messagesDiv.innerHTML += '<div class="chat-message assistant"><div class="chat-bubble" style="background:#fee2e2;color:#991b1b;">Error: ' + (data.detail || 'Something went wrong') + '</div></div>';
+                    messagesDiv.innerHTML += '<div class="chat-message assistant"><div class="chat-bubble" style="background:rgba(194,90,120,0.12);color:var(--bad);">Error: ' + (data.detail || 'Something went wrong') + '</div></div>';
                 }
 
             } catch (err) {
                 var typing = document.getElementById('typing-indicator');
                 if (typing) typing.remove();
-                messagesDiv.innerHTML += '<div class="chat-message assistant"><div class="chat-bubble" style="background:#fee2e2;color:#991b1b;">Connection error: ' + err.message + '</div></div>';
+                messagesDiv.innerHTML += '<div class="chat-message assistant"><div class="chat-bubble" style="background:rgba(194,90,120,0.12);color:var(--bad);">Connection error: ' + err.message + '</div></div>';
             }
 
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -2568,88 +2755,168 @@ async def build_a_brand_page():
     <title>Build a Brand | BrandClave</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg: #0e0c09;
+            --surface: #17140f;
+            --surface-2: #201a12;
+            --surface-3: #2a2318;
+            --ink: #f2ecdf;
+            --ink-2: #b9ae9c;
+            --ink-3: #857a68;
+            --line: rgba(212,175,106,0.16);
+            --line-strong: rgba(212,175,106,0.34);
+            --gold: #d4af6a;
+            --gold-deep: #b8862e;
+            --gold-ink: #141008;
+            --violet: #8b7ce0;
+            --teal: #3aa88d;
+            --rose: #c25a78;
+            --blue: #4a8bc2;
+            --grad: linear-gradient(90deg, #c25a78, #8b7ce0, #3aa88d, #d4af6a);
+            --font-display: 'Archivo', 'Segoe UI', sans-serif;
+            --font-body: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: var(--font-body);
+            background: var(--bg);
+            background-image: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(212,175,106,0.07), transparent);
             min-height: 100vh;
-            color: #333;
+            color: var(--ink);
         }
+        ::selection { background: rgba(212,175,106,0.30); }
+
         .hero {
-            background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
-            color: white;
-            padding: 30px 20px;
+            padding: 56px 20px 36px;
             text-align: center;
+            border-bottom: 1px solid var(--line);
         }
-        .hero h1 { font-size: 2em; margin-bottom: 8px; }
-        .hero p { opacity: 0.9; }
+        .hero::before {
+            content: 'BRANDCLAVE / CONCEPT STUDIO';
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.7em;
+            letter-spacing: 0.35em;
+            color: var(--gold);
+            margin-bottom: 14px;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 2.4em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--ink);
+        }
+        .hero p { color: var(--ink-2); margin-top: 10px; font-size: 0.95em; }
         .back-link {
             display: inline-block;
-            margin-top: 15px;
-            color: white;
+            margin-top: 16px;
+            color: var(--gold);
             text-decoration: none;
-            opacity: 0.8;
+            font-family: var(--font-mono);
+            font-size: 0.8em;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            padding: 7px 16px;
+            transition: all 0.2s;
         }
-        .back-link:hover { opacity: 1; }
-        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .back-link:hover { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+        .container { max-width: 900px; margin: 0 auto; padding: 28px 20px; }
 
         .card {
-            background: white;
-            padding: 25px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            padding: 28px;
             margin-bottom: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
-        .card h2 { color: #1a1a2e; margin-bottom: 20px; font-size: 1.4em; }
-
-        .source-trend {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
+        .card h2 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.15em;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--ink);
             margin-bottom: 20px;
         }
-        .source-trend h3 { margin-bottom: 8px; }
-        .source-trend p { opacity: 0.9; font-size: 0.9em; }
+        .card h2::before {
+            content: '';
+            display: block;
+            width: 48px;
+            height: 3px;
+            background: var(--grad);
+            border-radius: 2px;
+            margin-bottom: 12px;
+        }
+
+        .source-trend {
+            background: rgba(139,124,224,0.08);
+            border: 1px solid rgba(139,124,224,0.30);
+            border-left: 3px solid var(--violet);
+            color: var(--ink);
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .source-trend h3 { margin-bottom: 8px; font-family: var(--font-display); font-weight: 600; }
+        .source-trend p { color: var(--ink-2); font-size: 0.9em; }
 
         .profile-source-card {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
+            background: rgba(58,168,141,0.08);
+            border: 1px solid rgba(58,168,141,0.30);
+            border-left: 3px solid var(--teal);
+            color: var(--ink);
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 20px;
         }
-        .profile-source-card h3 { margin-bottom: 8px; }
-        .profile-row { display: flex; gap: 8px; margin-bottom: 4px; }
-        .profile-label { opacity: 0.85; }
+        .profile-source-card h3 { margin-bottom: 8px; font-family: var(--font-display); font-weight: 600; }
+        .profile-row { display: flex; gap: 8px; margin-bottom: 4px; color: var(--ink-2); }
+        .profile-label { color: var(--ink-3); }
         .profile-theme-tag {
             display: inline-block;
-            background: rgba(255,255,255,0.2);
+            background: rgba(58,168,141,0.16);
+            color: var(--teal);
             padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.85em;
+            border-radius: 999px;
+            font-size: 0.82em;
             margin: 2px;
         }
 
         .form-group { margin-bottom: 20px; }
         .form-group label {
             display: block;
-            margin-bottom: 6px;
-            font-weight: 600;
-            color: #1a1a2e;
+            margin-bottom: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--ink-3);
         }
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 12px;
-            border: 1px solid #ddd;
+            background: var(--surface-2);
+            border: 1px solid var(--line-strong);
             border-radius: 8px;
-            font-size: 1em;
+            color: var(--ink);
+            font-family: var(--font-body);
+            font-size: 0.95em;
         }
         .form-group textarea { min-height: 100px; resize: vertical; }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--gold);
         }
+        .form-group input::placeholder, .form-group textarea::placeholder { color: var(--ink-3); }
 
         .form-row {
             display: grid;
@@ -2667,81 +2934,99 @@ async def build_a_brand_page():
             margin-top: 10px;
         }
         .topic-tag {
-            background: #e0e7ff;
-            color: #4338ca;
+            background: rgba(139,124,224,0.14);
+            color: var(--violet);
             padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.85em;
+            border-radius: 999px;
+            font-size: 0.82em;
         }
 
         .btn-generate {
             width: 100%;
-            padding: 15px 30px;
-            background: linear-gradient(135deg, #e94560 0%, #f06292 100%);
-            color: white;
+            padding: 16px 30px;
+            background: var(--gold);
+            color: var(--gold-ink);
             border: none;
             border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
+            font-family: var(--font-display);
+            font-size: 0.95em;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
         }
         .btn-generate:hover {
+            background: #e2c184;
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+            box-shadow: 0 6px 22px rgba(212,175,106,0.25);
         }
         .btn-generate:disabled {
-            opacity: 0.6;
+            background: var(--surface-3);
+            color: var(--ink-3);
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
 
         #result-container { display: none; }
 
         .blueprint-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 25px;
-            border-radius: 12px;
-            color: white;
+            background: var(--surface);
+            border: 1px solid var(--line-strong);
+            border-top: 3px solid transparent;
+            border-image: linear-gradient(90deg, #c25a78, #8b7ce0, #3aa88d, #d4af6a) 1;
+            padding: 28px;
+            border-radius: 0 0 12px 12px;
+            color: var(--ink);
         }
-        .blueprint-card h2 { color: white; margin-bottom: 5px; }
-        .blueprint-oneliner { font-size: 1.1em; opacity: 0.9; margin-bottom: 20px; }
-
-        .blueprint-section { margin-bottom: 20px; }
-        .blueprint-section h3 {
-            font-size: 1em;
+        .blueprint-card h2 {
+            color: var(--ink);
+            margin-bottom: 5px;
+            font-family: var(--font-display);
+            font-weight: 800;
+            letter-spacing: 0.03em;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.8;
-            margin-bottom: 8px;
         }
-        .blueprint-section p { line-height: 1.6; }
-        .blueprint-section ul { padding-left: 20px; }
-        .blueprint-section li { margin-bottom: 5px; }
+        .blueprint-oneliner { font-size: 1.05em; color: var(--gold); margin-bottom: 24px; }
+
+        .blueprint-section { margin-bottom: 24px; }
+        .blueprint-section h3 {
+            font-family: var(--font-mono);
+            font-size: 0.75em;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            font-weight: 500;
+            color: var(--gold);
+            margin-bottom: 10px;
+        }
+        .blueprint-section p { line-height: 1.65; color: var(--ink-2); }
+        .blueprint-section ul { padding-left: 20px; color: var(--ink-2); }
+        .blueprint-section li { margin-bottom: 6px; }
 
         .experience-card {
-            background: rgba(255,255,255,0.15);
-            padding: 12px 15px;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            padding: 14px 16px;
             border-radius: 8px;
             margin-bottom: 8px;
         }
-        .experience-card h4 { margin-bottom: 5px; }
-        .experience-card p { font-size: 0.9em; opacity: 0.9; }
+        .experience-card h4 { margin-bottom: 5px; color: var(--ink); }
+        .experience-card p { font-size: 0.9em; color: var(--ink-2); }
 
-        .loading-indicator {
-            text-align: center;
-            padding: 40px;
-        }
+        .loading-indicator { text-align: center; padding: 40px; }
         .loading-indicator .spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid rgba(0,0,0,0.1);
-            border-top-color: #e94560;
+            border: 3px solid var(--line);
+            border-top-color: var(--gold);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 15px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .stage-item { color: var(--ink-2); padding: 3px 0; font-family: var(--font-mono); font-size: 0.85em; }
+        .stage-icon { color: var(--gold); }
 
         .btn-actions {
             display: flex;
@@ -2753,23 +3038,27 @@ async def build_a_brand_page():
             flex: 1;
             min-width: 150px;
             padding: 12px;
-            background: white;
-            color: #333;
-            border: 1px solid #ddd;
+            background: transparent;
+            color: var(--ink-2);
+            border: 1px solid var(--line-strong);
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 0.92em;
+            transition: all 0.2s;
         }
-        .btn-secondary:hover { background: #f0f0f0; }
+        .btn-secondary:hover { color: var(--ink); border-color: var(--gold); }
 
         .white-space-badge {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            background: rgba(255,255,255,0.2);
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.85em;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            color: var(--ink-2);
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-family: var(--font-mono);
+            font-size: 0.78em;
             margin-top: 8px;
         }
     </style>
@@ -2790,7 +3079,7 @@ async def build_a_brand_page():
         </div>
 
         <div id="profile-card" class="profile-source-card" style="display:none;">
-            <h3>🎯 Building from Your Profile</h3>
+            <h3>Building from Your Profile</h3>
             <p style="margin-bottom:12px;opacity:0.9;">Your saved trends and moves are informing this brand.</p>
             <div id="profile-summary">
                 <div class="profile-row">
@@ -2852,7 +3141,7 @@ async def build_a_brand_page():
         <div class="card" id="saved-blueprints-section">
             <h2 style="margin-bottom:15px;">Saved Blueprints</h2>
             <div id="saved-blueprints-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px;">
-                <p style="color:#999;grid-column:1/-1;">Loading saved blueprints...</p>
+                <p style="color:var(--ink-3);grid-column:1/-1;">Loading saved blueprints...</p>
             </div>
         </div>
 
@@ -2874,21 +3163,21 @@ async def build_a_brand_page():
             <div class="blueprint-card">
                 <div id="bp-name-options" style="margin-bottom:15px;">
                     <h2 id="bp-name">Brand Name</h2>
-                    <div id="bp-alternates" style="font-size:0.9em;color:#666;margin-top:5px;"></div>
+                    <div id="bp-alternates" style="font-size:0.9em;color:var(--ink-2);margin-top:5px;"></div>
                 </div>
                 <p class="blueprint-oneliner" id="bp-oneliner">One-liner</p>
 
-                <div id="bp-inputs-section" class="blueprint-section" style="background:#f0f7ff;border:1px solid #d0e3f7;border-radius:8px;padding:15px;display:none;">
-                    <h3 style="font-size:0.95em;color:#2980b9;margin-bottom:10px;">Blueprint Parameters</h3>
+                <div id="bp-inputs-section" class="blueprint-section" style="background:var(--surface-2);border:1px solid var(--line-strong);border-radius:8px;padding:15px;display:none;">
+                    <h3 style="font-size:0.95em;color:var(--blue);margin-bottom:10px;">Blueprint Parameters</h3>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:0.9em;">
-                        <div><strong style="color:#666;">Location:</strong> <span id="bp-input-location">-</span></div>
-                        <div><strong style="color:#666;">Segment:</strong> <span id="bp-input-segment">-</span></div>
-                        <div><strong style="color:#666;">Target ADR:</strong> $<span id="bp-input-adr">-</span></div>
-                        <div><strong style="color:#666;">Rooms:</strong> <span id="bp-input-rooms">-</span></div>
+                        <div><strong style="color:var(--ink-2);">Location:</strong> <span id="bp-input-location">-</span></div>
+                        <div><strong style="color:var(--ink-2);">Segment:</strong> <span id="bp-input-segment">-</span></div>
+                        <div><strong style="color:var(--ink-2);">Target ADR:</strong> $<span id="bp-input-adr">-</span></div>
+                        <div><strong style="color:var(--ink-2);">Rooms:</strong> <span id="bp-input-rooms">-</span></div>
                     </div>
                     <div id="bp-input-goal-container" style="margin-top:10px;display:none;">
-                        <strong style="color:#666;">Developer Goal:</strong>
-                        <p id="bp-input-goal" style="margin:5px 0 0 0;font-style:italic;color:#555;"></p>
+                        <strong style="color:var(--ink-2);">Developer Goal:</strong>
+                        <p id="bp-input-goal" style="margin:5px 0 0 0;font-style:italic;color:var(--ink-2);"></p>
                     </div>
                 </div>
 
@@ -2909,7 +3198,7 @@ async def build_a_brand_page():
 
                 <div class="blueprint-section">
                     <h3>Unmet Desires Solved</h3>
-                    <p style="font-size:0.9em;color:#666;margin-bottom:12px;">Guest needs identified from market trends that this brand addresses</p>
+                    <p style="font-size:0.9em;color:var(--ink-2);margin-bottom:12px;">Guest needs identified from market trends that this brand addresses</p>
                     <div id="bp-desires"></div>
                 </div>
 
@@ -2945,10 +3234,10 @@ async def build_a_brand_page():
 
                 <div class="blueprint-section">
                     <h3>Investor Summary</h3>
-                    <p id="bp-investor" style="background:#f8f8f8;padding:15px;border-radius:8px;"></p>
+                    <p id="bp-investor" style="background:var(--surface-2);padding:15px;border-radius:8px;"></p>
                 </div>
 
-                <div id="bp-metadata" style="margin-top:20px;font-size:0.85em;color:#888;">
+                <div id="bp-metadata" style="margin-top:20px;font-size:0.85em;color:var(--ink-3);">
                     <span id="bp-confidence"></span>
                     <span id="bp-tokens" style="margin-left:15px;"></span>
                 </div>
@@ -3072,7 +3361,7 @@ async def build_a_brand_page():
             var stageItems = document.querySelectorAll('.stage-item');
             for (var si = 0; si < stageItems.length; si++) {
                 stageItems[si].querySelector('.stage-icon').innerHTML = '&#9675;';
-                stageItems[si].style.color = '#666';
+                stageItems[si].style.color = 'var(--ink-2)';
             }
 
             try {
@@ -3097,7 +3386,7 @@ async def build_a_brand_page():
                     var completeItems = document.querySelectorAll('.stage-item');
                     for (var ci = 0; ci < completeItems.length; ci++) {
                         completeItems[ci].querySelector('.stage-icon').innerHTML = '&#10003;';
-                        completeItems[ci].style.color = '#27ae60';
+                        completeItems[ci].style.color = 'var(--good)';
                     }
 
                     displayBlueprint(data.blueprint);
@@ -3234,17 +3523,17 @@ async def build_a_brand_page():
                 for (var di = 0; di < desires.length; di++) {
                     var d = desires[di];
                     var strength = Math.round((d.demand_strength || 0.5) * 100);
-                    var strengthColor = strength >= 70 ? '#27ae60' : (strength >= 40 ? '#f39c12' : '#e74c3c');
+                    var strengthColor = strength >= 70 ? 'var(--good)' : (strength >= 40 ? 'var(--warn)' : 'var(--bad)');
                     desiresHtml += '<div class="experience-card">' +
                         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                         '<strong>' + (d.desire || '') + '</strong>' +
-                        '<span style="background:' + strengthColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:0.8em;">' + strength + '% demand</span>' +
+                        '<span style="background:' + strengthColor + ';color:var(--ink);padding:2px 8px;border-radius:4px;font-size:0.8em;">' + strength + '% demand</span>' +
                         '</div>' +
                         '<p style="margin-top:8px;">' + (d.how_solved || '') + '</p>' +
                         '</div>';
                 }
             } else {
-                desiresHtml = '<p style="color:#999;font-style:italic;">No specific unmet desires identified</p>';
+                desiresHtml = '<p style="color:var(--ink-3);font-style:italic;">No specific unmet desires identified</p>';
             }
             document.getElementById('bp-desires').innerHTML = desiresHtml;
 
@@ -3256,7 +3545,7 @@ async def build_a_brand_page():
                 personasHtml += '<div class="experience-card">' +
                     '<strong>' + (p.name || '') + '</strong>' +
                     '<p>' + (p.description || '') + '</p>' +
-                    '<p style="font-size:0.9em;color:#666;">Spend: ' + (p.spend_behavior || '') + '</p>' +
+                    '<p style="font-size:0.9em;color:var(--ink-2);">Spend: ' + (p.spend_behavior || '') + '</p>' +
                     '</div>';
             }
             document.getElementById('bp-personas').innerHTML = personasHtml;
@@ -3269,7 +3558,7 @@ async def build_a_brand_page():
                 expHtml += '<div class="experience-card">' +
                     '<strong>' + (e.name || '') + '</strong>' +
                     '<p>' + (e.description || '') + '</p>' +
-                    '<p style="font-size:0.9em;color:#27ae60;">' + (e.why_it_matters || '') + '</p>' +
+                    '<p style="font-size:0.9em;color:var(--good);">' + (e.why_it_matters || '') + '</p>' +
                     '</div>';
             }
             document.getElementById('bp-experiences').innerHTML = expHtml;
@@ -3296,7 +3585,7 @@ async def build_a_brand_page():
                 fnbHtml += '<div class="experience-card">' +
                     '<strong>' + (f.name || '') + '</strong>' +
                     '<p>' + (f.concept || '') + '</p>' +
-                    '<p style="font-size:0.9em;color:#666;">Vibe: ' + (f.vibe || '') + '</p>' +
+                    '<p style="font-size:0.9em;color:var(--ink-2);">Vibe: ' + (f.vibe || '') + '</p>' +
                     '</div>';
             }
             document.getElementById('bp-fnb').innerHTML = fnbHtml;
@@ -3467,7 +3756,7 @@ async def build_a_brand_page():
                 var data = await response.json();
 
                 if (!data.blueprints || data.blueprints.length === 0) {
-                    listEl.innerHTML = '<p style="color:#999;grid-column:1/-1;font-style:italic;">No saved blueprints yet. Generate your first brand concept above!</p>';
+                    listEl.innerHTML = '<p style="color:var(--ink-3);grid-column:1/-1;font-style:italic;">No saved blueprints yet. Generate your first brand concept above!</p>';
                     return;
                 }
 
@@ -3477,11 +3766,11 @@ async def build_a_brand_page():
                     var names = bp.brand_names || {};
                     var created = new Date(bp.generated_at).toLocaleDateString();
                     html += '<div class="saved-blueprint-card" onclick="loadSavedBlueprint(\\'' + bp.id + '\\')" style="' +
-                        'background:#f8f9fa;border:1px solid #e9ecef;border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;' +
+                        'background:var(--surface-2);border:1px solid var(--surface-3);border-radius:8px;padding:15px;cursor:pointer;transition:all 0.2s;' +
                         '">' +
-                        '<h4 style="margin:0 0 8px 0;color:#2c3e50;">' + (names.primary || 'Unnamed') + '</h4>' +
-                        '<p style="font-size:0.85em;color:#666;margin:0 0 8px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (bp.one_liner || '') + '</p>' +
-                        '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8em;color:#999;">' +
+                        '<h4 style="margin:0 0 8px 0;color:var(--ink);">' + (names.primary || 'Unnamed') + '</h4>' +
+                        '<p style="font-size:0.85em;color:var(--ink-2);margin:0 0 8px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (bp.one_liner || '') + '</p>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8em;color:var(--ink-3);">' +
                         '<span>' + (bp.inputs?.location || '') + '</span>' +
                         '<span>' + created + '</span>' +
                         '</div>' +
@@ -3493,12 +3782,12 @@ async def build_a_brand_page():
                 var cards = listEl.querySelectorAll('.saved-blueprint-card');
                 cards.forEach(function(card) {
                     card.addEventListener('mouseenter', function() {
-                        this.style.borderColor = '#2ecc71';
+                        this.style.borderColor = 'var(--good)';
                         this.style.transform = 'translateY(-2px)';
                         this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
                     });
                     card.addEventListener('mouseleave', function() {
-                        this.style.borderColor = '#e9ecef';
+                        this.style.borderColor = 'var(--surface-3)';
                         this.style.transform = 'translateY(0)';
                         this.style.boxShadow = 'none';
                     });
@@ -3506,7 +3795,7 @@ async def build_a_brand_page():
 
             } catch (e) {
                 console.error('Error loading saved blueprints:', e);
-                listEl.innerHTML = '<p style="color:#e74c3c;grid-column:1/-1;">Failed to load saved blueprints</p>';
+                listEl.innerHTML = '<p style="color:var(--bad);grid-column:1/-1;">Failed to load saved blueprints</p>';
             }
         }
 
