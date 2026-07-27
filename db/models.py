@@ -236,3 +236,66 @@ class BrandBlueprintModel(Base):
 
     # User association (for future auth)
     user_id: Mapped[str | None] = mapped_column(String(36), index=True)
+
+
+class PredictionRecordModel(Base):
+    """Signal Ledger prediction record.
+
+    Append-only by convention: core prediction fields are never updated after
+    creation (content_hash seals them); everything that happens afterwards is
+    a LedgerEventModel row. Status and resolution fields are the only mutable
+    columns.
+    """
+
+    __tablename__ = "prediction_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+
+    # The prediction (immutable once written)
+    signal_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    signal_source: Mapped[str] = mapped_column(String(200), nullable=False)
+    hypothesis: Mapped[str] = mapped_column(Text, nullable=False)
+    product_implication: Mapped[str] = mapped_column(Text, nullable=False)
+    location_thesis: Mapped[str | None] = mapped_column(Text)
+    forecasts: Mapped[list | None] = mapped_column(JSON, default=list)
+    uncertainty_notes: Mapped[str | None] = mapped_column(Text)
+    methodology_version: Mapped[str] = mapped_column(String(50), default="v1")
+    project: Mapped[str | None] = mapped_column(String(200), index=True)
+
+    # Provenance
+    source_trend_ids: Mapped[list | None] = mapped_column(JSON, default=list)
+    source_content_ids: Mapped[list | None] = mapped_column(JSON, default=list)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # Resolution (mutable)
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolution_summary: Mapped[str | None] = mapped_column(Text)
+    highest_evidence_stage: Mapped[str | None] = mapped_column(String(30), index=True)
+
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
+class LedgerEventModel(Base):
+    """Append-only event on a prediction: evidence, outcome, decision or note."""
+
+    __tablename__ = "ledger_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    prediction_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Evidence events
+    stage: Mapped[str | None] = mapped_column(String(30), index=True)
+
+    # Outcome events
+    metric: Mapped[str | None] = mapped_column(String(100))
+    actual_value: Mapped[float | None] = mapped_column(Float)
+    outcome_json: Mapped[dict | None] = mapped_column(JSON)
+
+    evidence_refs: Mapped[list | None] = mapped_column(JSON, default=list)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
