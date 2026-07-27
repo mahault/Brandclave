@@ -18,6 +18,8 @@ from typing import Optional
 import httpx
 import numpy as np
 
+from ingestion.http_client import resilient_get
+
 from .pymdp_learner import (
     PyMDPStructureLearner,
     PyMDPObservation,
@@ -199,8 +201,8 @@ class PyMDPCityAnalyzer:
                     "limit": 10,
                 }
 
-                response = self.client.get(url, params=params)
-                if response.status_code != 200:
+                response = resilient_get(url, params=params, timeout=None, client=self.client)
+                if response is None or response.status_code != 200:
                     continue
 
                 data = response.json()
@@ -247,9 +249,9 @@ class PyMDPCityAnalyzer:
 
         try:
             search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-            response = self.client.get(search_url)
+            response = resilient_get(search_url, timeout=None, client=self.client)
 
-            if response.status_code != 200:
+            if response is None or response.status_code != 200:
                 return 0
 
             html = response.text

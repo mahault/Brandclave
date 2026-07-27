@@ -4,9 +4,12 @@ import json
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from services.brand_blueprint.schemas import BlueprintInputs
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +18,7 @@ class PipelineContext:
     """Context passed between pipeline stages."""
 
     def __init__(self, inputs: "BlueprintInputs"):
-        from services.brand_blueprint.schemas import BlueprintInputs
-        self.inputs: BlueprintInputs = inputs
+        self.inputs = inputs
         self.stage_outputs: dict[str, dict[str, Any]] = {}
         self.warnings: list[str] = []
         self.total_input_tokens: int = 0

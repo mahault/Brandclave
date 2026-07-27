@@ -41,8 +41,14 @@ class HospitalityNetScraper(BaseScraper):
         """
         logger.info(f"Fetching RSS feed from {self.RSS_URL}")
 
-        # feedparser handles the HTTP request internally
-        feed = feedparser.parse(self.RSS_URL)
+        # Fetch via the resilient base client (timeout + retries) instead of
+        # letting feedparser make its own request with no timeout.
+        response = self.fetch(self.RSS_URL)
+        if response is None:
+            logger.warning(f"Could not fetch RSS feed from {self.RSS_URL}, skipping this run")
+            return []
+
+        feed = feedparser.parse(response.text)
 
         if feed.bozo:
             logger.warning(f"Feed parsing warning: {feed.bozo_exception}")

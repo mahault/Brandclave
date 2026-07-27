@@ -17,6 +17,7 @@ from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 
+from ingestion.http_client import resilient_get
 from data_models.city_desires import (
     CityDesireProfile,
     DesireCategory,
@@ -135,8 +136,8 @@ class CityDesireEngine:
                         "limit": 25,
                     }
 
-                    response = self.client.get(url, params=params)
-                    if response.status_code != 200:
+                    response = resilient_get(url, params=params, timeout=None, client=self.client)
+                    if response is None or response.status_code != 200:
                         continue
 
                     data = response.json()
@@ -176,8 +177,8 @@ class CityDesireEngine:
         """Fetch comments from a Reddit post."""
         try:
             url = f"https://old.reddit.com{permalink}.json"
-            response = self.client.get(url)
-            if response.status_code != 200:
+            response = resilient_get(url, timeout=None, client=self.client)
+            if response is None or response.status_code != 200:
                 return
 
             data = response.json()
@@ -216,8 +217,8 @@ class CityDesireEngine:
         for query in queries:
             try:
                 search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-                response = self.client.get(search_url)
-                if response.status_code != 200:
+                response = resilient_get(search_url, timeout=None, client=self.client)
+                if response is None or response.status_code != 200:
                     continue
 
                 # Extract video data from page
@@ -275,8 +276,8 @@ class CityDesireEngine:
         # TripAdvisor forum search
         try:
             url = f"https://www.tripadvisor.com/Search?q={city}+hotel+where+to+stay"
-            response = self.client.get(url)
-            if response.status_code == 200:
+            response = resilient_get(url, timeout=None, client=self.client)
+            if response is not None and response.status_code == 200:
                 soup = BeautifulSoup(response.text, "html.parser")
                 # Extract forum posts and reviews
                 for result in soup.select(".result-title, .review-container")[:15]:

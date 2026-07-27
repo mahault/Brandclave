@@ -2,6 +2,7 @@
 
 # Core
 pydantic>=2.0
+pydantic-settings>=2.0  # Typed settings validated at boot (config/settings.py)
 python-dotenv>=1.0.0
 
 # Database

@@ -43,10 +43,9 @@ class RSSNewsScraper(BaseScraper):
         # Fetch with proper user-agent (feedparser's default is often blocked)
         response = self.fetch(self.RSS_URL)
         if response is None:
-            # Fallback to direct feedparser (might work for some feeds)
-            feed = feedparser.parse(self.RSS_URL)
-        else:
-            feed = feedparser.parse(response.text)
+            logger.warning(f"{self.source_name}: could not fetch RSS feed from {self.RSS_URL}, skipping this run")
+            return []
+        feed = feedparser.parse(response.text)
 
         if feed.bozo and not feed.entries:
             logger.error(f"Feed parsing error: {feed.bozo_exception}")

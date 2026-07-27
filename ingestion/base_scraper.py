@@ -14,6 +14,7 @@ import yaml
 from data_models.raw_content import RawContent, RawContentCreate, SourceType
 from db.database import SessionLocal
 from db.models import RawContentModel, ProcessingJobModel
+from ingestion.http_client import resilient_get
 
 logger = logging.getLogger(__name__)
 
@@ -153,32 +154,28 @@ class BaseScraper(ABC):
         retry_attempts = self.config.get("global_settings", {}).get("retry_attempts", 3)
         retry_backoff = self.config.get("global_settings", {}).get("retry_backoff", 2)
 
-        for attempt in range(retry_attempts):
-            try:
-                response = self.client.get(url, **kwargs)
-                response.raise_for_status()
-                self._request_count += 1
-                return response
+        # Delegate retries/backoff to the shared resilient helper. Pass
+        # timeout=None (unless the caller overrides) so the client's
+        # configured timeout applies rather than the helper default.
+        kwargs.setdefault("timeout", None)
+        response = resilient_get(
+            url,
+            retries=retry_attempts,
+            backoff_base=retry_backoff,
+            client=self.client,
+            **kwargs,
+        )
 
-            except httpx.HTTPStatusError as e:
-                logger.warning(f"HTTP error {e.response.status_code} for {url}")
-                if e.response.status_code == 429:  # Rate limited
-                    wait_time = (retry_backoff ** attempt) * 10
-                    logger.info(f"Rate limited, waiting {wait_time}s")
-                    time.sleep(wait_time)
-                elif e.response.status_code >= 500:
-                    wait_time = retry_backoff ** attempt
-                    time.sleep(wait_time)
-                else:
-                    return None
+        if response is None:
+            logger.error(f"Failed to fetch {url} after {retry_attempts} attempts")
+            return None
 
-            except httpx.RequestError as e:
-                logger.error(f"Request error for {url}: {e}")
-                wait_time = retry_backoff ** attempt
-                time.sleep(wait_time)
+        if response.status_code >= 400:
+            logger.warning(f"HTTP error {response.status_code} for {url}")
+            return None
 
-        logger.error(f"Failed to fetch {url} after {retry_attempts} attempts")
-        return None
+        self._request_count += 1
+        return response
 
     @abstractmethod
     def scrape(self) -> list[RawContentCreate]:
