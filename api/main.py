@@ -1,7 +1,6 @@
 """FastAPI application for BrandClave Aggregator."""
 
 import logging
-import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,13 +15,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+from monitoring.logging_config import init_sentry, setup_logging
+
+# Configure structured logging (JSON by default, LOG_FORMAT=text for local dev)
+# before anything logs
+setup_logging()
 
 logger = logging.getLogger(__name__)
+
+from config.settings import get_settings
 
 
 @asynccontextmanager
@@ -30,6 +31,14 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown."""
     # Startup
     logger.info("Starting BrandClave Aggregator API...")
+
+    # Validate typed settings at boot (fails fast on malformed values) and
+    # log which integrations are configured - never the secret values
+    settings = get_settings()
+    logger.info(f"Configuration: {settings.integrations_summary()}")
+
+    # Error tracking (no-op unless SENTRY_DSN is set and sentry-sdk installed)
+    init_sentry(settings.sentry_dsn)
 
     # Pre-initialize cache (fast fail if Redis unavailable)
     try:
@@ -40,30 +49,38 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Cache init: {e}")
 
     # Initialize scheduler if enabled
-    if os.getenv("SCHEDULER_ENABLED", "true").lower() == "true":
+    if settings.scheduler_enabled:
         try:
             from scheduler.scheduler import init_scheduler
             scheduler = init_scheduler(auto_register=True)
             if scheduler.is_available:
                 scheduler.start()
                 logger.info("Scheduler started successfully")
+
+                # Adaptive scraper runs on schedule, no need to trigger all at startup
+                # The POMDP will pick the best source to scrape every 30 minutes
+                logger.info("Adaptive POMDP scraper will run on schedule (every 30 min)")
         except Exception as e:
             logger.warning(f"Could not start scheduler: {e}")
 
     # Pre-warm services to avoid slow first requests (JAX JIT compilation)
-    try:
-        logger.info("Pre-warming services...")
-        from services.social_pulse import SocialPulseService
-        from services.hotelier_bets import HotelierBetsService
-        from services.demand_scan import DemandScanService
+    # Disabled by default on low-memory environments (Render free tier = 512MB)
+    if settings.prewarm_services:
+        try:
+            logger.info("Pre-warming services...")
+            from services.social_pulse import SocialPulseService
+            from services.hotelier_bets import HotelierBetsService
+            from services.demand_scan import DemandScanService
 
-        # Create service instances to trigger POMDP initialization
-        _ = SocialPulseService(use_adaptive=True)
-        _ = HotelierBetsService(use_adaptive=True)
-        _ = DemandScanService()
-        logger.info("Services pre-warmed successfully")
-    except Exception as e:
-        logger.warning(f"Service pre-warm failed (non-critical): {e}")
+            # Create service instances to trigger POMDP initialization
+            _ = SocialPulseService(use_adaptive=True)
+            _ = HotelierBetsService(use_adaptive=True)
+            _ = DemandScanService()
+            logger.info("Services pre-warmed successfully")
+        except Exception as e:
+            logger.warning(f"Service pre-warm failed (non-critical): {e}")
+    else:
+        logger.info("Service pre-warming disabled (set PREWARM_SERVICES=true to enable)")
 
     yield
 
@@ -101,11 +118,27 @@ app.add_middleware(
 )
 
 
-# Health check
+# Health check (also serves as keep-alive endpoint for Render)
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": "0.5.0"}
+    """Health check endpoint - ping this every 14 min to prevent Render sleep."""
+    from datetime import datetime
+    try:
+        from scheduler.scheduler import get_scheduler
+        scheduler = get_scheduler()
+        scheduler_status = {
+            "running": scheduler.is_running,
+            "jobs": len(scheduler.get_jobs()) if scheduler.is_available else 0,
+        }
+    except Exception:
+        scheduler_status = {"running": False, "jobs": 0}
+
+    return {
+        "status": "healthy",
+        "version": "0.6.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "scheduler": scheduler_status,
+    }
 
 
 @app.get("/")
@@ -123,6 +156,9 @@ async def root():
             "city_desires": "/api/city-desires",
             "scheduler": "/api/scheduler/status",
             "monitoring": "/api/monitoring/dashboard",
+            "chat": "/api/chat",
+            "brand_blueprint": "/api/brand-blueprint",
+            "signal_ledger": "/api/signal-ledger/predictions",
         },
     }
 
@@ -135,6 +171,9 @@ from api.routes.city_desires import router as city_desires_router
 from api.routes.scheduler import router as scheduler_router
 from api.routes.monitoring import router as monitoring_router
 from api.routes.dashboard_simple import router as dashboard_simple_router
+from api.routes.chat import router as chat_router
+from api.routes.brand_blueprint import router as brand_blueprint_router
+from api.routes.signal_ledger import router as signal_ledger_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
@@ -143,6 +182,9 @@ app.include_router(city_desires_router, prefix="/api", tags=["City Desires"])
 app.include_router(scheduler_router, prefix="/api", tags=["Scheduler"])
 app.include_router(monitoring_router, prefix="/api", tags=["Monitoring"])
 app.include_router(dashboard_simple_router, prefix="/api", tags=["Dashboard"])
+app.include_router(chat_router, prefix="/api", tags=["Chat"])
+app.include_router(brand_blueprint_router, prefix="/api", tags=["Brand Blueprint"])
+app.include_router(signal_ledger_router, prefix="/api", tags=["Signal Ledger"])
 
 
 if __name__ == "__main__":

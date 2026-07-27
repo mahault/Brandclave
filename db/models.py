@@ -151,6 +151,7 @@ class PropertyFeaturesModel(Base):
     experience_gaps: Mapped[list | None] = mapped_column(JSON, default=list)
     opportunity_lanes: Mapped[list | None] = mapped_column(JSON, default=list)
     competitive_advantages: Mapped[list | None] = mapped_column(JSON, default=list)
+    positioning_misalignment_flags: Mapped[list | None] = mapped_column(JSON, default=list)
     recommendations: Mapped[list | None] = mapped_column(JSON, default=list)
 
     # Matching trends
@@ -176,4 +177,125 @@ class ProcessingJobModel(Base):
     items_processed: Mapped[int] = mapped_column(Integer, default=0)
     items_failed: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
+class BrandBlueprintModel(Base):
+    """SQLAlchemy model for generated brand blueprints."""
+
+    __tablename__ = "brand_blueprints"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+
+    # Input data
+    location: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    segment: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    adr: Mapped[float] = mapped_column(Float, nullable=False)
+    rooms: Mapped[int] = mapped_column(Integer, nullable=False)
+    developer_goal: Mapped[str] = mapped_column(Text, nullable=False)
+    source_trend_id: Mapped[str | None] = mapped_column(String(36))
+    profile_data_json: Mapped[dict | None] = mapped_column(JSON)
+
+    # Stage 1: Foundation
+    brand_name_primary: Mapped[str] = mapped_column(String(200), nullable=False)
+    brand_name_alt_1: Mapped[str | None] = mapped_column(String(200))
+    brand_name_alt_2: Mapped[str | None] = mapped_column(String(200))
+    one_liner: Mapped[str] = mapped_column(String(500), nullable=False)
+    thesis: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Stage 2: Strategic
+    pillars: Mapped[list] = mapped_column(JSON, default=list)
+    positioning_statement: Mapped[str] = mapped_column(Text, nullable=False)
+    unmet_desires_solved: Mapped[list] = mapped_column(JSON, default=list)
+
+    # Stage 3: Experience
+    guest_personas: Mapped[list] = mapped_column(JSON, default=list)
+    signature_experiences: Mapped[list] = mapped_column(JSON, default=list)
+    guest_journey: Mapped[dict | None] = mapped_column(JSON)
+
+    # Stage 4: Atmosphere & Revenue
+    design_direction: Mapped[str] = mapped_column(Text, nullable=False)
+    fnb_concepts: Mapped[list] = mapped_column(JSON, default=list)
+    revenue_logic: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Stage 5: Summary
+    investor_summary: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Metadata
+    status: Mapped[str] = mapped_column(String(20), default="completed")
+    confidence: Mapped[float] = mapped_column(Float, default=0.8)
+    warnings: Mapped[list | None] = mapped_column(JSON, default=list)
+
+    # Token tracking
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # User association (for future auth)
+    user_id: Mapped[str | None] = mapped_column(String(36), index=True)
+
+
+class PredictionRecordModel(Base):
+    """Signal Ledger prediction record.
+
+    Append-only by convention: core prediction fields are never updated after
+    creation (content_hash seals them); everything that happens afterwards is
+    a LedgerEventModel row. Status and resolution fields are the only mutable
+    columns.
+    """
+
+    __tablename__ = "prediction_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+
+    # The prediction (immutable once written)
+    signal_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    signal_source: Mapped[str] = mapped_column(String(200), nullable=False)
+    hypothesis: Mapped[str] = mapped_column(Text, nullable=False)
+    product_implication: Mapped[str] = mapped_column(Text, nullable=False)
+    location_thesis: Mapped[str | None] = mapped_column(Text)
+    forecasts: Mapped[list | None] = mapped_column(JSON, default=list)
+    uncertainty_notes: Mapped[str | None] = mapped_column(Text)
+    methodology_version: Mapped[str] = mapped_column(String(50), default="v1")
+    project: Mapped[str | None] = mapped_column(String(200), index=True)
+
+    # Provenance
+    source_trend_ids: Mapped[list | None] = mapped_column(JSON, default=list)
+    source_content_ids: Mapped[list | None] = mapped_column(JSON, default=list)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # Resolution (mutable)
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolution_summary: Mapped[str | None] = mapped_column(Text)
+    highest_evidence_stage: Mapped[str | None] = mapped_column(String(30), index=True)
+
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+
+class LedgerEventModel(Base):
+    """Append-only event on a prediction: evidence, outcome, decision or note."""
+
+    __tablename__ = "ledger_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    prediction_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Evidence events
+    stage: Mapped[str | None] = mapped_column(String(30), index=True)
+
+    # Outcome events
+    metric: Mapped[str | None] = mapped_column(String(100))
+    actual_value: Mapped[float | None] = mapped_column(Float)
+    outcome_json: Mapped[dict | None] = mapped_column(JSON)
+
+    evidence_refs: Mapped[list | None] = mapped_column(JSON, default=list)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     metadata_json: Mapped[dict | None] = mapped_column(JSON, default=dict)

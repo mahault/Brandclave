@@ -64,6 +64,7 @@ class PropertyFeatures(BaseModel):
     experience_gaps: list[str] = Field(default_factory=list, description="Missing high-demand experiences")
     opportunity_lanes: list[str] = Field(default_factory=list, description="Recommended positioning opportunities")
     competitive_advantages: list[str] = Field(default_factory=list, description="Current strengths")
+    positioning_misalignment_flags: list[str] = Field(default_factory=list, description="Positioning inconsistencies")
     recommendations: list[str] = Field(default_factory=list, description="Strategic recommendations")
 
     # Matching trends

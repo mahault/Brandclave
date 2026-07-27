@@ -46,6 +46,10 @@ class Category:
     # Sufficient statistics for online updates
     keyword_counts: dict = field(default_factory=lambda: defaultdict(int))
 
+    # Source tracking
+    source_counts: dict = field(default_factory=lambda: defaultdict(int))
+    example_texts: list = field(default_factory=list)  # Store example snippets with sources
+
     @property
     def avg_fit(self) -> float:
         if self.observation_count == 0:
@@ -342,6 +346,16 @@ class StructureLearner:
         for kw in observation.keywords:
             cat.keyword_counts[kw] += 1
 
+        # Track source
+        cat.source_counts[observation.source] += 1
+
+        # Store example text with source attribution
+        if observation.text:
+            cat.example_texts.append({
+                "text": observation.text[:200],
+                "source": observation.source
+            })
+
         cat.update_name()
         self.categories[cat_id] = cat
 
@@ -368,6 +382,16 @@ class StructureLearner:
         # Update keyword counts
         for kw in observation.keywords:
             cat.keyword_counts[kw] += weight
+
+        # Track source
+        cat.source_counts[observation.source] += weight
+
+        # Store example text (keep top 5)
+        if observation.text and len(cat.example_texts) < 5:
+            cat.example_texts.append({
+                "text": observation.text[:200],
+                "source": observation.source
+            })
 
         # Update counts
         cat.observation_count += weight
@@ -481,6 +505,8 @@ class StructureLearner:
                     "keywords": cat.keywords,
                     "observation_count": cat.observation_count,
                     "avg_fit": cat.avg_fit,
+                    "sources": dict(cat.source_counts),  # e.g., {"reddit": 5, "youtube": 2}
+                    "example_texts": cat.example_texts[:3],  # Top 3 examples with source attribution
                 }
                 for cat in sorted(
                     self.categories.values(),

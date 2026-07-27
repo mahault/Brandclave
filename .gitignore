@@ -69,3 +69,6 @@ htmlcov/
 *.pt
 *.pth
 *.onnx
+
+# Claude Code session artifacts
+tmpclaude-*

@@ -2,6 +2,7 @@
 
 # Core
 pydantic>=2.0
+pydantic-settings>=2.0  # Typed settings validated at boot (config/settings.py)
 python-dotenv>=1.0.0
 
 # Database
@@ -32,7 +33,10 @@ pyyaml>=6.0
 redis>=4.0.0
 APScheduler>=3.10.0
 
-# Active Inference
-inferactively-pymdp>=0.0.8
+# Active Inference (JAX-based v1.x line)
+# Was pinned to the git tag v1.0.0_alpha, which upstream deleted once 1.0.0 shipped.
+# The 1.x line is the same JAX API the POMDP code targets: infer_policies(qs),
+# sample_action(..., rng_key=...). Now installed from PyPI, no git clone needed.
+inferactively-pymdp>=1.0.0,<2.0
 jax>=0.4.0
 jaxlib>=0.4.0

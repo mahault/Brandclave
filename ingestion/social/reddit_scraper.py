@@ -53,6 +53,19 @@ class RedditScraper(BaseScraper):
         "budget hotel",
     ]
 
+    # Keywords for filtering hospitality-relevant content from city subreddits
+    HOSPITALITY_KEYWORDS = [
+        "hotel", "hostel", "airbnb", "accommodation", "stay", "staying",
+        "tourist", "tourism", "visitor", "traveling", "traveler", "vacation",
+        "resort", "lodge", "inn", "motel", "guesthouse", "bnb",
+        "booking", "reservation", "check-in", "checkout",
+        "restaurant", "dining", "food scene", "nightlife", "bar",
+        "neighborhood", "area to stay", "best area", "where to stay",
+        "safe area", "walkable", "public transport", "metro",
+        "itinerary", "day trip", "weekend trip", "visit",
+        "attraction", "sightseeing", "must see", "hidden gem",
+    ]
+
     def __init__(
         self,
         config_path: str = "configs/scraping.yaml",
@@ -140,6 +153,26 @@ class RedditScraper(BaseScraper):
             logger.error(f"Error searching r/{subreddit} for '{query}': {e}")
             return []
 
+    def _is_hospitality_relevant(self, text: str, subreddit: str) -> bool:
+        """Check if content is relevant to hospitality/travel.
+
+        Args:
+            text: Combined title and content text
+            subreddit: Source subreddit
+
+        Returns:
+            True if content appears hospitality-relevant
+        """
+        # Travel subreddits are always relevant
+        travel_subs = {"travel", "solotravel", "digitalnomad", "hotels",
+                       "luxurytravel", "backpacking", "travelhacks"}
+        if subreddit.lower() in travel_subs:
+            return True
+
+        # For city subreddits, check for hospitality keywords
+        text_lower = text.lower()
+        return any(kw in text_lower for kw in self.HOSPITALITY_KEYWORDS)
+
     def _post_to_content(self, post: dict, subreddit: str) -> RawContentCreate | None:
         """Convert Reddit post to RawContentCreate.
 
@@ -160,6 +193,10 @@ class RedditScraper(BaseScraper):
 
         # Skip removed/deleted posts
         if selftext in ["[removed]", "[deleted]"]:
+            return None
+
+        # Filter city subreddit posts for hospitality relevance
+        if not self._is_hospitality_relevant(content, subreddit):
             return None
 
         # Parse timestamp

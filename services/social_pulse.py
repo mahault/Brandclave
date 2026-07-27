@@ -1,7 +1,7 @@
 """Social Pulse service - Trend generation and management."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from db.database import SessionLocal
@@ -98,23 +98,38 @@ class SocialPulseService:
             True if trend is acceptable quality
         """
         name = trend.get("name", "").lower()
+        description = trend.get("description", "").lower()
 
-        # Reject trends with garbage patterns
-        garbage_patterns = [
+        # Reject trends with garbage name patterns
+        garbage_name_patterns = [
             " there trend",
             " with trend",
             "trend based on",
-            "discussion around",
             "pattern identified",
-            " & in hospitality",
             "hospitality movement",
             "refund",
-            "receptionists trend",
+            "receptionists",
+            " & in hospitality",  # "Digital & December in Hospitality"
+            "in hospitality",     # Generic X in Hospitality names
         ]
 
-        for pattern in garbage_patterns:
+        for pattern in garbage_name_patterns:
             if pattern in name:
-                logger.debug(f"Filtering out low-quality trend: {trend.get('name')}")
+                logger.debug(f"Filtering out low-quality trend name: {trend.get('name')}")
+                return False
+
+        # Reject garbage description patterns (fallback-generated)
+        garbage_desc_patterns = [
+            "discussion around",           # "Discussion around tour, advice, there"
+            "trend based on",              # "Trend based on 11 social mentions"
+            "based on content sources",
+            "social mentions",
+            "pattern identified from",
+        ]
+
+        for pattern in garbage_desc_patterns:
+            if pattern in description:
+                logger.debug(f"Filtering out low-quality trend description: {trend.get('name')}")
                 return False
 
         # Reject very short or very long names
@@ -123,6 +138,10 @@ class SocialPulseService:
 
         # Reject names that are just numbers or generic
         if name.replace(" ", "").isdigit():
+            return False
+
+        # Reject descriptions that are too short (likely garbage)
+        if len(description) < 50:
             return False
 
         return True
@@ -482,22 +501,30 @@ class SocialPulseService:
         region: str | None = None,
         audience_segment: str | None = None,
         min_strength: float = 0,
+        days_back: int = 7,
     ) -> list[dict]:
         """Get trends from database with filters.
+
+        Prefers recent trends, but falls back to latest available if none recent.
 
         Args:
             limit: Maximum trends to return
             region: Filter by region
             audience_segment: Filter by audience
             min_strength: Minimum strength score
+            days_back: Prefer trends updated within this many days (default 7)
 
         Returns:
             List of trend dicts
         """
         db = SessionLocal()
         try:
+            # Try recent trends first
+            cutoff_date = datetime.utcnow() - timedelta(days=days_back)
+
             query = db.query(TrendSignalModel).filter(
-                TrendSignalModel.strength_score >= min_strength
+                TrendSignalModel.strength_score >= min_strength,
+                TrendSignalModel.last_updated >= cutoff_date,
             )
 
             if region:
@@ -506,8 +533,24 @@ class SocialPulseService:
                 query = query.filter(TrendSignalModel.audience_segment == audience_segment)
 
             trends = query.order_by(
-                TrendSignalModel.strength_score.desc()
+                TrendSignalModel.last_updated.desc(),
+                TrendSignalModel.strength_score.desc(),
             ).limit(limit).all()
+
+            # Fallback: if no recent trends, get latest regardless of age
+            if not trends:
+                query = db.query(TrendSignalModel).filter(
+                    TrendSignalModel.strength_score >= min_strength,
+                )
+                if region:
+                    query = query.filter(TrendSignalModel.region == region)
+                if audience_segment:
+                    query = query.filter(TrendSignalModel.audience_segment == audience_segment)
+
+                trends = query.order_by(
+                    TrendSignalModel.last_updated.desc(),
+                    TrendSignalModel.strength_score.desc(),
+                ).limit(limit).all()
 
             return [self._model_to_dict(t) for t in trends]
 

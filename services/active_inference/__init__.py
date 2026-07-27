@@ -46,37 +46,79 @@ This module provides multiple implementations for different use cases:
 9. Hybrid Controller (hybrid_controller.py)
    - Unified interface for PyMDP and Genius backends
    - Automatic fallback and backend selection
+
+NOTE: JAX/PyMDP imports are lazy-loaded to reduce memory usage on low-memory
+environments (e.g., Render free tier with 512MB limit).
 """
 
+# Only import lightweight modules at module level
 from .structure_learner import StructureLearner, Category, Observation
 
-# Genius-backed implementations (require API key)
-from .genius_client import GeniusClient, VFGBuilder, GeniusConfig
-from .genius_structure_learner import GeniusStructureLearner, GeniusObservation
+# Lazy loading for heavy JAX/PyMDP modules to save memory
+def __getattr__(name):
+    """Lazy load heavy modules only when accessed."""
+    # Genius client (lightweight, no JAX)
+    if name in ("GeniusClient", "VFGBuilder", "GeniusConfig"):
+        from .genius_client import GeniusClient, VFGBuilder, GeniusConfig
+        return {"GeniusClient": GeniusClient, "VFGBuilder": VFGBuilder, "GeniusConfig": GeniusConfig}[name]
 
-# PyMDP-backed implementations (local, JAX-based)
-from .pymdp_learner import PyMDPStructureLearner, PyMDPObservation, PYMDP_AVAILABLE
+    if name in ("GeniusStructureLearner", "GeniusObservation"):
+        from .genius_structure_learner import GeniusStructureLearner, GeniusObservation
+        return {"GeniusStructureLearner": GeniusStructureLearner, "GeniusObservation": GeniusObservation}[name]
 
-# Component POMDPs
-from .scraping_pomdp import ScrapingPOMDP, get_scraping_pomdp
-from .clustering_pomdp import ClusteringPOMDP, get_clustering_pomdp
-from .move_extraction_pomdp import MoveExtractionPOMDP, get_extraction_pomdp
-from .coordinator_pomdp import CoordinatorPOMDP, get_coordinator_pomdp
-from .user_adaptive_pomdp import UserAdaptivePOMDP, get_user_adaptive_pomdp
+    # PyMDP modules (heavy, loads JAX)
+    if name in ("PyMDPStructureLearner", "PyMDPObservation", "PYMDP_AVAILABLE"):
+        from .pymdp_learner import PyMDPStructureLearner, PyMDPObservation, PYMDP_AVAILABLE
+        return {"PyMDPStructureLearner": PyMDPStructureLearner, "PyMDPObservation": PyMDPObservation, "PYMDP_AVAILABLE": PYMDP_AVAILABLE}[name]
 
-# Hybrid controller
-from .hybrid_controller import (
-    HybridActiveInferenceController,
-    HybridScrapingController,
-    HybridClusteringController,
-    HybridExtractionController,
-    HybridCoordinatorController,
-    InferenceBackend,
-    InferenceResult,
-    get_hybrid_controller,
-    PYMDP_AVAILABLE as HYBRID_PYMDP_AVAILABLE,
-    GENIUS_AVAILABLE as HYBRID_GENIUS_AVAILABLE,
-)
+    # Component POMDPs (heavy, load JAX)
+    if name in ("ScrapingPOMDP", "get_scraping_pomdp"):
+        from .scraping_pomdp import ScrapingPOMDP, get_scraping_pomdp
+        return {"ScrapingPOMDP": ScrapingPOMDP, "get_scraping_pomdp": get_scraping_pomdp}[name]
+
+    if name in ("ClusteringPOMDP", "get_clustering_pomdp"):
+        from .clustering_pomdp import ClusteringPOMDP, get_clustering_pomdp
+        return {"ClusteringPOMDP": ClusteringPOMDP, "get_clustering_pomdp": get_clustering_pomdp}[name]
+
+    if name in ("MoveExtractionPOMDP", "get_extraction_pomdp"):
+        from .move_extraction_pomdp import MoveExtractionPOMDP, get_extraction_pomdp
+        return {"MoveExtractionPOMDP": MoveExtractionPOMDP, "get_extraction_pomdp": get_extraction_pomdp}[name]
+
+    if name in ("CoordinatorPOMDP", "get_coordinator_pomdp"):
+        from .coordinator_pomdp import CoordinatorPOMDP, get_coordinator_pomdp
+        return {"CoordinatorPOMDP": CoordinatorPOMDP, "get_coordinator_pomdp": get_coordinator_pomdp}[name]
+
+    if name in ("UserAdaptivePOMDP", "get_user_adaptive_pomdp"):
+        from .user_adaptive_pomdp import UserAdaptivePOMDP, get_user_adaptive_pomdp
+        return {"UserAdaptivePOMDP": UserAdaptivePOMDP, "get_user_adaptive_pomdp": get_user_adaptive_pomdp}[name]
+
+    # Hybrid controller
+    if name in ("HybridActiveInferenceController", "HybridScrapingController",
+                "HybridClusteringController", "HybridExtractionController",
+                "HybridCoordinatorController", "InferenceBackend", "InferenceResult",
+                "get_hybrid_controller", "HYBRID_PYMDP_AVAILABLE", "HYBRID_GENIUS_AVAILABLE"):
+        from .hybrid_controller import (
+            HybridActiveInferenceController, HybridScrapingController,
+            HybridClusteringController, HybridExtractionController,
+            HybridCoordinatorController, InferenceBackend, InferenceResult,
+            get_hybrid_controller, PYMDP_AVAILABLE as HYBRID_PYMDP_AVAILABLE,
+            GENIUS_AVAILABLE as HYBRID_GENIUS_AVAILABLE,
+        )
+        mapping = {
+            "HybridActiveInferenceController": HybridActiveInferenceController,
+            "HybridScrapingController": HybridScrapingController,
+            "HybridClusteringController": HybridClusteringController,
+            "HybridExtractionController": HybridExtractionController,
+            "HybridCoordinatorController": HybridCoordinatorController,
+            "InferenceBackend": InferenceBackend,
+            "InferenceResult": InferenceResult,
+            "get_hybrid_controller": get_hybrid_controller,
+            "HYBRID_PYMDP_AVAILABLE": HYBRID_PYMDP_AVAILABLE,
+            "HYBRID_GENIUS_AVAILABLE": HYBRID_GENIUS_AVAILABLE,
+        }
+        return mapping[name]
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # Local implementation

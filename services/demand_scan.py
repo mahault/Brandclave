@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 from db.database import SessionLocal
 from db.models import PropertyFeaturesModel, TrendSignalModel
@@ -15,6 +16,31 @@ from processing.property_analysis import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_url(url: str) -> str:
+    """Normalize a URL by removing query parameters and fragments.
+
+    This prevents duplicate entries when the same property is scanned
+    with different tracking params (utm_source, gclid, etc.).
+
+    Args:
+        url: The URL to normalize
+
+    Returns:
+        Normalized URL without query params or fragments
+    """
+    parsed = urlparse(url)
+    # Reconstruct URL without query string or fragment
+    normalized = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path.rstrip('/'),  # Also normalize trailing slashes
+        '',  # params
+        '',  # query
+        '',  # fragment
+    ))
+    return normalized
 
 
 class DemandScanService:
@@ -37,7 +63,9 @@ class DemandScanService:
         Returns:
             Dict with property features and demand analysis, or None
         """
-        logger.info(f"Scanning property: {url}")
+        # Normalize URL to prevent duplicates from tracking params
+        normalized_url = normalize_url(url)
+        logger.info(f"Scanning property: {normalized_url}")
 
         # Step 1: Scrape the property website
         with PropertyScraper() as scraper:
@@ -63,10 +91,11 @@ class DemandScanService:
         trends = self._get_regional_trends(features.get("region"))
         demand_fit = self._compute_demand_fit(features, trends)
 
-        # Step 6: Identify gaps and opportunities
+        # Step 6: Identify gaps, opportunities, and misalignments
         gaps = self._identify_experience_gaps(features, trends)
         opportunities = self._identify_opportunities(features, trends)
         advantages = self._identify_competitive_advantages(features, trends)
+        misalignment_flags = self._identify_positioning_misalignment(features)
         recommendations = self._generate_recommendations(features, gaps, opportunities)
 
         # Ensure we have a property name
@@ -74,9 +103,9 @@ class DemandScanService:
         if not property_name:
             property_name = self._extract_name_from_url(url)
 
-        # Build final result
+        # Build final result (use normalized URL for storage)
         result = {
-            "url": url,
+            "url": normalized_url,
             "name": property_name,
             "property_type": features.get("property_type", "hotel"),
             "brand_positioning": features.get("brand_positioning"),
@@ -95,6 +124,7 @@ class DemandScanService:
             "experience_gaps": gaps,
             "opportunity_lanes": opportunities,
             "competitive_advantages": advantages,
+            "positioning_misalignment_flags": misalignment_flags,
             "recommendations": recommendations,
             "matching_trend_ids": demand_fit["matching_trend_ids"],
             "scraped_at": datetime.utcnow().isoformat(),
@@ -259,9 +289,10 @@ class DemandScanService:
             trends: List of trend dicts
 
         Returns:
-            List of gap descriptions
+            List of gap descriptions (deduplicated)
         """
         gaps = []
+        seen_trend_names = set()  # Track unique trend names to avoid duplicates
 
         property_offerings = set()
         for amenity in features.get("amenities", []):
@@ -271,27 +302,34 @@ class DemandScanService:
         for theme in features.get("themes", []):
             property_offerings.add(theme.lower())
 
-        # Check high-strength trends
+        # Check high-strength trends, deduplicate by name
         strong_trends = [t for t in trends if t["strength_score"] > 0.3]
 
         for trend in strong_trends[:10]:
+            trend_name = trend["name"]
+            trend_name_lower = trend_name.lower()
+
+            # Skip if we've already seen this trend name
+            if trend_name_lower in seen_trend_names:
+                continue
+
             trend_topics = [t.lower() for t in trend.get("topics", [])]
-            trend_name = trend["name"].lower()
 
             # Check if property covers this trend
             covered = any(
                 topic in " ".join(property_offerings)
                 for topic in trend_topics
             ) or any(
-                offering in trend_name
+                offering in trend_name_lower
                 for offering in property_offerings
             )
 
             if not covered:
                 strength_pct = int(trend["strength_score"] * 100)
                 gaps.append(
-                    f"{trend['name']} (trending at {strength_pct}% strength)"
+                    f"{trend_name} (trending at {strength_pct}% strength)"
                 )
+                seen_trend_names.add(trend_name_lower)
 
         return gaps[:5]
 
@@ -307,26 +345,35 @@ class DemandScanService:
             trends: List of trend dicts
 
         Returns:
-            List of opportunity descriptions
+            List of opportunity descriptions (deduplicated)
         """
         opportunities = []
+        seen_trend_names = set()  # Track unique trend names to avoid duplicates
 
         # Look for high white-space trends
         whitespace_trends = sorted(
             trends,
             key=lambda t: t.get("white_space_score", 0),
             reverse=True,
-        )[:5]
+        )[:10]  # Check more trends but deduplicate
 
         for trend in whitespace_trends:
+            trend_name = trend["name"]
+            trend_name_lower = trend_name.lower()
+
+            # Skip if we've already seen this trend name
+            if trend_name_lower in seen_trend_names:
+                continue
+
             if trend.get("white_space_score", 0) > 0.3:
                 opportunities.append(
-                    f"Position as leader in '{trend['name']}' - high demand, low competition"
+                    f"Position as leader in '{trend_name}' - high demand, low competition"
                 )
+                seen_trend_names.add(trend_name_lower)
 
-        # Suggest based on property type
+        # Suggest based on property type (these are unique by nature)
         property_type = features.get("property_type", "hotel")
-        themes = features.get("themes", [])
+        themes = [t.lower() for t in features.get("themes", [])]
 
         if property_type == "boutique" and "design" not in themes:
             opportunities.append("Emphasize design-forward positioning for boutique appeal")
@@ -384,6 +431,78 @@ class DemandScanService:
                 advantages.append("Central urban location with accessibility")
 
         return advantages[:5]
+
+    def _identify_positioning_misalignment(
+        self,
+        features: dict,
+    ) -> list[str]:
+        """Identify positioning misalignments and inconsistencies.
+
+        Detects when property claims don't match offerings, such as
+        luxury positioning with budget amenities.
+
+        Args:
+            features: Property features dict
+
+        Returns:
+            List of misalignment flag descriptions
+        """
+        flags = []
+
+        price = features.get("price_segment", "unknown")
+        amenities = [a.lower() for a in features.get("amenities", [])]
+        themes = [t.lower() for t in features.get("themes", [])]
+        positioning = (features.get("brand_positioning") or "").lower()
+        experiences = [e.lower() for e in features.get("experiences", [])]
+        dining = [d.lower() for d in features.get("dining_options", [])]
+        room_types = [r.lower() for r in features.get("room_types", [])]
+
+        # Build comprehensive text from all property data for searching
+        all_offerings_text = " ".join(amenities + experiences + dining + room_types + [positioning])
+
+        # 1. Luxury pricing without luxury amenities
+        luxury_indicators = {"spa", "fine dining", "butler", "concierge", "valet", "pool", "suite", "premium"}
+        has_luxury_amenities = any(li in all_offerings_text for li in luxury_indicators)
+
+        if price in ["luxury", "ultra_luxury"] and not has_luxury_amenities:
+            flags.append("Price-tier mismatch: Luxury pricing without premium amenities (spa, concierge, fine dining)")
+
+        # 2. Wellness positioning without wellness offerings
+        # Check ALL sources: amenities, experiences, dining, positioning, room types
+        wellness_indicators = {"spa", "yoga", "meditation", "massage", "wellness", "sauna", "steam", "fitness", "gym", "health"}
+        has_wellness = any(wi in all_offerings_text for wi in wellness_indicators)
+        wellness_positioned = "wellness" in themes or "wellness" in positioning or "mindfulness" in positioning
+
+        if wellness_positioned and not has_wellness:
+            flags.append("Theme mismatch: Wellness positioning without spa or wellness facilities")
+
+        # 3. Boutique positioning without character elements
+        boutique_indicators = {"design", "art", "unique", "curated", "bespoke", "artisan", "character", "historic", "heritage"}
+        has_boutique_elements = any(bi in all_offerings_text for bi in boutique_indicators)
+
+        if "boutique" in themes and not has_boutique_elements:
+            flags.append("Theme mismatch: Boutique positioning without distinctive design or character elements")
+
+        # 4. Conflicting themes
+        conflicting_pairs = [
+            ("budget", "luxury"),
+            ("budget", "ultra_luxury"),
+            ("business", "romantic"),
+            ("family", "adults-only"),
+        ]
+        for t1, t2 in conflicting_pairs:
+            if t1 in themes and t2 in themes:
+                flags.append(f"Conflicting positioning: {t1.title()} and {t2.title()} themes mixed")
+
+        # 5. Eco/sustainable positioning without evidence
+        eco_indicators = {"solar", "recycl", "sustain", "organic", "eco", "green", "carbon", "environment"}
+        has_eco_evidence = any(ei in all_offerings_text for ei in eco_indicators)
+        eco_positioned = "eco" in themes or "sustainable" in themes or "green" in themes
+
+        if eco_positioned and not has_eco_evidence:
+            flags.append("Theme mismatch: Eco/sustainable positioning without visible sustainability practices")
+
+        return flags[:5]
 
     def _generate_recommendations(
         self,
@@ -445,11 +564,15 @@ class DemandScanService:
         Returns:
             Property ID
         """
+        # Normalize URL before saving/checking
+        normalized_url = normalize_url(property_data["url"])
+        property_data["url"] = normalized_url
+
         db = SessionLocal()
         try:
-            # Check for existing
+            # Check for existing by normalized URL
             existing = db.query(PropertyFeaturesModel).filter(
-                PropertyFeaturesModel.url == property_data["url"]
+                PropertyFeaturesModel.url == normalized_url
             ).first()
 
             if existing:
@@ -483,6 +606,7 @@ class DemandScanService:
                 experience_gaps=property_data.get("experience_gaps", []),
                 opportunity_lanes=property_data.get("opportunity_lanes", []),
                 competitive_advantages=property_data.get("competitive_advantages", []),
+                positioning_misalignment_flags=property_data.get("positioning_misalignment_flags", []),
                 recommendations=property_data.get("recommendations", []),
                 matching_trend_ids=property_data.get("matching_trend_ids", []),
                 source_content_id=property_data.get("source_content_id"),
@@ -531,10 +655,11 @@ class DemandScanService:
         Returns:
             Property dict or None
         """
+        normalized_url = normalize_url(url)
         db = SessionLocal()
         try:
             prop = db.query(PropertyFeaturesModel).filter(
-                PropertyFeaturesModel.url == url
+                PropertyFeaturesModel.url == normalized_url
             ).first()
 
             return self._model_to_dict(prop) if prop else None
@@ -605,6 +730,7 @@ class DemandScanService:
             "experience_gaps": model.experience_gaps or [],
             "opportunity_lanes": model.opportunity_lanes or [],
             "competitive_advantages": model.competitive_advantages or [],
+            "positioning_misalignment_flags": model.positioning_misalignment_flags or [],
             "recommendations": model.recommendations or [],
             "matching_trend_ids": model.matching_trend_ids or [],
             "scraped_at": model.scraped_at.isoformat() if model.scraped_at else None,

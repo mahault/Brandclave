@@ -216,3 +216,168 @@ async def stop_scheduler():
 
     scheduler.shutdown(wait=False)
     return {"status": "stopped", "message": "Scheduler stopped"}
+
+
+@router.get("/scheduler/pomdp")
+async def get_pomdp_status():
+    """Get POMDP (Active Inference) status and beliefs.
+
+    Returns the current state of the Scraping POMDP including:
+    - Whether POMDP is enabled
+    - Source beliefs (productivity estimates)
+    - Next recommended source
+    - Recommended scraping schedule
+    """
+    scheduler = get_scheduler()
+
+    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
+        return {
+            "enabled": False,
+            "reason": "Scraping POMDP not available or disabled",
+        }
+
+    try:
+        pomdp_status = scheduler.get_pomdp_status()
+        next_source = scheduler.get_next_source_pomdp()
+        schedule = scheduler.get_scraping_schedule_pomdp(budget_minutes=60)
+
+        return {
+            "enabled": True,
+            "status": pomdp_status,
+            "next_recommended_source": next_source,
+            "recommended_schedule": schedule,
+        }
+    except Exception as e:
+        return {
+            "enabled": True,
+            "error": str(e),
+        }
+
+
+@router.post("/scheduler/pomdp/recommend")
+async def get_pomdp_recommendation():
+    """Get POMDP recommendation for next source to scrape.
+
+    Uses Expected Free Energy minimization to balance:
+    - Pragmatic value: sources likely to yield good content
+    - Epistemic value: sources with uncertain state (exploration)
+    """
+    scheduler = get_scheduler()
+
+    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Scraping POMDP not available",
+        )
+
+    return scheduler.get_next_source_pomdp()
+
+
+@router.get("/scheduler/pomdp/beliefs")
+async def get_pomdp_beliefs():
+    """Get detailed POMDP beliefs about each source.
+
+    Shows:
+    - Productivity belief (expected yield)
+    - Freshness belief (how stale the source is)
+    - Time since last scrape
+    - Observation count
+
+    Sources with low freshness have high epistemic value (info gain).
+    """
+    scheduler = get_scheduler()
+
+    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
+        return {
+            "enabled": False,
+            "reason": "Scraping POMDP not available",
+        }
+
+    try:
+        # Trigger staleness update
+        scheduler.scraping_pomdp._update_staleness_beliefs()
+
+        status = scheduler.scraping_pomdp.get_status()
+        sources = status.get("sources", {})
+
+        # Sort by freshness (stalest first)
+        sorted_sources = sorted(
+            sources.items(),
+            key=lambda x: x[1].get("freshness", 1.0)
+        )
+
+        return {
+            "enabled": True,
+            "total_observations": status.get("total_observations", 0),
+            "free_energy": status.get("free_energy", 0),
+            "sources": [
+                {
+                    "name": name,
+                    "productivity": round(info.get("productivity", 0.5), 3),
+                    "freshness": round(info.get("freshness", 0.5), 3),
+                    "error_rate": round(info.get("error_rate", 0), 3),
+                    "observations": info.get("observations", 0),
+                    "last_scraped": info.get("last_scraped"),
+                    "needs_attention": info.get("freshness", 1.0) < 0.3,
+                }
+                for name, info in sorted_sources
+            ],
+        }
+    except Exception as e:
+        return {"enabled": True, "error": str(e)}
+
+
+@router.post("/scheduler/scrape-all")
+async def scrape_all_sources(
+    sources: Optional[list[str]] = Query(None, description="Specific sources to scrape (default: all hospitality)")
+):
+    """Run all scrapers in sequence for initial data collection.
+
+    This is useful for:
+    - Initial setup when database is empty
+    - Manual refresh of all sources
+    - Testing that all scrapers work correctly
+
+    Note: This runs synchronously and may take several minutes.
+    """
+    from scripts.run_crawlers import get_scraper_class, SCRAPERS
+
+    # Default to hospitality sources (not Reddit which has lots of data)
+    if sources is None:
+        sources = [
+            "skift",
+            "hoteldive",
+            "hotelmanagement",
+            "hospitalitynet",
+            "tophotelnews",
+            "ehlinsights",
+            "ehotelier",
+            "siteminder",
+        ]
+
+    results = []
+    for source in sources:
+        if source not in SCRAPERS:
+            results.append({"source": source, "status": "skipped", "error": "Unknown source"})
+            continue
+
+        try:
+            logger.info(f"Running scraper: {source}")
+            scraper_class = get_scraper_class(source)
+            with scraper_class() as scraper:
+                result = scraper.run()
+            results.append({
+                "source": source,
+                "status": "completed",
+                "items": result.get("items_count", 0) or result.get("scraped", 0),
+            })
+        except Exception as e:
+            logger.error(f"Scraper {source} failed: {e}")
+            results.append({"source": source, "status": "failed", "error": str(e)})
+
+    return {
+        "total_sources": len(sources),
+        "completed": sum(1 for r in results if r["status"] == "completed"),
+        "failed": sum(1 for r in results if r["status"] == "failed"),
+        "results": results,
+    }

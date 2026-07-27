@@ -38,8 +38,13 @@ An intelligent system that scrapes hospitality news and social media, uses **PyM
 | **City Desires** | Type a city to discover what travelers want but can't find |
 | **Social Pulse** | AI-detected travel trends from social conversations |
 | **Hotelier Bets** | Strategic moves extracted from hospitality news |
+| **Demand Scan** | Analyze any hotel website against current demand trends |
 | **Content** | Latest scraped articles and posts |
 | **Scrapers** | Status of each data source |
+| **Chat** | RAG-powered assistant over the platform's data |
+| **My Projects** | Saved trends/moves, interest profile, and brand blueprints |
+
+The dashboard follows the SENTIENT design language: warm near-black surfaces, champagne-gold accents, Archivo display type and monospace labels, with a colorblind-safe accent palette (validated in OKLCH for CVD separation and contrast).
 
 ---
 
@@ -151,13 +156,13 @@ Clustering POMDP enabled for adaptive parameter selection
 ### Social Pulse (Trends)
 - Clusters social conversations into trend signals
 - Each trend has: name, description, strength score, region
+- **Click any trend card** to expand and see full details, topics, and source quotes
 - Quality filtering removes garbage like "Tour Advice There Trend"
-- Click sources to see original posts
 
 ### Hotelier Bets (Strategic Moves)
 - Extracts company moves from news: expansions, acquisitions, launches
 - Shows company, move type, market, strategic implications
-- Links to original articles
+- **Click any move card** to expand and see full summary and source links
 
 ### City Desires
 - Type any city (Lisbon, Tokyo, Barcelona, etc.)
@@ -165,14 +170,48 @@ Clustering POMDP enabled for adaptive parameter selection
 - Shows: unmet traveler needs, frustration points, white space opportunities
 - Recommends hotel concepts based on gaps
 
+### Brand Blueprints (Build a Brand)
+- Turns a trend, a saved-research profile, or manual inputs into a full hotel brand concept
+- Five-stage pipeline: foundation, strategic, experience, atmosphere, investor summary
+- Blueprints are persisted and browsable from **My Projects**
+
+### Signal Ledger
+- BrandClave's longitudinal prediction record: every demand hypothesis is captured
+  **timestamped and hash-sealed before the outcome is known**
+- Forecasts must be measurable: metric, predicted range, horizon date, stated confidence, falsifier
+- Evidence accumulates through stages (awareness → engagement → declared intent →
+  willingness to pay → deposit → contract → operating revenue)
+- Outcomes are scored against the sealed forecast; the ledger reports hit rate,
+  mean forecast error and calibration gap as corporate KPIs
+- REST API under `/api/signal-ledger` — this is the dataset that makes demand
+  financeable over time (see the BrandClave Future Strategy doc)
+
 ---
 
 ## Installation (Technical)
 
 ### Requirements
 - Python 3.11+
-- Mistral API key (for embeddings and LLM)
+- **Mistral API key** (required for trend naming and embeddings)
 - Optional: Redis (for caching)
+- Optional: VERSES Genius API (for cloud-based active inference)
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MISTRAL_API_KEY` | **Yes** | For LLM trend naming and embeddings |
+| `GENIUS_API_URL` | No | VERSES Genius agent URL |
+| `GENIUS_API_KEY` | No | VERSES Genius API key |
+| `REDIS_URL` | No | Redis for caching (defaults to in-memory) |
+| `SCHEDULER_ENABLED` | No | Background scraping scheduler (default `true`) |
+| `LOG_FORMAT` | No | `json` (default, production) or `text` (local dev) |
+| `LOG_LEVEL` | No | Logging level (default `INFO`) |
+| `SENTRY_DSN` | No | Enables Sentry error tracking when set |
+
+Configuration is validated at boot by a typed settings object (`config/settings.py`):
+malformed values fail fast with a clear message, and startup logs which integrations
+are configured — never the secret values.
 
 ### Manual Setup
 
@@ -194,6 +233,19 @@ python -c "from db.database import init_db; init_db()"
 # Run the server
 python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
+
+### Cloud Deployment (Render)
+
+The app can be deployed to Render's free tier:
+
+1. Push to GitHub
+2. Create new Web Service on Render, connect repo
+3. Add environment variables in Render dashboard:
+   - `MISTRAL_API_KEY` - your Mistral API key
+   - `SCHEDULER_ENABLED` - set to `true` for auto-scraping
+4. Deploy
+
+**Note:** Free tier has cold starts (~30s) and ephemeral storage. For persistent data, use Render PostgreSQL or an external database.
 
 ### CLI Commands
 
@@ -238,6 +290,11 @@ Hotelier Bets:   GET  /api/hotelier-bets
 City Desires:    POST /api/city-desires
                  GET  /api/city-desires/quick?city=Lisbon
 Demand Scan:     POST /api/demand-scan
+Brand Blueprint: POST /api/brand-blueprint/generate-simple
+Signal Ledger:   POST /api/signal-ledger/predictions
+                 GET  /api/signal-ledger/predictions
+                 POST /api/signal-ledger/predictions/{id}/events
+                 GET  /api/signal-ledger/metrics
 System Health:   GET  /api/monitoring/health
 Metrics:         GET  /api/monitoring/metrics
 ```
@@ -291,11 +348,23 @@ brandclave/
 | "Environment not found" | Run `SETUP_FIRST_TIME.bat` again |
 | No trends showing | Run `POPULATE_DATA.bat` to generate data |
 | LLM rate limited | The system auto-retries with backoff |
-| Poor trend names | Trends are now quality-filtered automatically |
+| Poor trend names like "Tour Advice There Trend" | Add `MISTRAL_API_KEY` to `.env` - LLM generates proper names |
+| Trends show old data | Trends auto-filter to last 7 days; regenerate with `python scripts/regenerate_trends.py` |
 
 ### To Stop the Server
 
 Press `Ctrl+C` in the terminal window, or close it.
+
+---
+
+## Production Engineering
+
+- **Typed settings** — `config/settings.py` validates all configuration at boot and fails fast
+- **Structured logging** — JSON log lines by default (`LOG_FORMAT=text` for local dev); optional Sentry via `SENTRY_DSN`
+- **Resilient HTTP** — `ingestion/http_client.py` gives every scraper and external call explicit timeouts, retries with exponential backoff and jitter, and `Retry-After` handling; a dead source logs and continues — a scrape run never aborts because one source failed
+- **CI** — GitHub Actions runs lint (ruff error gate), the fast test suite, and an app boot check on every push and PR
+
+See `REVIVAL-AND-COMMERCIAL-PLAN.md` §5 for the full production roadmap (next up: managed Postgres + pgvector, Alembic migrations, scheduler as a separate worker).
 
 ---
 
@@ -304,6 +373,9 @@ Press `Ctrl+C` in the terminal window, or close it.
 ### Running Tests
 
 ```bash
+# Fast unit tests (same as CI)
+python -m pytest tests/ingestion -q
+
 # Test API endpoints
 python scripts/test_api_endpoints.py
 

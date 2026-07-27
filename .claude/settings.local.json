@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda run:*)",
+      "Bash(cmd /c \"docker ps\")",
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:brandclave.onrender.com)",
+      "Bash(cat:*)"
+    ]
+  }
+}

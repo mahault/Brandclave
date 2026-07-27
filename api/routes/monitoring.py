@@ -215,6 +215,155 @@ async def get_recent_content(limit: int = Query(20, ge=1, le=100)):
         db.close()
 
 
+@router.post("/monitoring/reindex")
+async def reindex_embeddings(
+    limit: int = Query(100, ge=1, le=1000, description="Maximum items to reindex"),
+    force: bool = Query(False, description="Force reindex all, even if already processed"),
+):
+    """Reindex content embeddings in the vector store.
+
+    Use this if ChromaDB was wiped but database shows content as processed.
+    This will re-embed content and store in the vector store.
+    """
+    from db.database import SessionLocal
+    from db.models import RawContentModel
+    from db.vector_store import get_vector_store
+    from data_models.embeddings import get_embedding_provider
+    from processing.cleaning import clean_text
+
+    db = SessionLocal()
+    try:
+        # Get vector store stats first
+        vector_store = get_vector_store()
+        initial_stats = vector_store.get_collection_stats()
+
+        # Get content to reindex
+        if force:
+            # Reindex all processed content
+            items = db.query(RawContentModel).filter(
+                RawContentModel.is_processed == True
+            ).limit(limit).all()
+        else:
+            # Only reindex items that are processed but might be missing from vector store
+            items = db.query(RawContentModel).filter(
+                RawContentModel.is_processed == True
+            ).limit(limit).all()
+
+        if not items:
+            return {
+                "status": "no_items",
+                "message": "No processed items found to reindex",
+                "initial_vector_count": initial_stats.get("content_count", 0),
+            }
+
+        # Get embedding provider
+        provider = get_embedding_provider()
+
+        # Reindex items
+        success_count = 0
+        error_count = 0
+        errors = []
+
+        for item in items:
+            try:
+                # Clean text
+                text = item.content or ""
+                cleaned = clean_text(text, min_length=50)
+
+                if not cleaned:
+                    continue
+
+                # Generate embedding
+                embedding = provider.embed(cleaned)
+
+                # Store in vector store (will upsert if exists)
+                metadata = {
+                    "source": item.source,
+                    "source_type": item.source_type,
+                    "language": item.language,
+                    "sentiment": item.sentiment_score,
+                }
+
+                vector_store.add_content_embedding(
+                    id=item.id,
+                    embedding=embedding,
+                    text=cleaned[:1000],
+                    metadata=metadata,
+                )
+
+                success_count += 1
+
+            except Exception as e:
+                error_count += 1
+                if len(errors) < 5:
+                    errors.append({"id": item.id, "error": str(e)[:100]})
+
+        # Get final stats
+        final_stats = vector_store.get_collection_stats()
+
+        return {
+            "status": "completed",
+            "items_processed": len(items),
+            "success": success_count,
+            "errors": error_count,
+            "error_samples": errors,
+            "initial_vector_count": initial_stats.get("content_count", 0),
+            "final_vector_count": final_stats.get("content_count", 0),
+        }
+
+    except Exception as e:
+        logger.error(f"Reindex error: {e}")
+        return {"status": "error", "error": str(e)}
+    finally:
+        db.close()
+
+
+@router.get("/monitoring/vector-store")
+async def get_vector_store_stats():
+    """Get vector store statistics and health."""
+    from db.vector_store import get_vector_store
+    from data_models.embeddings import get_embedding_provider
+
+    result = {
+        "status": "unknown",
+        "content_count": 0,
+        "trends_count": 0,
+        "embedding_provider": None,
+        "embedding_dimension": None,
+        "test_search": None,
+    }
+
+    try:
+        # Get vector store stats
+        vector_store = get_vector_store()
+        stats = vector_store.get_collection_stats()
+        result["content_count"] = stats.get("content_count", 0)
+        result["trends_count"] = stats.get("trends_count", 0)
+        result["status"] = "ok"
+
+        # Get embedding provider info
+        provider = get_embedding_provider()
+        result["embedding_provider"] = type(provider).__name__
+
+        # Test embedding
+        test_embedding = provider.embed("test hotel wellness trends")
+        result["embedding_dimension"] = len(test_embedding)
+
+        # Test search if we have content
+        if result["content_count"] > 0:
+            search_results = vector_store.search_similar(test_embedding, n_results=3)
+            result["test_search"] = {
+                "results_found": len(search_results.get("ids", [[]])[0]),
+                "sample_ids": search_results.get("ids", [[]])[0][:3],
+            }
+
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = str(e)
+
+    return result
+
+
 @router.get("/monitoring/debug", response_class=HTMLResponse)
 async def dashboard_debug():
     """Simple debug page to test data loading."""
