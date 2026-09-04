@@ -3412,6 +3412,15 @@ async def dashboard_v2():
         // gold, violet, teal; everything else is the grey field.
         // =============================================
         var SERIES_COLORS = ['#d4af6a', '#8b7ce0', '#3aa88d'];
+        // Copy per demand metric: what the series is, its cadence, and what a "mover" means.
+        var METRIC_COPY = {
+            wikipedia_pageviews: { what: 'Daily destination attention (Wikipedia pageviews)', unit: 'cities', base: 'its own 30-day average', movers: 'week-over-week', period: 'this week' },
+            eurostat_nights_spent: { what: 'Monthly nights spent at hotels and similar accommodation (Eurostat tour_occ_nim)', unit: 'countries', base: 'its own multi-year average', movers: 'month-over-month (seasonal by nature)', period: 'latest month' },
+            airbnb_reviews_per_month: { what: 'Quarterly Airbnb review velocity, the standard short-term-rental occupancy proxy (Inside Airbnb, CC BY 4.0)', unit: 'cities', base: 'its own average', movers: 'snapshot-over-snapshot', period: 'latest snapshot' },
+            airbnb_median_price: { what: 'Quarterly Airbnb median nightly price (Inside Airbnb, CC BY 4.0)', unit: 'cities', base: 'its own average', movers: 'snapshot-over-snapshot', period: 'latest snapshot' },
+            osm_hotels: { what: 'Hotel, hostel and guest-house supply inside each city boundary (OpenStreetMap)', unit: 'cities', base: 'its own average', movers: 'run-over-run', period: 'latest run' }
+        };
+        function metricCopy(metric) { return METRIC_COPY[metric] || { what: metric.replace(/_/g, ' '), unit: 'series', base: 'its own average', movers: 'latest vs previous', period: 'latest' }; }
         var roomData = null;
         var curvesView = 'chart';
 
@@ -3538,7 +3547,7 @@ async def dashboard_v2():
             svg += '</g><g class="axis">';
             ticks.forEach(function (t) { svg += '<text x="' + (padL - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + t + '</text>'; });
             svg += '<line class="baseline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(100) + '" y2="' + y(100) + '"/>';
-            svg += '<text x="' + (padL + 6) + '" y="' + (y(100) - 5) + '" style="fill:rgba(212,175,106,0.7)">30-day average = 100</text>';
+            svg += '<text x="' + (padL + 6) + '" y="' + (y(100) - 5) + '" style="fill:rgba(212,175,106,0.7)">series average = 100</text>';
             [0, Math.floor(n / 2), n - 1].forEach(function (i) {
                 svg += '<text x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + (i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle') + '">' + fmtDate(dates[i]) + '</text>';
             });
@@ -3612,10 +3621,12 @@ async def dashboard_v2():
                     return '<div class="mover ' + cls + '"><span class="name" title="' + esc(c.city) + '">' + esc(c.city) + '</span><div><div class="bar" style="width:' + w + '%"></div></div><span class="pct">' + fmtPct(c.change_pct) + '</span></div>';
                 }).join('');
             };
+            var period = metricCopy(demand.metric).period;
             document.getElementById('movers').innerHTML =
-                '<div><h4>Rising this week</h4>' + mv(demand.movers_up, 'up') + '</div>' +
-                '<div><h4>Cooling this week</h4>' + mv(demand.movers_down, 'down') + '</div>';
-            document.getElementById('curves-sub').textContent = 'Daily destination attention across ' + cities.length + ' cities (' + demand.metric.replace('_', ' ') + '), each indexed to its own 30-day average. The three strongest week-over-week risers are highlighted; the grey field is everyone else.' + (clipped ? ' Axis capped at ' + hi + '; one-day spikes above it run off the top.' : '');
+                '<div><h4>Rising, ' + period + '</h4>' + mv(demand.movers_up, 'up') + '</div>' +
+                '<div><h4>Cooling, ' + period + '</h4>' + mv(demand.movers_down, 'down') + '</div>';
+            var mc = metricCopy(demand.metric);
+            document.getElementById('curves-sub').textContent = mc.what + ' across ' + cities.length + ' ' + mc.unit + ', each indexed to ' + mc.base + ' (= 100). The three strongest ' + mc.movers + ' risers are highlighted; the grey field is everyone else.' + (clipped ? ' Axis capped at ' + hi + '; spikes above it run off the top.' : '');
         }
 
         var curvesMetric = 'wikipedia_pageviews';

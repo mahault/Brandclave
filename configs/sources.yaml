@@ -446,4 +446,4 @@ sources:
     note: "official 8-K filings from hotel operators, REITs and travel platforms via per-company Atom feeds (full-text search endpoint is WAF-gated); SEC asks for a 'Company email' UA and <=10 req/s"
     config:
       forms: [8-K]
-      per_company: 5
+      per_company: 3
