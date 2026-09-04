@@ -170,7 +170,6 @@ sources:
         - { city: "Mexico City", country: "Mexico", osm_admin_level: 4 }
         - { city: "Buenos Aires", country: "Argentina", osm_admin_level: 4 }
         - { city: "Istanbul", country: "Turkey", osm_admin_level: 4 }
-        - { city: "Dubai", country: "UAE", osm_admin_level: 4 }
         - { city: "Reykjavik", country: "Iceland", osm_admin_level: 6 }
         - { city: "Bangkok", country: "Thailand", osm_admin_level: 4 }
         - { city: "Seoul", country: "South Korea", osm_admin_level: 4 }
