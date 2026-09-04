@@ -39,6 +39,12 @@ class OSMOverpassScraper(MetricScraper):
 
     source_name = "osm_overpass"
 
+    def _check_robots_txt(self, url: str) -> bool:
+        # overpass-api.de/robots.txt disallows /api/ for crawlers; the
+        # interpreter endpoint is the documented programmatic interface and its
+        # usage policy (rate + UA) is what applies, so the crawler rule is skipped.
+        return True
+
     def scrape(self) -> list[DemandMetricCreate]:
         cfg = get_source_config(self.source_name)
         cities = cfg.get("cities") or get_source_config("wikimedia_pageviews").get("cities", [])

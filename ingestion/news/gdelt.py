@@ -27,11 +27,20 @@ logger = logging.getLogger(__name__)
 API_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 USER_AGENT = "BrandClaveDemandBot/1.0 (https://github.com/mahault/Brandclave; mahault.albarracin@gmail.com)"
 MIN_INTERVAL_SECONDS = 5.5
+# Phrase queries only: a bare "hotel" matches every celebrity story that
+# mentions one. Each phrase names an industry event or a demand pattern.
 DEFAULT_QUERIES = [
-    '(hotel OR hotels OR resort) (opens OR opening OR acquires OR acquisition OR launches OR rebrand) sourcelang:english',
-    '("boutique hotel" OR "lifestyle hotel" OR "hospitality brand") sourcelang:english',
-    '("digital nomad" OR "workcation" OR "wellness retreat" OR "hotel demand") sourcelang:english',
+    '("hotel opening" OR "new hotel" OR "hotel group" OR "hotel brand" OR "hotel acquisition" OR "hotel development") sourcelang:english',
+    '("boutique hotel" OR "lifestyle hotel" OR "hospitality group" OR "resort opening" OR "hotel portfolio") sourcelang:english',
+    '("digital nomad" OR "workcation" OR "wellness retreat" OR "hotel demand" OR "hotel occupancy" OR "short-term rental") sourcelang:english',
 ]
+
+# The title must itself be about the industry; GDELT's relevance is loose.
+TITLE_TERMS = re.compile(
+    r"\b(hotel|hotels|hotelier|resort|resorts|hospitality|hostel|lodging|inn|airbnb|short-term rental|"
+    r"digital nomad|workcation|retreat|boutique|marriott|hilton|hyatt|accor|ihg|wyndham|four seasons|aman|six senses)\b",
+    re.I,
+)
 
 
 class GDELTScraper(BaseScraper):
@@ -71,8 +80,11 @@ class GDELTScraper(BaseScraper):
             except ValueError:
                 logger.warning("GDELT returned non-JSON (likely throttled); continuing")
 
+        relevant = {u: a for u, a in articles.items() if TITLE_TERMS.search(a.get("title") or "")}
+        logger.info(f"GDELT: {len(relevant)} of {len(articles)} articles pass the title gate")
+
         items: list[RawContentCreate] = []
-        for i, (url, article) in enumerate(articles.items()):
+        for i, (url, article) in enumerate(relevant.items()):
             title = (article.get("title") or "").strip()
             if not title:
                 continue
