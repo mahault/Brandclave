@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from .base import BaseStage, PipelineContext
+from .base import BaseStage, PipelineContext, coerce_text
 from services.brand_blueprint.prompts import (
     SUMMARY_SYSTEM_PROMPT,
     SUMMARY_USER_TEMPLATE,
@@ -99,7 +99,7 @@ class SummaryStage(BaseStage):
             raise ValueError("Missing investor_summary")
 
         return {
-            "investor_summary": data["investor_summary"].strip(),
+            "investor_summary": coerce_text(data["investor_summary"]),
         }
 
     def get_fallback(self, context: PipelineContext) -> dict[str, Any]:

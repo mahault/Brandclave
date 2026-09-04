@@ -752,7 +752,7 @@ class DemandScanService:
             + "JSON:"
         )
         try:
-            raw = llm.generate(prompt, system_prompt, max_tokens=500, temperature=0.4).strip()
+            raw = llm.generate(prompt, system_prompt, max_tokens=500, temperature=0.4, json_mode=True).strip()
             if raw.startswith("```"):
                 raw = raw.strip("`")
                 if raw.lower().startswith("json"):

@@ -14,6 +14,79 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+
+def coerce_text(value) -> str:
+    """Return a clean string for a field the model was asked to fill with text.
+
+    Smaller models sometimes answer {"name": "..."} or ["..."] where a string was
+    requested. A blueprint stage should read through that rather than fail the
+    whole pipeline on .strip().
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for key in ("text", "name", "value", "description", "content"):
+            if isinstance(value.get(key), str):
+                return value[key].strip()
+        parts = [coerce_text(v) for v in value.values()]
+        return " ".join(p for p in parts if p)
+    if isinstance(value, (list, tuple)):
+        return "; ".join(p for p in (coerce_text(v) for v in value) if p)
+    return str(value).strip()
+
+
+
+def _repair_json(text: str) -> str:
+    """Best-effort repair of the JSON shapes smaller models produce.
+
+    Handles: leading prose before the first brace, trailing commas before a
+    closing bracket, and output truncated mid-document (unterminated string,
+    unclosed arrays/objects). Anything else still fails at json.loads.
+    """
+    start = text.find("{")
+    if start == -1:
+        return text
+    body = text[start:]
+
+    # Walk once to find where a balanced document ends, or how it was cut off.
+    depth_stack: list[str] = []
+    in_string = False
+    escape = False
+    end = None
+    for i, ch in enumerate(body):
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            depth_stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            if depth_stack:
+                depth_stack.pop()
+            if not depth_stack:
+                end = i + 1
+                break
+    if end is not None:
+        body = body[:end]
+    else:
+        # Truncated: close the open string, drop a dangling partial token, close containers.
+        if in_string:
+            body += '"'
+        body = re.sub(r",\s*\"?[^\"\]\},]*$", "", body)
+        body += "".join(reversed(depth_stack))
+
+    body = re.sub(r",\s*([\]\}])", r"\1", body)  # trailing commas
+    return body
+
+
 class PipelineContext:
     """Context passed between pipeline stages."""
 
@@ -184,10 +257,20 @@ class BaseStage(ABC):
         last_error = None
         for attempt in range(self.max_retries + 1):
             try:
-                # Call LLM
+                # After a parse failure, restate the contract: smaller fallback
+                # models drift into prose unless told again to answer in JSON only.
+                prompt = user_prompt
+                if attempt > 0:
+                    prompt = (
+                        user_prompt
+                        + "\n\nIMPORTANT: Respond with a single valid JSON object and nothing else. "
+                        "No prose, no markdown fences, no comments."
+                    )
                 response, input_tokens, output_tokens = await self._call_llm(
-                    system_prompt, user_prompt
+                    system_prompt, prompt
                 )
+                if not response or not response.strip():
+                    raise ValueError("Empty response from LLM")
 
                 # Track tokens
                 context.add_tokens(input_tokens, output_tokens)
@@ -200,7 +283,8 @@ class BaseStage(ABC):
 
             except Exception as e:
                 last_error = e
-                logger.warning(f"Stage {self.name} attempt {attempt + 1} failed: {e}")
+                head = (response or "")[:240].replace("\n", " ") if "response" in locals() else ""
+                logger.warning(f"Stage {self.name} attempt {attempt + 1} failed: {e} | response head: {head!r}")
                 if attempt < self.max_retries:
                     continue
 
@@ -231,11 +315,18 @@ class BaseStage(ABC):
                 ],
                 temperature=0.7,
                 max_tokens=2000,
+                json_mode=True,
             )
 
             # Handle both dict and LLMResponse objects
             if hasattr(result, "content"):
                 response_text = result.content
+                # Some models return content as a list of chunks
+                if isinstance(response_text, list):
+                    response_text = "".join(
+                        (c.get("text", "") if isinstance(c, dict) else getattr(c, "text", str(c)))
+                        for c in response_text
+                    )
                 # Try to get token usage from raw response
                 raw = getattr(result, "raw", None)
                 if raw and hasattr(raw, "usage"):
@@ -267,24 +358,26 @@ class BaseStage(ABC):
         Returns:
             Parsed JSON dict
         """
-        # Try to find JSON in code blocks first
-        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        candidates = []
+        # Code block first (with or without a closing fence: long answers get
+        # cut at max_tokens before the fence arrives)
+        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)(?:```|$)', text)
         if json_match:
-            try:
-                return json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                pass
+            candidates.append(json_match.group(1))
+        # Then the first brace onwards
+        brace = text.find("{")
+        if brace != -1:
+            candidates.append(text[brace:])
+        candidates.append(text)
 
-        # Try to find JSON object directly
-        json_match = re.search(r'\{[\s\S]*\}', text)
-        if json_match:
+        first_error: Exception | None = None
+        for candidate in candidates:
             try:
-                return json.loads(json_match.group(0))
+                return json.loads(candidate, strict=False)
+            except json.JSONDecodeError as e:
+                first_error = first_error or e
+            try:
+                return json.loads(_repair_json(candidate), strict=False)
             except json.JSONDecodeError:
-                pass
-
-        # Last resort: try the whole text
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Could not parse JSON from response: {e}")
+                continue
+        raise ValueError(f"Could not parse JSON from response: {first_error}")

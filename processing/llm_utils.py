@@ -13,6 +13,31 @@ logger = logging.getLogger(__name__)
 # tier's open-weights allowance and share none of mistral-small's quota.
 FALLBACK_MODELS = ["open-mistral-nemo", "ministral-8b-latest"]
 
+# Process-wide memory of which models are currently throttled, so a five-stage
+# pipeline does not pay the 429-and-wait tax on every stage. Entries expire.
+_THROTTLED_UNTIL: dict[str, float] = {}
+THROTTLE_COOLDOWN_SECONDS = 180.0
+
+
+def mark_throttled(model: str) -> None:
+    import time
+
+    _THROTTLED_UNTIL[model] = time.time() + THROTTLE_COOLDOWN_SECONDS
+
+
+def is_throttled(model: str) -> bool:
+    import time
+
+    return _THROTTLED_UNTIL.get(model, 0.0) > time.time()
+
+
+def model_chain(primary: str) -> list[str]:
+    """Primary then fallbacks, with recently throttled models moved to the end."""
+    ordered = [primary] + [m for m in FALLBACK_MODELS if m != primary]
+    ready = [m for m in ordered if not is_throttled(m)]
+    cooling = [m for m in ordered if is_throttled(m)]
+    return ready + cooling
+
 
 class MistralLLM:
     """Wrapper for Mistral API text generation with rate limiting."""
@@ -65,6 +90,7 @@ class MistralLLM:
         system_prompt: str | None = None,
         max_tokens: int = 500,
         temperature: float = 0.7,
+        json_mode: bool = False,
     ) -> str:
         """Generate text from prompt with retry logic.
 
@@ -88,18 +114,20 @@ class MistralLLM:
         # does not mean the key is exhausted: after two throttled attempts, fall
         # through to the next model in the chain rather than burning all retries
         # on one that will keep saying 429.
-        models = [self.model] + [m for m in FALLBACK_MODELS if m != self.model]
+        models = model_chain(self.model)
         attempt = 0
         for model_index, model in enumerate(models):
             throttled_here = 0
             while attempt < self.max_retries:
                 try:
                     self._wait_for_rate_limit()
+                    extra = {"response_format": {"type": "json_object"}} if json_mode else {}
                     response = self.client.chat.complete(
                         model=model,
                         messages=messages,
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        **extra,
                     )
                     if model != self.model:
                         logger.info(f"LLM served by fallback model {model}")
@@ -111,8 +139,9 @@ class MistralLLM:
                         raise
                     attempt += 1
                     throttled_here += 1
-                    if throttled_here >= 2 and model_index < len(models) - 1:
-                        logger.warning(f"LLM model {model} rate limited twice, trying {models[model_index + 1]}")
+                    mark_throttled(model)
+                    if model_index < len(models) - 1:
+                        logger.warning(f"LLM model {model} rate limited, trying {models[model_index + 1]}")
                         break
                     wait_time = min(30.0, 2.0 * (2 ** throttled_here) + 1)
                     logger.warning(f"LLM rate limited on {model}, waiting {wait_time:.1f}s (attempt {attempt}/{self.max_retries})")

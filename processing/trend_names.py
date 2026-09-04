@@ -7,6 +7,18 @@ all need the same answer to "are these two the same theme?", so it lives here.
 """
 
 
+def strip_markdown(text: str | None) -> str:
+    """Remove the emphasis and heading markers LLMs leak into plain-text fields.
+
+    Smaller chat models answer "**Heritage Revival Hubs**" when asked for a
+    name; the asterisks would otherwise be stored and rendered literally.
+    """
+    import re
+
+    cleaned = re.sub(r"\*\*|__|^#+\s*", "", text or "", flags=re.M)
+    return cleaned.strip().strip('"').strip()
+
+
 def normalize_trend_title(name: str) -> str:
     """Collapse quoting, case, plural and trailing-noun noise into a dedupe key.
 

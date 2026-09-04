@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from .base import BaseStage, PipelineContext
+from .base import BaseStage, PipelineContext, coerce_text
 from services.brand_blueprint.prompts import (
     ATMOSPHERE_SYSTEM_PROMPT,
     ATMOSPHERE_USER_TEMPLATE,
@@ -86,9 +86,9 @@ class AtmosphereStage(BaseStage):
             for f in raw_fnb[:4]:  # Max 4
                 if isinstance(f, dict) and "name" in f:
                     fnb_concepts.append({
-                        "name": f.get("name", "").strip(),
-                        "concept": f.get("concept", "").strip(),
-                        "vibe": f.get("vibe", "").strip(),
+                        "name": coerce_text(f.get("name", "")),
+                        "concept": coerce_text(f.get("concept", "")),
+                        "vibe": coerce_text(f.get("vibe", "")),
                     })
 
         # Validate revenue logic
@@ -96,9 +96,9 @@ class AtmosphereStage(BaseStage):
             raise ValueError("Missing revenue_logic")
 
         return {
-            "design_direction": data["design_direction"].strip(),
+            "design_direction": coerce_text(data["design_direction"]),
             "fnb_concepts": fnb_concepts,
-            "revenue_logic": data["revenue_logic"].strip(),
+            "revenue_logic": coerce_text(data["revenue_logic"]),
         }
 
     def get_fallback(self, context: PipelineContext) -> dict[str, Any]:

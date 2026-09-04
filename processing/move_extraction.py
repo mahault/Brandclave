@@ -66,7 +66,7 @@ Extract the following in JSON format:
 JSON response:"""
 
     try:
-        response = llm.generate(prompt, system_prompt, max_tokens=500, temperature=0.3)
+        response = llm.generate(prompt, system_prompt, max_tokens=500, temperature=0.3, json_mode=True)
 
         # Clean response - extract JSON
         response = response.strip()

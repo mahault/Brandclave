@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from .base import BaseStage, PipelineContext
+from .base import BaseStage, PipelineContext, coerce_text
 from services.brand_blueprint.prompts import (
     STRATEGIC_SYSTEM_PROMPT,
     STRATEGIC_USER_TEMPLATE,
@@ -76,7 +76,8 @@ RESEARCH CONTEXT:
         if "pillars" not in data or not isinstance(data["pillars"], list):
             raise ValueError("Missing or invalid pillars")
 
-        pillars = [p.strip() for p in data["pillars"] if p and isinstance(p, str)]
+        pillars = [coerce_text(p) for p in data["pillars"] if p]
+        pillars = [p for p in pillars if p]
         if len(pillars) < 3:
             raise ValueError("Need at least 3 pillars")
 
@@ -93,15 +94,15 @@ RESEARCH CONTEXT:
             for desire in raw_desires:
                 if isinstance(desire, dict) and "desire" in desire:
                     unmet_desires.append({
-                        "desire": desire.get("desire", "").strip(),
-                        "how_solved": desire.get("how_solved", "").strip(),
+                        "desire": coerce_text(desire.get("desire", "")),
+                        "how_solved": coerce_text(desire.get("how_solved", "")),
                         "linked_trend_id": desire.get("linked_trend_id"),
                         "demand_strength": float(desire.get("demand_strength", 0.5)),
                     })
 
         return {
             "pillars": pillars,
-            "positioning_statement": data["positioning_statement"].strip(),
+            "positioning_statement": coerce_text(data["positioning_statement"]),
             "unmet_desires_solved": unmet_desires,
         }
 

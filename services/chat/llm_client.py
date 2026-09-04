@@ -53,6 +53,7 @@ class MistralLLMClient:
         messages: list[dict],
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        json_mode: bool = False,
         **kwargs,
     ) -> LLMResponse:
         """Generate a chat response.
@@ -69,17 +70,19 @@ class MistralLLMClient:
         # Free-tier rate limits are per model; when the configured model is
         # throttled, the open-weights models still answer. Same chain as
         # processing.llm_utils so every LLM surface degrades the same way.
-        from processing.llm_utils import FALLBACK_MODELS
+        from processing.llm_utils import mark_throttled, model_chain
 
-        models = [self.model] + [m for m in FALLBACK_MODELS if m != self.model]
+        models = model_chain(self.model)
         last_error: Exception | None = None
         for model in models:
             try:
+                extra = {"response_format": {"type": "json_object"}} if json_mode else {}
                 response = self.client.chat.complete(
                     model=model,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    **extra,
                 )
                 if model != self.model:
                     logger.info(f"Chat served by fallback model {model}")
@@ -89,6 +92,7 @@ class MistralLLMClient:
             except Exception as e:
                 last_error = e
                 if "429" in str(e) or "rate" in str(e).lower():
+                    mark_throttled(model)
                     logger.warning(f"Mistral chat rate limited on {model}, trying next model")
                     continue
                 logger.error(f"Mistral chat failed: {e}")

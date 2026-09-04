@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from .base import BaseStage, PipelineContext
+from .base import BaseStage, PipelineContext, coerce_text
 from services.brand_blueprint.prompts import (
     EXPERIENCE_SYSTEM_PROMPT,
     EXPERIENCE_USER_TEMPLATE,
@@ -83,9 +83,9 @@ TARGET SEGMENTS FROM RESEARCH:
             for p in raw_personas[:3]:  # Max 3
                 if isinstance(p, dict) and "name" in p:
                     personas.append({
-                        "name": p.get("name", "").strip(),
-                        "description": p.get("description", "").strip(),
-                        "spend_behavior": p.get("spend_behavior", "").strip(),
+                        "name": coerce_text(p.get("name", "")),
+                        "description": coerce_text(p.get("description", "")),
+                        "spend_behavior": coerce_text(p.get("spend_behavior", "")),
                     })
 
         if len(personas) < 2:
@@ -98,9 +98,9 @@ TARGET SEGMENTS FROM RESEARCH:
             for e in raw_exp[:5]:  # Max 5
                 if isinstance(e, dict) and "name" in e:
                     experiences.append({
-                        "name": e.get("name", "").strip(),
-                        "description": e.get("description", "").strip(),
-                        "why_it_matters": e.get("why_it_matters", "").strip(),
+                        "name": coerce_text(e.get("name", "")),
+                        "description": coerce_text(e.get("description", "")),
+                        "why_it_matters": coerce_text(e.get("why_it_matters", "")),
                     })
 
         if len(experiences) < 3:
@@ -112,9 +112,9 @@ TARGET SEGMENTS FROM RESEARCH:
             raise ValueError("Invalid guest_journey format")
 
         guest_journey = {
-            "arrival": journey.get("arrival", "").strip(),
-            "stay": journey.get("stay", "").strip(),
-            "departure": journey.get("departure", "").strip(),
+            "arrival": coerce_text(journey.get("arrival", "")),
+            "stay": coerce_text(journey.get("stay", "")),
+            "departure": coerce_text(journey.get("departure", "")),
         }
 
         if not all(guest_journey.values()):

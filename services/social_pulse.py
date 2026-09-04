@@ -9,6 +9,7 @@ from db.models import TrendSignalModel, RawContentModel
 from processing.clustering import ContentClusterer, Cluster, get_content_for_cluster
 from processing.scoring import TrendScorer, get_metrics_dict
 from processing.llm_utils import generate_trend_insights, get_llm
+from processing.trend_names import strip_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -212,9 +213,9 @@ class SocialPulseService:
 
         return {
             "cluster_id": str(cluster.cluster_id),
-            "name": trend_name,
-            "description": insights.get("description", ""),
-            "why_it_matters": insights.get("why_it_matters", ""),
+            "name": strip_markdown(trend_name),
+            "description": strip_markdown(insights.get("description", "")),
+            "why_it_matters": strip_markdown(insights.get("why_it_matters", "")),
             "strength_score": metrics.strength_score,
             "white_space_score": metrics.white_space_score,
             "volume": metrics.volume,
@@ -324,9 +325,9 @@ class SocialPulseService:
         why_it_matters = "This emerging pattern indicates shifting traveler preferences that hospitality businesses should monitor for potential opportunities."
 
         return {
-            "name": name,
-            "description": description,
-            "why_it_matters": why_it_matters,
+            "name": strip_markdown(name),
+            "description": strip_markdown(description),
+            "why_it_matters": strip_markdown(why_it_matters),
             "topics": topics,
         }
 

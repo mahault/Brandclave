@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from .base import BaseStage, PipelineContext
+from .base import BaseStage, PipelineContext, coerce_text
 from services.brand_blueprint.prompts import (
     FOUNDATION_SYSTEM_PROMPT,
     FOUNDATION_USER_TEMPLATE,
@@ -88,12 +88,12 @@ Build the brand to capitalize on this trend.
 
         return {
             "brand_names": {
-                "primary": brand_names["primary"].strip(),
-                "alternate_1": brand_names["alternate_1"].strip(),
-                "alternate_2": brand_names["alternate_2"].strip(),
+                "primary": coerce_text(brand_names["primary"]),
+                "alternate_1": coerce_text(brand_names["alternate_1"]),
+                "alternate_2": coerce_text(brand_names["alternate_2"]),
             },
-            "one_liner": data["one_liner"].strip(),
-            "thesis": data["thesis"].strip(),
+            "one_liner": coerce_text(data["one_liner"]),
+            "thesis": coerce_text(data["thesis"]),
         }
 
     def get_fallback(self, context: PipelineContext) -> dict[str, Any]:
