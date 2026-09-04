@@ -34,11 +34,12 @@ An intelligent system that scrapes hospitality news and social media, uses **PyM
 
 | Tab | What It Shows |
 |-----|---------------|
-| **Overview** | Quick stats: content count, trends found, moves extracted |
+| **Overview (Signal Room)** | KPIs with 7-day deltas, demand curves per city (Wikimedia pageviews, indexed), trend movers, latest operator bets, the active-inference attention model, source coverage; stake a prediction from any trend |
 | **City Desires** | Type a city to discover what travelers want but can't find |
 | **Social Pulse** | AI-detected travel trends from social conversations |
 | **Hotelier Bets** | Strategic moves extracted from hospitality news |
-| **Demand Scan** | Analyze any hotel website against current demand trends |
+| **Demand Scan** | Analyze any hotel website against current demand trends: semantic fit (mistral-embed), alignment per trend, gaps, adjacent white space, and an LLM-written brief |
+| **Signal Ledger** | Sealed, hash-stamped predictions with forecasts, falsifiers, evidence trail and accuracy KPIs |
 | **Content** | Latest scraped articles and posts |
 | **Scrapers** | Status of each data source |
 | **Chat** | RAG-powered assistant over the platform's data |
@@ -201,6 +202,8 @@ Clustering POMDP enabled for adaptive parameter selection
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `MISTRAL_API_KEY` | **Yes** | For LLM trend naming and embeddings |
+| `BLUESKY_HANDLE` | For Bluesky | Full handle (e.g. `name.bsky.social`); public search is WAF-blocked, so an authenticated session is required |
+| `BLUESKY_APP_PASSWORD` | For Bluesky | An app password from Settings → Privacy and security → App passwords, never the account password |
 | `GENIUS_API_URL` | No | VERSES Genius agent URL |
 | `GENIUS_API_KEY` | No | VERSES Genius API key |
 | `REDIS_URL` | No | Redis for caching (defaults to in-memory) |
