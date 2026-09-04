@@ -1,5 +1,12 @@
 # Devlog
 
+## 2026-09-04
+- Revived the checkout on a new machine: no conda available, so the toolchain is now `uv` + a local `.venv` on CPython 3.11.15 (system Python here is 3.14, which the pinned stack does not support). All 58 tests green, ruff CI gate clean, app boots.
+- Schema caught up with the code: the committed `brandclave.db` was a January snapshot holding only 5 tables. Created the four missing ones (`users`, `saved_items`, `prediction_records`, `ledger_events`) from model metadata and stamped Alembic at `5cc92be0ef43`.
+- Source health check against all 14 active sources: 11 live, 1,092 new items (YouTube 48, Wikimedia 837 metric points, plus nine news feeds). `ehlinsights` and `quora` returned 0 and need selector work; both are non-blocking.
+- **Bluesky re-fixed.** July's workaround is dead: `api.bsky.app`'s searchPosts now 403s scripted clients behind the same openresty WAF that took out `public.api.bsky.app`. `bsky.social` answers 401 rather than 403, i.e. it serves the lexicon to an authenticated caller, so the scraper now creates an AT Protocol session from `BLUESKY_HANDLE` + `BLUESKY_APP_PASSWORD` and searches with the access JWT. The token is cached process-wide and refreshed once on expiry, with the refreshed token carried forward so later queries in the same run reuse it. Missing or rejected credentials log and return empty rather than failing the run.
+- Fixed a silent-failure trap in the NLP pipeline. The Chroma collection was built with Mistral's 1024-wide vectors, so running under the local sentence-transformers fallback (384-wide) failed *every* insert with a per-item error and a `successful: 0` summary — 200 identical errors and no statement of the cause. `VectorStore.assert_dimension()` now checks once before a batch and raises `EmbeddingDimensionMismatch` naming both widths and both remedies. `scripts/rebuild_vector_store.py` re-embeds the corpus when deliberately switching providers.
+
 ## 2026-07-27 (night)
 - Postgres-ready: Alembic wired to app settings (baseline `5cc92be0ef43`, all 11 tables, regression test vs model metadata), psycopg3 driver, provider-URL normalization (postgres:// → postgresql+psycopg://), pool_pre_ping + pooling on PG engines. Local DB stamped at baseline.
 - Scheduler extracted to a standalone worker entrypoint (`scripts/run_worker.py`) per plan §5.6.

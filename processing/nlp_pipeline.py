@@ -188,6 +188,12 @@ class NLPPipeline:
         """
         results = []
 
+        # A provider/store dimension clash makes every single insert fail with an
+        # identical error. Check once so the run stops with one clear message
+        # instead of burning the whole batch on the same misconfiguration.
+        if contents:
+            self._assert_embedding_dimension()
+
         for content in contents:
             result = self.process_content(content)
             results.append(result)
@@ -196,6 +202,11 @@ class NLPPipeline:
                 self._update_content_in_db(content.id, result)
 
         return results
+
+    def _assert_embedding_dimension(self) -> None:
+        """Verify the provider's vector width matches the persisted collection."""
+        probe = self.embedding_provider.embed("dimension probe")
+        self.vector_store.assert_dimension(len(probe))
 
     def _update_content_in_db(self, content_id: str, result: ProcessingResult) -> None:
         """Update content record with processing results."""

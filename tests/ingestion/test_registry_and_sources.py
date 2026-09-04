@@ -1,13 +1,16 @@
 """Tests for the source registry and the Bluesky / Wikimedia scrapers."""
 
+from contextlib import contextmanager
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
 import pytest
 
 from ingestion.registry import active_sources, get_registry, get_scraper_class, get_source
-from ingestion.social.bluesky_scraper import BlueskyScraper
+from ingestion.social import bluesky_scraper
+from ingestion.social.bluesky_scraper import BlueskyAuthError, BlueskyScraper
 from ingestion.metrics.wikimedia_pageviews import WikimediaPageviewsScraper
 
 
@@ -74,15 +77,35 @@ def _bluesky_scraper_with_transport(handler) -> BlueskyScraper:
     return scraper
 
 
+@contextmanager
+def _bluesky_credentials(handle="brandclave.bsky.social", password="app-pw"):
+    """Stand in for a configured account and a live AT Protocol session.
+
+    Search requires an authenticated session since the public AppViews began
+    403ing scripted clients, so every parsing test needs both a handle/password
+    in settings and a session that hands back a token.
+    """
+    settings = SimpleNamespace(bluesky_handle=handle, bluesky_app_password=password)
+    bluesky_scraper._SESSIONS.clear()
+    with patch.object(bluesky_scraper, "get_settings", return_value=settings), patch.object(
+        bluesky_scraper, "_create_session", return_value="access-jwt"
+    ):
+        yield
+    bluesky_scraper._SESSIONS.clear()
+
+
 def test_bluesky_parses_posts():
     def handler(request):
         assert "searchPosts" in str(request.url)
+        # Search is only served to an authenticated session.
+        assert request.headers["Authorization"] == "Bearer access-jwt"
         return httpx.Response(200, json={"posts": [BSKY_POST]})
 
     with patch("ingestion.social.bluesky_scraper.get_source_config") as cfg:
         cfg.return_value = {"queries": ["boutique hotel"], "max_per_query": 10, "lang": "en"}
-        scraper = _bluesky_scraper_with_transport(handler)
-        items = scraper.scrape()
+        with _bluesky_credentials():
+            scraper = _bluesky_scraper_with_transport(handler)
+            items = scraper.scrape()
 
     assert len(items) == 1
     item = items[0]
@@ -100,7 +123,7 @@ def test_bluesky_dead_api_returns_empty_not_raises():
 
     with patch("ingestion.social.bluesky_scraper.get_source_config") as cfg:
         cfg.return_value = {"queries": ["hotel stay"], "max_per_query": 10}
-        with patch("ingestion.http_client._sleep"):
+        with patch("ingestion.http_client._sleep"), _bluesky_credentials():
             scraper = _bluesky_scraper_with_transport(handler)
             assert scraper.scrape() == []
 
@@ -117,8 +140,60 @@ def test_bluesky_skips_empty_and_malformed_posts():
 
     with patch("ingestion.social.bluesky_scraper.get_source_config") as cfg:
         cfg.return_value = {"queries": ["q"], "max_per_query": 10}
+        with _bluesky_credentials():
+            scraper = _bluesky_scraper_with_transport(handler)
+            assert len(scraper.scrape()) == 1
+
+
+def test_bluesky_without_credentials_skips_instead_of_failing():
+    """No handle/password is a configuration gap, not a run-ending error."""
+
+    def handler(request):  # pragma: no cover - must never be reached
+        raise AssertionError("Bluesky should not be queried without credentials")
+
+    settings = SimpleNamespace(bluesky_handle=None, bluesky_app_password=None)
+    with patch.object(bluesky_scraper, "get_settings", return_value=settings):
         scraper = _bluesky_scraper_with_transport(handler)
-        assert len(scraper.scrape()) == 1
+        assert scraper.scrape() == []
+
+
+def test_bluesky_auth_failure_skips_source():
+    """Bad credentials degrade to an empty result so the rest of the run survives."""
+
+    def handler(request):  # pragma: no cover - must never be reached
+        raise AssertionError("Bluesky should not be queried without a session")
+
+    settings = SimpleNamespace(bluesky_handle="h.bsky.social", bluesky_app_password="wrong")
+    bluesky_scraper._SESSIONS.clear()
+    with patch.object(bluesky_scraper, "get_settings", return_value=settings), patch.object(
+        bluesky_scraper, "_create_session", side_effect=BlueskyAuthError("rejected")
+    ):
+        scraper = _bluesky_scraper_with_transport(handler)
+        assert scraper.scrape() == []
+    bluesky_scraper._SESSIONS.clear()
+
+
+def test_bluesky_refreshes_expired_token_once():
+    """An expired token is retried with a fresh session, not abandoned."""
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(401, json={"error": "ExpiredToken"})
+        assert request.headers["Authorization"] == "Bearer refreshed-jwt"
+        return httpx.Response(200, json={"posts": [BSKY_POST]})
+
+    settings = SimpleNamespace(bluesky_handle="h.bsky.social", bluesky_app_password="pw")
+    bluesky_scraper._SESSIONS.clear()
+    with patch("ingestion.social.bluesky_scraper.get_source_config") as cfg:
+        cfg.return_value = {"queries": ["q"], "max_per_query": 10}
+        with patch.object(bluesky_scraper, "get_settings", return_value=settings), patch.object(
+            bluesky_scraper, "_create_session", side_effect=["access-jwt", "refreshed-jwt"]
+        ), patch("ingestion.http_client._sleep"):
+            scraper = _bluesky_scraper_with_transport(handler)
+            assert len(scraper.scrape()) == 1
+    bluesky_scraper._SESSIONS.clear()
 
 
 # ── Wikimedia pageviews ──────────────────────────────────────────────────────

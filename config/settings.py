@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     genius_license_key: Optional[str] = None
     sentry_dsn: Optional[str] = None
 
+    # Bluesky (AT Protocol). Unauthenticated searchPosts is now WAF-blocked on
+    # every public AppView (403, verified 2026-09-04); bsky.social answers 401,
+    # i.e. it serves the same lexicon to an authenticated session. Use a handle
+    # plus an app password from Settings -> Privacy and security -> App passwords
+    # (never the account password). Absent these, the scraper no-ops with a warning.
+    bluesky_handle: Optional[str] = None
+    bluesky_app_password: Optional[str] = None
+
     # --- Auth ---
     # Secret used to sign JWT access tokens (env JWT_SECRET). Optional: when
     # unset, services.auth generates an ephemeral secret at boot and logs a

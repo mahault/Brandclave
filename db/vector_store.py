@@ -12,6 +12,10 @@ load_dotenv()
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
 
 
+class EmbeddingDimensionMismatch(RuntimeError):
+    """The configured embedding provider disagrees with the persisted store."""
+
+
 class VectorStore:
     """ChromaDB wrapper for managing embeddings."""
 
@@ -39,6 +43,35 @@ class VectorStore:
         self.trends_collection = self.client.get_or_create_collection(
             name="trend_clusters",
             metadata={"description": "Trend cluster centroids"},
+        )
+
+    def content_dimension(self) -> int | None:
+        """Width of the vectors already stored, or None for an empty collection.
+
+        A Chroma collection's dimension is fixed by its first insert, so a store
+        built with one embedding provider silently rejects every vector from
+        another (Mistral is 1024-wide, sentence-transformers 384). Callers use
+        this to fail once with an explanation instead of per item.
+        """
+        peek = self.content_collection.peek(limit=1)
+        embeddings = peek.get("embeddings")
+        if embeddings is None or len(embeddings) == 0:
+            return None
+        return len(embeddings[0])
+
+    def assert_dimension(self, dimension: int) -> None:
+        """Raise if `dimension` disagrees with what the collection already holds."""
+        existing = self.content_dimension()
+        if existing is None or existing == dimension:
+            return
+        raise EmbeddingDimensionMismatch(
+            f"Vector store at {self.persist_dir} holds {existing}-dimensional "
+            f"embeddings but the configured provider produces {dimension}. "
+            "Mistral embeddings are 1024-wide and the sentence-transformers "
+            "fallback is 384-wide, so the two cannot share a collection. Either "
+            "set MISTRAL_API_KEY and EMBEDDING_PROVIDER=mistral to match the "
+            "existing store, or rebuild it for the local provider with "
+            "`python scripts/rebuild_vector_store.py --provider local`."
         )
 
     def add_content_embedding(
