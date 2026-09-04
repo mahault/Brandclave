@@ -895,7 +895,7 @@ async def dashboard_v2():
             font-size: 0.88em;
             margin-bottom: 6px;
         }
-        .opportunity-item::before { content: "\2192 "; font-weight: bold; margin-right: 7px; color: var(--blue); }
+        .opportunity-item::before { content: "\\2192 "; font-weight: bold; margin-right: 7px; color: var(--blue); }
 
         .property-actions {
             display: flex;
@@ -1114,6 +1114,23 @@ async def dashboard_v2():
         .events .ev .k { font-family: var(--font-mono); color: var(--gold); font-size: 0.86em; letter-spacing: 0.1em; text-transform: uppercase; }
         .ledger-how { color: var(--ink-3); font-size: 0.84em; line-height: 1.55; max-width: 80ch; margin-bottom: 20px; }
         .ledger-how b { color: var(--ink-2); font-weight: 600; }
+
+        /* Stake a prediction */
+        .stake-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+        .stake-form .full { grid-column: 1 / -1; }
+        .stake-form label { display: block; font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+        .stake-form input, .stake-form textarea, .stake-form select {
+            width: 100%; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 9px;
+            color: var(--ink); font-family: var(--font-body); font-size: 0.9em; padding: 9px 11px;
+        }
+        .stake-form textarea { min-height: 72px; resize: vertical; }
+        .stake-form input:focus, .stake-form textarea:focus { outline: none; border-color: var(--gold); }
+        .stake-actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 16px; }
+        .stake-hint { color: var(--ink-3); font-size: 0.8em; line-height: 1.5; margin-bottom: 14px; max-width: 70ch; }
+        .stake-result { margin-top: 14px; padding: 14px 16px; border: 1px solid rgba(58,168,141,0.45); border-radius: 12px; background: rgba(58,168,141,0.08); font-size: 0.86em; color: var(--ink-2); line-height: 1.5; }
+        .stake-result b { font-family: var(--font-mono); color: var(--teal); font-weight: 500; word-break: break-all; }
+        .btn-stake { background: transparent; border: 1px solid var(--line-strong); color: var(--ink-2); font-family: var(--font-mono); font-size: 0.7em; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 11px; border-radius: 8px; cursor: pointer; }
+        .btn-stake:hover { color: var(--gold); border-color: var(--gold); }
 
         /* Demand Scan: brief + alignment */
         .brief { margin: 14px 0 6px; padding: 14px 16px; border-left: 3px solid var(--gold); border-radius: 0 12px 12px 0; background: linear-gradient(90deg, rgba(212,175,106,0.10), transparent 70%); }
@@ -3403,15 +3420,20 @@ async def dashboard_v2():
             var v = p * 100;
             return (v > 0 ? '+' : '') + v.toFixed(digits == null ? 0 : digits) + '%';
         }
+        // The API emits naive ISO timestamps that are UTC; without a zone suffix
+        // the browser would read them as local time and shift them by the offset.
+        function parseUtc(iso) {
+            if (iso instanceof Date) return iso;
+            var s = String(iso);
+            return new Date(/[Zz]$|[+-][0-9]{2}:?[0-9]{2}$/.test(s) ? s : s + 'Z');
+        }
         function fmtDate(iso) {
             if (!iso) return '';
-            var d = new Date(iso);
-            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            return parseUtc(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         }
         function fmtDateYear(iso) {
             if (!iso) return '';
-            var d = new Date(iso);
-            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            return parseUtc(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         }
         function hoursAgo(h) {
             if (h == null) return 'never';
@@ -3464,7 +3486,7 @@ async def dashboard_v2():
                     '<span class="vs">' + (d.sources.registry.planned || 0) + ' planned &middot; ' + (d.sources.registry.blocked || 0) + ' blocked by ToS</span>') +
                 statTile('Trends tracked', fmtInt(k.trends.total), trendDelta) +
                 statTile('Predictions staked', fmtInt(L.total_predictions), ledgerDelta);
-            document.getElementById('room-sub').textContent = 'Snapshot ' + new Date(d.generated_at + 'Z').toLocaleString() + ' · ' + fmtInt(k.moves.total) + ' operator moves on file';
+            document.getElementById('room-sub').textContent = 'Snapshot ' + parseUtc(d.generated_at).toLocaleString() + ' · ' + fmtInt(k.moves.total) + ' operator moves on file';
         }
 
         // ---------- Demand curves ----------
@@ -3613,7 +3635,8 @@ async def dashboard_v2():
                     '<div><h3>' + esc(t.name) + '</h3></div>' +
                     '<div style="display:flex;gap:12px">' + meter('Strength', t.strength_score) + meter('White space', t.white_space_score, 'violet') + '</div>' +
                     '<p>' + esc(truncate(stripMd(t.why_it_matters || ''), 170)) + '</p>' +
-                    '<div class="kicker">' + (t.region ? '<b>' + esc(t.region) + '</b> &middot; ' : '') + fmtInt(t.volume) + ' sources &middot; updated ' + fmtDate(t.last_updated) + '</div>' +
+                    '<div class="kicker">' + (t.region ? '<b>' + esc(t.region) + '</b> &middot; ' : '') + fmtInt(t.volume) + ' sources &middot; updated ' + fmtDate(t.last_updated) +
+                    ' <button class="btn-stake" style="margin-left:10px" onclick="event.stopPropagation(); openStakeModal(&#39;' + esc(t.id) + '&#39;)">Stake prediction</button></div>' +
                     '</div>';
             }).join('');
         }
@@ -3770,6 +3793,75 @@ async def dashboard_v2():
                     return '<div class="ev"><span class="t">' + fmtDateYear(e.recorded_at) + '</span><span class="k">' + esc(e.event_type) + (e.stage ? ' / ' + esc(e.stage) : '') + '</span><span>' + esc(e.description) + (e.actual_value != null ? ' (' + e.actual_value + ')' : '') + '</span></div>';
                 }).join('');
             } catch (e) { el.innerHTML = '<div class="ev"><span class="t">error</span><span></span><span>' + esc(e.message) + '</span></div>'; }
+        }
+
+        // ---------- Stake a prediction ----------
+        // A trend becomes a sealed, falsifiable record. The form pre-fills from
+        // the trend; the numbers are the user's call, and the hash returned by
+        // the API is shown so the room can see the seal happen.
+        function openStakeModal(trendId) {
+            var t = (roomData && roomData.trends || []).concat(allTrends || []).filter(function (x) { return x.id === trendId; })[0];
+            if (!t) { showTab('trends'); return; }
+            var horizon = new Date(); horizon.setDate(horizon.getDate() + 90);
+            var conf = Math.round((0.45 + 0.4 * (t.strength_score || 0.5)) * 100) / 100;
+            var vol = Math.max(1, t.volume || 1);
+            document.getElementById('modal-title').textContent = 'Stake a prediction';
+            document.getElementById('modal-meta').textContent = 'From trend: ' + (t.name || '');
+            document.getElementById('modal-body').innerHTML =
+                '<div class="stake-hint">Sealed at submission with a SHA-256 hash of every field below. It cannot be edited afterwards; it can only be resolved against real outcomes. Make it falsifiable.</div>' +
+                '<div class="stake-form">' +
+                '<div class="full"><label>Hypothesis</label><textarea id="st-hyp">' + esc(stripMd(t.description || t.why_it_matters || '')).slice(0, 600) + '</textarea></div>' +
+                '<div class="full"><label>Product implication</label><textarea id="st-imp">' + esc(stripMd(t.why_it_matters || '')).slice(0, 400) + '</textarea></div>' +
+                '<div><label>Metric</label><input id="st-metric" value="source_volume"></div>' +
+                '<div><label>Unit</label><input id="st-unit" value="items"></div>' +
+                '<div><label>Predicted low</label><input id="st-low" type="number" value="' + Math.round(vol * 1.1) + '"></div>' +
+                '<div><label>Predicted high</label><input id="st-high" type="number" value="' + Math.round(vol * 1.8) + '"></div>' +
+                '<div><label>Horizon date</label><input id="st-horizon" type="date" value="' + horizon.toISOString().slice(0, 10) + '"></div>' +
+                '<div><label>Confidence (0-1)</label><input id="st-conf" type="number" step="0.05" min="0" max="1" value="' + conf + '"></div>' +
+                '<div class="full"><label>Falsifier</label><input id="st-fals" value="Fewer than ' + Math.round(vol * 1.1) + ' corpus items match this cluster at the horizon date"></div>' +
+                '<div><label>Where</label><input id="st-where" value="' + esc(t.region || '') + '"></div>' +
+                '<div><label>Project</label><input id="st-proj" value="BrandClave platform"></div>' +
+                '</div>' +
+                '<div class="stake-actions"><span id="st-status" style="color:var(--ink-3);font-size:0.8em"></span><button class="tool-btn active" onclick="submitStake(&#39;' + esc(t.id) + '&#39;)">Seal prediction</button></div>' +
+                '<div id="st-result"></div>';
+            document.getElementById('modal-overlay').style.display = 'block';
+        }
+        async function submitStake(trendId) {
+            var t = (roomData && roomData.trends || []).concat(allTrends || []).filter(function (x) { return x.id === trendId; })[0] || {};
+            var v = function (id) { return document.getElementById(id).value; };
+            var status = document.getElementById('st-status');
+            status.textContent = 'sealing...';
+            var body = {
+                title: t.name || 'Untitled prediction',
+                signal_date: (t.first_seen || t.last_updated || new Date().toISOString()),
+                signal_source: 'social + trade press clustering (' + (t.volume || 0) + ' items)',
+                hypothesis: v('st-hyp'),
+                product_implication: v('st-imp'),
+                location_thesis: v('st-where') || null,
+                forecasts: [{
+                    metric: v('st-metric'), unit: v('st-unit'),
+                    predicted_low: Number(v('st-low')), predicted_high: Number(v('st-high')),
+                    horizon_date: new Date(v('st-horizon')).toISOString(),
+                    confidence: Number(v('st-conf')), falsifier: v('st-fals') || null
+                }],
+                uncertainty_notes: 'Staked from the dashboard by a signed-in analyst; forecast range set by hand.',
+                methodology_version: 'v1.1-analyst',
+                project: v('st-proj') || null,
+                source_trend_ids: [trendId],
+                source_content_ids: [],
+                metadata: { staked_from: 'signal-room' }
+            };
+            try {
+                var res = await fetch('/api/signal-ledger/predictions', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+                if (!res.ok) { var err = await res.text(); throw new Error('HTTP ' + res.status + ' ' + err.slice(0, 200)); }
+                var rec = await res.json();
+                status.textContent = '';
+                document.getElementById('st-result').innerHTML = '<div class="stake-result">Sealed. Content hash <b>' + esc(rec.content_hash) + '</b><br>Recorded ' + esc(parseUtc(rec.recorded_at).toLocaleString()) + ' &middot; status ' + esc(rec.status) + '. It now appears in the Signal Ledger tab; append evidence there as it arrives.</div>';
+                ledgerLoaded = false;
+                loadOverview();
+            } catch (e) {
+                status.textContent = 'failed: ' + e.message;
+            }
         }
 
         // Wire into the page lifecycle: overview on load and on the refresh
