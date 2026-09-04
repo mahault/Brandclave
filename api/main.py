@@ -178,6 +178,7 @@ from api.routes.brand_blueprint import router as brand_blueprint_router
 from api.routes.signal_ledger import router as signal_ledger_router
 from api.routes.auth import router as auth_router
 from api.routes.projects import router as projects_router
+from api.routes.overview import router as overview_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
@@ -191,6 +192,7 @@ app.include_router(brand_blueprint_router, prefix="/api", tags=["Brand Blueprint
 app.include_router(signal_ledger_router, prefix="/api", tags=["Signal Ledger"])
 app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(projects_router, prefix="/api", tags=["Projects"])
+app.include_router(overview_router, prefix="/api", tags=["Overview"])
 
 
 if __name__ == "__main__":

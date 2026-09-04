@@ -1,6 +1,8 @@
 """Demand Scan service - Property analysis and trend matching."""
 
+import json
 import logging
+import math
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -9,6 +11,8 @@ from db.database import SessionLocal
 from db.models import PropertyFeaturesModel, TrendSignalModel
 from data_models.property_features import PropertyFeatures, PropertyType, PriceSegment
 from ingestion.properties.property_scraper import PropertyScraper
+from data_models.embeddings import get_embedding_provider
+from processing.trend_names import normalize_trend_title
 from processing.property_analysis import (
     extract_property_features,
     detect_region,
@@ -41,6 +45,44 @@ def normalize_url(url: str) -> str:
         '',  # fragment
     ))
     return normalized
+
+
+# Trend vectors are stable for the life of a trend row, so embed each once per
+# process. Keyed by trend id; cleared implicitly on restart.
+_TREND_VECTORS: dict[str, list[float]] = {}
+
+# Cosine similarity between a property profile and a trend, on this corpus with
+# mistral-embed, runs roughly 0.66 (unrelated) to 0.84 (same theme). The fit score
+# maps the top-5 mean onto 0-1 across that band; ALIGNED/UNALIGNED cut the list
+# into "already speaks to this" and "does not speak to this".
+_SIM_FLOOR = 0.70
+_SIM_SPAN = 0.12
+_ALIGNED = 0.77
+_UNALIGNED = 0.745
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _property_profile_text(features: dict) -> str:
+    """One paragraph that describes the property the way a trend is described."""
+    parts = [
+        features.get("name") or "",
+        features.get("brand_positioning") or "",
+        features.get("tagline") or "",
+        f"Tone: {features['tone']}." if features.get("tone") else "",
+        f"A {features.get('property_type', 'hotel')} in the {features.get('price_segment', 'unknown')} segment.",
+        ("Themes: " + ", ".join(features.get("themes", [])) + ".") if features.get("themes") else "",
+        ("Amenities: " + ", ".join(features.get("amenities", [])) + ".") if features.get("amenities") else "",
+        ("Experiences: " + ", ".join(features.get("experiences", [])) + ".") if features.get("experiences") else "",
+        ("Dining: " + ", ".join(features.get("dining_options", [])) + ".") if features.get("dining_options") else "",
+        f"Location: {features['location']}." if features.get("location") else "",
+    ]
+    return " ".join(part for part in parts if part).strip()
 
 
 class DemandScanService:
@@ -90,13 +132,17 @@ class DemandScanService:
         # Step 5: Load regional trends and compute demand fit
         trends = self._get_regional_trends(features.get("region"))
         demand_fit = self._compute_demand_fit(features, trends)
+        alignment = demand_fit.get("alignment") or []
 
         # Step 6: Identify gaps, opportunities, and misalignments
-        gaps = self._identify_experience_gaps(features, trends)
-        opportunities = self._identify_opportunities(features, trends)
-        advantages = self._identify_competitive_advantages(features, trends)
+        gaps = self._identify_experience_gaps(features, trends, alignment)
+        opportunities = self._identify_opportunities(features, trends, alignment)
+        advantages = self._identify_competitive_advantages(features, trends, alignment)
         misalignment_flags = self._identify_positioning_misalignment(features)
         recommendations = self._generate_recommendations(features, gaps, opportunities)
+
+        # Step 7: One LLM pass that reads the evidence into an executive brief
+        demand_brief = self._write_demand_brief(features, alignment, gaps, opportunities, demand_fit["score"])
 
         # Ensure we have a property name
         property_name = features.get("name")
@@ -127,6 +173,9 @@ class DemandScanService:
             "positioning_misalignment_flags": misalignment_flags,
             "recommendations": recommendations,
             "matching_trend_ids": demand_fit["matching_trend_ids"],
+            "trend_alignment": alignment[:12],
+            "demand_brief": demand_brief,
+            "fit_method": demand_fit.get("method", "keywords"),
             "scraped_at": datetime.utcnow().isoformat(),
             "source_content_id": None,  # Could link to RawContent if saved
         }
@@ -197,7 +246,19 @@ class DemandScanService:
 
             trends = query.order_by(
                 TrendSignalModel.strength_score.desc()
-            ).limit(50).all()
+            ).limit(80).all()
+
+            # Clustering re-discovers themes under quote/plural variants; keep the
+            # strongest instance of each so a property is not told the same gap thrice.
+            seen: set[str] = set()
+            unique = []
+            for t in trends:
+                key = normalize_trend_title(t.name)
+                if key in seen:
+                    continue
+                seen.add(key)
+                unique.append(t)
+            trends = unique[:50]
 
             return [
                 {
@@ -220,7 +281,67 @@ class DemandScanService:
         features: dict,
         trends: list[dict],
     ) -> dict:
-        """Compute demand fit score based on trend matching.
+        """Semantic demand fit: embed the property profile and every trend, score by
+        cosine similarity. Falls back to keyword overlap if embeddings are unavailable.
+
+        Returns:
+            Dict with score, matching_trend_ids, alignment (per-trend similarity,
+            strongest first) and method.
+        """
+        if not trends:
+            return {"score": 0.5, "matching_trend_ids": [], "alignment": [], "method": "none"}
+
+        profile = _property_profile_text(features)
+        try:
+            provider = get_embedding_provider()
+            missing = [t for t in trends if t["id"] not in _TREND_VECTORS]
+            if missing:
+                vectors = provider.embed_batch(
+                    [f"{t['name']}. {(t.get('description') or '')[:600]}" for t in missing]
+                )
+                for t, v in zip(missing, vectors):
+                    _TREND_VECTORS[t["id"]] = v
+            pv = provider.embed(profile)
+        except Exception as exc:
+            logger.warning(f"Embedding unavailable for demand fit, using keyword overlap: {exc}")
+            result = self._compute_demand_fit_keywords(features, trends)
+            result["alignment"] = []
+            result["method"] = "keywords"
+            return result
+
+        alignment = []
+        for t in trends:
+            sim = _cosine(pv, _TREND_VECTORS[t["id"]])
+            alignment.append(
+                {
+                    "trend_id": t["id"],
+                    "name": t["name"],
+                    "similarity": round(sim, 3),
+                    "strength_score": round(t.get("strength_score") or 0, 3),
+                    "white_space_score": round(t.get("white_space_score") or 0, 3),
+                    "region": t.get("region"),
+                }
+            )
+        alignment.sort(key=lambda a: a["similarity"], reverse=True)
+
+        top = [a["similarity"] for a in alignment[:5]]
+        top_mean = sum(top) / len(top)
+        score = max(0.0, min(1.0, (top_mean - _SIM_FLOOR) / _SIM_SPAN))
+        matching = [a["trend_id"] for a in alignment if a["similarity"] >= _ALIGNED]
+
+        return {
+            "score": round(score, 2),
+            "matching_trend_ids": matching,
+            "alignment": alignment,
+            "method": "embedding",
+        }
+
+    def _compute_demand_fit_keywords(
+        self,
+        features: dict,
+        trends: list[dict],
+    ) -> dict:
+        """Keyword-overlap fallback (the original heuristic).
 
         Args:
             features: Property features dict
@@ -281,16 +402,25 @@ class DemandScanService:
         self,
         features: dict,
         trends: list[dict],
+        alignment: list[dict] | None = None,
     ) -> list[str]:
         """Identify trending experiences not offered by property.
 
-        Args:
-            features: Property features dict
-            trends: List of trend dicts
+        With semantic alignment available, a gap is a strong trend the property's
+        own profile does not resonate with. Without it, fall back to keyword cover.
 
         Returns:
             List of gap descriptions (deduplicated)
         """
+        if alignment:
+            strong = [a for a in alignment if a["strength_score"] > 0.3 and a["similarity"] < _UNALIGNED]
+            strong.sort(key=lambda a: (a["strength_score"] * (1 - a["similarity"])), reverse=True)
+            return [
+                f"{a['name']} (trending at {int(a['strength_score'] * 100)}% strength; "
+                f"property alignment {int(a['similarity'] * 100)}%)"
+                for a in strong[:5]
+            ]
+
         gaps = []
         seen_trend_names = set()  # Track unique trend names to avoid duplicates
 
@@ -337,18 +467,31 @@ class DemandScanService:
         self,
         features: dict,
         trends: list[dict],
+        alignment: list[dict] | None = None,
     ) -> list[str]:
         """Identify positioning opportunities based on trends.
 
-        Args:
-            features: Property features dict
-            trends: List of trend dicts
+        The best lanes are white-space trends one step from the property's current
+        positioning: close enough to be credible, far enough to be new.
 
         Returns:
             List of opportunity descriptions (deduplicated)
         """
         opportunities = []
         seen_trend_names = set()  # Track unique trend names to avoid duplicates
+
+        if alignment:
+            adjacent = [
+                a for a in alignment
+                if a["white_space_score"] > 0.3 and _UNALIGNED <= a["similarity"] < 0.82
+            ]
+            adjacent.sort(key=lambda a: a["white_space_score"] * a["similarity"], reverse=True)
+            for a in adjacent[:3]:
+                opportunities.append(
+                    f"Adjacent white space: '{a['name']}' - {int(a['white_space_score'] * 100)}% unmet demand, "
+                    f"{int(a['similarity'] * 100)}% aligned with current positioning"
+                )
+                seen_trend_names.add(a["name"].lower())
 
         # Look for high white-space trends
         whitespace_trends = sorted(
@@ -390,17 +533,22 @@ class DemandScanService:
         self,
         features: dict,
         trends: list[dict],
+        alignment: list[dict] | None = None,
     ) -> list[str]:
         """Identify property's competitive advantages.
-
-        Args:
-            features: Property features dict
-            trends: List of trend dicts
 
         Returns:
             List of advantage descriptions
         """
         advantages = []
+
+        # Demand the property already speaks to, strongest resonance first
+        for a in (alignment or [])[:3]:
+            if a["similarity"] >= _ALIGNED:
+                advantages.append(
+                    f"Already speaks to '{a['name']}' ({int(a['similarity'] * 100)}% alignment, "
+                    f"{int(a['strength_score'] * 100)}% demand strength)"
+                )
 
         # Premium amenities
         premium_amenities = ["spa", "pool", "fitness", "concierge", "butler", "private beach"]
@@ -555,6 +703,73 @@ class DemandScanService:
 
         return recommendations[:5]
 
+    def _write_demand_brief(
+        self,
+        features: dict,
+        alignment: list[dict],
+        gaps: list[str],
+        opportunities: list[str],
+        score: float,
+    ) -> dict | None:
+        """One LLM pass turning the scored evidence into an executive brief.
+
+        The model only sees what the scan measured; it is asked to interpret, not
+        to invent. Returns None when the LLM is disabled or fails.
+        """
+        if not self.use_llm:
+            return None
+        try:
+            from processing.llm_utils import MistralLLM
+
+            llm = MistralLLM()
+        except Exception as exc:
+            logger.warning(f"Demand brief skipped, LLM unavailable: {exc}")
+            return None
+
+        aligned = [a for a in alignment if a["similarity"] >= _ALIGNED][:4]
+        nl = "\n"
+        aligned_lines = nl.join(
+            f"- {a['name']} (alignment {int(a['similarity'] * 100)}%, demand strength {int(a['strength_score'] * 100)}%)"
+            for a in aligned
+        ) or "- none above threshold"
+        gap_lines = nl.join(f"- {g}" for g in gaps[:4]) or "- none"
+        opp_lines = nl.join(f"- {o}" for o in opportunities[:3]) or "- none"
+
+        system_prompt = (
+            "You are a hospitality strategist writing for a hotel owner. Use only the evidence given. "
+            "Be concrete and specific to this property; never generic. Respond with valid JSON only."
+        )
+        prompt = (
+            "Property profile:" + nl + _property_profile_text(features) + nl + nl
+            + f"Demand fit score: {int(score * 100)}/100 (semantic match between the property and current demand signals)." + nl + nl
+            + "Demand the property already resonates with:" + nl + aligned_lines + nl + nl
+            + "Strong demand the property does not speak to:" + nl + gap_lines + nl + nl
+            + "Adjacent white space:" + nl + opp_lines + nl + nl
+            + "Write JSON with exactly these keys:" + nl
+            + '{"headline": "one sentence, max 18 words, the single most important thing the owner should know", '
+            + '"read": "2-3 sentences interpreting the evidence for this property specifically", '
+            + '"moves": ["three concrete moves, each one sentence, each tied to a named trend above"]}' + nl
+            + "JSON:"
+        )
+        try:
+            raw = llm.generate(prompt, system_prompt, max_tokens=500, temperature=0.4).strip()
+            if raw.startswith("```"):
+                raw = raw.strip("`")
+                if raw.lower().startswith("json"):
+                    raw = raw[4:]
+            data = json.loads(raw.strip())
+            moves = data.get("moves") or []
+            return {
+                "headline": str(data.get("headline") or "").strip(),
+                "read": str(data.get("read") or "").strip(),
+                "moves": [str(m).strip() for m in moves][:3],
+                "model": llm.model,
+                "generated_at": datetime.utcnow().isoformat(),
+            }
+        except Exception as exc:
+            logger.warning(f"Demand brief generation failed: {exc}")
+            return None
+
     def save_property(self, property_data: dict) -> str:
         """Save property features to database.
 
@@ -577,9 +792,11 @@ class DemandScanService:
 
             if existing:
                 # Update existing
+                columns = set(PropertyFeaturesModel.__table__.columns.keys())
                 for key, value in property_data.items():
-                    if key not in ["id", "scraped_at"]:
+                    if key in columns and key not in ["id", "scraped_at"]:
                         setattr(existing, key, value)
+                existing.metadata_json = self._analysis_metadata(property_data)
                 existing.scraped_at = datetime.utcnow()
                 db.commit()
                 logger.info(f"Updated property: {existing.id}")
@@ -610,6 +827,7 @@ class DemandScanService:
                 recommendations=property_data.get("recommendations", []),
                 matching_trend_ids=property_data.get("matching_trend_ids", []),
                 source_content_id=property_data.get("source_content_id"),
+                metadata_json=self._analysis_metadata(property_data),
             )
             db.add(db_property)
             db.commit()
@@ -707,9 +925,22 @@ class DemandScanService:
         finally:
             db.close()
 
+    @staticmethod
+    def _analysis_metadata(property_data: dict) -> dict:
+        """Derived analysis that has no column of its own lives in metadata_json."""
+        return {
+            "trend_alignment": property_data.get("trend_alignment") or [],
+            "demand_brief": property_data.get("demand_brief"),
+            "fit_method": property_data.get("fit_method", "keywords"),
+        }
+
     def _model_to_dict(self, model: PropertyFeaturesModel) -> dict:
         """Convert PropertyFeaturesModel to dict."""
+        meta = model.metadata_json or {}
         return {
+            "trend_alignment": meta.get("trend_alignment") or [],
+            "demand_brief": meta.get("demand_brief"),
+            "fit_method": meta.get("fit_method", "keywords"),
             "id": model.id,
             "url": model.url,
             "name": model.name,

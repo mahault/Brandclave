@@ -62,7 +62,7 @@ async def dashboard_v2():
                 radial-gradient(1.2px 1.2px at 9% 74%, rgba(226,193,132,0.14), transparent 100%),
                 radial-gradient(1px 1px at 55% 88%, rgba(242,236,223,0.12), transparent 100%),
                 var(--bg);
-            background-attachment: fixed;
+            /* background-attachment: fixed removed: nine stacked radial gradients repainted on every scroll tick and stalled the renderer */
         }
         ::selection { background: rgba(212,175,106,0.30); }
         ::-webkit-scrollbar { width: 11px; }
@@ -101,7 +101,7 @@ async def dashboard_v2():
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 2px 18px rgba(212,175,106,0.18));
+            /* drop-shadow filter removed: on background-clip:text it makes Chrome rasterise the layer per scroll tick and stalls capture */
         }
         .hero p {
             color: var(--ink-2);
@@ -306,7 +306,7 @@ async def dashboard_v2():
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 2px 10px rgba(212,175,106,0.25));
+            /* drop-shadow filter removed: on background-clip:text it makes Chrome rasterise the layer per scroll tick and stalls capture */
             font-variant-numeric: tabular-nums;
         }
         .metric-label {
@@ -426,7 +426,7 @@ async def dashboard_v2():
         .empty { text-align: center; padding: 48px; color: var(--ink-3); }
         .empty .icon { font-size: 0; display: block; margin-bottom: 12px; }
         .empty .icon::before {
-            content: '\2726';
+            content: '\\2726';
             font-size: 1.6rem;
             color: var(--gold);
             opacity: 0.65;
@@ -930,6 +930,205 @@ async def dashboard_v2():
             border-color: rgba(58,168,141,0.4);
             color: var(--teal);
         }
+
+        /* =============================================
+           Signal Room (overview) + Signal Ledger
+           Marks stay thin; the data is the only loud thing.
+           ============================================= */
+        .room-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 22px; }
+        .room-grid > .card { margin-bottom: 0; }
+        .span-12 { grid-column: span 12; }
+        .span-8 { grid-column: span 8; }
+        .span-7 { grid-column: span 7; }
+        .span-6 { grid-column: span 6; }
+        .span-5 { grid-column: span 5; }
+        .span-4 { grid-column: span 4; }
+        @media (max-width: 1100px) { .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 12; } }
+        .room-grid + .room-grid { margin-top: 22px; }
+
+        .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .card-head h2 { margin-bottom: 6px; }
+        .card-sub { color: var(--ink-3); font-size: 0.86em; max-width: 64ch; margin-bottom: 18px; line-height: 1.5; }
+        .card-tools { display: flex; gap: 8px; align-items: center; }
+        .tool-btn {
+            background: transparent; border: 1px solid var(--line-strong); color: var(--ink-2);
+            font-family: var(--font-mono); font-size: 0.7em; letter-spacing: 0.14em; text-transform: uppercase;
+            padding: 7px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .tool-btn:hover, .tool-btn.active { color: var(--gold); border-color: var(--gold); }
+
+        /* Stat tiles: value + delta + sparkline */
+        .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+        .stat {
+            position: relative; padding: 22px 22px 18px;
+            background: linear-gradient(180deg, rgba(226,193,132,0.07), rgba(226,193,132,0.015) 55%, transparent), var(--surface-2);
+            border: 1px solid var(--line-strong); border-radius: 14px;
+            box-shadow: inset 0 1px 0 rgba(255,244,222,0.07);
+            min-height: 132px; display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .stat-label { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.18em; text-transform: uppercase; }
+        .stat-value {
+            font-family: var(--font-display); font-weight: 800; font-size: 2.3em; line-height: 1.1; margin-top: 8px;
+            background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            /* drop-shadow filter removed: on background-clip:text it makes Chrome rasterise the layer per scroll tick and stalls capture */
+        }
+        .stat-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 10px; }
+        .stat-delta { font-family: var(--font-mono); font-size: 0.72em; color: var(--ink-2); letter-spacing: 0.02em; line-height: 1.4; white-space: nowrap; }
+        .stat-delta.up { color: var(--teal); }
+        .stat-delta.down { color: var(--rose); }
+        .stat-delta .vs { color: var(--ink-3); }
+        .stat svg.spark { width: 72px; height: 30px; overflow: hidden; flex: none; }
+
+        /* Demand curves */
+        .chart-legend { display: flex; flex-wrap: wrap; gap: 14px 18px; margin: 4px 0 12px; font-size: 0.8em; color: var(--ink-2); }
+        .chart-legend .key { display: inline-flex; align-items: center; gap: 8px; }
+        .chart-legend .key i { display: inline-block; width: 18px; height: 2px; border-radius: 1px; background: var(--ink-3); }
+        .chart-legend .key.rest i { opacity: 0.45; }
+        .chart-wrap { position: relative; }
+        .chart-wrap svg.curves { width: 100%; height: auto; display: block; overflow: hidden; }
+        .chart-wrap .grid line { stroke: rgba(242,236,223,0.07); stroke-width: 1; }
+        .chart-wrap .baseline { stroke: rgba(212,175,106,0.35); stroke-width: 1; }
+        .chart-wrap .axis text { fill: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
+        .chart-wrap .series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .chart-wrap .series.rest { stroke: var(--ink-3); stroke-opacity: 0.22; stroke-width: 1.5; }
+        .chart-wrap .end-dot { stroke: var(--surface); stroke-width: 2; }
+        .chart-wrap .end-label { fill: var(--ink); font-family: var(--font-body); font-size: 12px; font-weight: 600; }
+        .chart-wrap .end-label tspan.pct { fill: var(--ink-2); font-family: var(--font-mono); font-weight: 400; }
+        .chart-wrap .crosshair { stroke: rgba(242,236,223,0.35); stroke-width: 1; pointer-events: none; }
+        .chart-wrap .hit { fill: transparent; cursor: crosshair; }
+        .chart-tip {
+            position: absolute; pointer-events: none; z-index: 5; min-width: 170px;
+            background: var(--surface-3); border: 1px solid var(--line-strong); border-radius: 10px;
+            padding: 10px 12px; box-shadow: 0 18px 40px -20px rgba(0,0,0,0.9); font-size: 0.8em;
+            transform: translate(-50%, 0);
+        }
+        .chart-tip[hidden] { display: none; }
+        .chart-tip .tip-date { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.86em; margin-bottom: 6px; letter-spacing: 0.04em; }
+        .chart-tip .tip-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+        .chart-tip .tip-row i { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+        .chart-tip .tip-row b { color: var(--ink); font-family: var(--font-mono); font-weight: 500; margin-left: auto; }
+        .chart-tip .tip-row span { color: var(--ink-2); }
+        .chart-table { width: 100%; border-collapse: collapse; font-size: 0.84em; margin-top: 6px; }
+        .chart-table th { text-align: left; color: var(--ink-3); font-family: var(--font-mono); font-weight: 400; font-size: 0.8em; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+        .chart-table td { padding: 8px 6px; border-bottom: 1px solid rgba(242,236,223,0.05); font-variant-numeric: tabular-nums; }
+        .chart-table td.num { text-align: right; font-family: var(--font-mono); }
+
+        /* Movers */
+        .movers { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; margin-top: 18px; }
+        @media (max-width: 700px) { .movers { grid-template-columns: 1fr; } }
+        .movers h4 { font-family: var(--font-mono); font-weight: 400; font-size: 0.68em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+        .mover { display: grid; grid-template-columns: 120px 1fr 62px; align-items: center; gap: 10px; padding: 5px 0; font-size: 0.86em; }
+        .mover .name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mover .bar { height: 6px; border-radius: 0 3px 3px 0; background: var(--teal); min-width: 3px; }
+        .mover.down .bar { background: var(--rose); }
+        .mover .pct { text-align: right; font-family: var(--font-mono); color: var(--ink-2); font-size: 0.92em; }
+
+        /* Trend movers / bets lists */
+        .signal-list { display: flex; flex-direction: column; gap: 10px; }
+        .signal-item {
+            display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: start;
+            padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+            cursor: pointer; transition: border-color 0.2s, transform 0.2s;
+        }
+        .signal-item:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+        .signal-item h3 { font-family: var(--font-body); font-weight: 600; font-size: 0.98em; color: var(--ink); line-height: 1.35; }
+        .signal-item p { color: var(--ink-2); font-size: 0.82em; line-height: 1.45; grid-column: 1 / -1; }
+        .signal-item .kicker { font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); grid-column: 1 / -1; }
+        .signal-item .kicker b { color: var(--gold); font-weight: 500; }
+        .meter { display: flex; flex-direction: column; gap: 5px; min-width: 110px; }
+        .meter .m-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+        .meter .m-track { height: 5px; border-radius: 3px; background: rgba(212,175,106,0.14); overflow: hidden; }
+        .meter .m-fill { height: 100%; border-radius: 3px; background: var(--gold); }
+        .meter.violet .m-track { background: rgba(139,124,224,0.16); }
+        .meter.violet .m-fill { background: var(--violet); }
+
+        /* Coverage strip */
+        .coverage { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border-radius: 999px;
+            border: 1px solid var(--line); background: var(--surface-2); font-size: 0.78em; color: var(--ink-2);
+        }
+        .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--surface-2); }
+        .chip.live .dot { background: var(--good); box-shadow: 0 0 0 2px var(--surface-2), 0 0 10px rgba(58,168,141,0.6); }
+        .chip.stale .dot { background: var(--warn); }
+        .chip.silent .dot { background: var(--bad); }
+        .chip.blocked { opacity: 0.6; border-style: dashed; }
+        .chip.blocked .dot { background: var(--ink-3); }
+        .chip .n { font-family: var(--font-mono); color: var(--ink-3); font-size: 0.9em; }
+        .chip .age { font-family: var(--font-mono); color: var(--ink-3); font-size: 0.86em; }
+        .coverage-legend { display: flex; gap: 16px; margin-top: 14px; font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+        .coverage-legend span::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; background: var(--ink-3); vertical-align: middle; }
+        .coverage-legend .l-live::before { background: var(--good); }
+        .coverage-legend .l-stale::before { background: var(--warn); }
+        .coverage-legend .l-silent::before { background: var(--bad); }
+        .coverage-legend .l-blocked::before { background: var(--ink-3); }
+
+        /* Active inference */
+        .ai-head { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+        @media (max-width: 700px) { .ai-head { grid-template-columns: 1fr; } }
+        .ai-fig { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+        .ai-fig .f-label { font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); }
+        .ai-fig .f-value { font-family: var(--font-display); font-weight: 700; font-size: 1.5em; color: var(--ink); margin-top: 4px; }
+        .ai-fig .f-value small { font-family: var(--font-mono); font-weight: 400; font-size: 0.55em; color: var(--ink-3); margin-left: 6px; }
+        .belief { display: grid; grid-template-columns: 150px 1fr 110px 24px; gap: 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(242,236,223,0.05); font-size: 0.84em; }
+        .belief .b-name { color: var(--ink); font-family: var(--font-mono); font-size: 0.9em; }
+        .belief .b-track { height: 6px; border-radius: 3px; background: rgba(139,124,224,0.16); overflow: hidden; position: relative; }
+        .belief .b-fill { height: 100%; background: var(--violet); border-radius: 3px; }
+        .belief .b-val { text-align: right; font-family: var(--font-mono); color: var(--ink-2); font-size: 0.9em; }
+        .belief .b-flag { color: var(--gold); text-align: center; }
+        .ai-explain { color: var(--ink-3); font-size: 0.8em; line-height: 1.5; margin-top: 14px; }
+        .ai-explain code { font-family: var(--font-mono); color: var(--ink-2); }
+
+        /* Ledger */
+        .ledger-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 22px; }
+        .ledger-kpi { padding: 16px 18px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-2); }
+        .ledger-kpi .k-label { font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); }
+        .ledger-kpi .k-value { font-family: var(--font-display); font-weight: 800; font-size: 1.9em; color: var(--ink); margin-top: 4px; }
+        .ledger-kpi .k-note { color: var(--ink-3); font-size: 0.74em; margin-top: 4px; }
+        .pred {
+            border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 12px;
+            background: linear-gradient(135deg, rgba(212,175,106,0.10), rgba(212,175,106,0.02) 50%, transparent), var(--surface);
+            padding: 18px 20px; margin-bottom: 12px;
+        }
+        .pred-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+        .pred h3 { font-family: var(--font-body); font-weight: 600; font-size: 1.02em; color: var(--ink); }
+        .pred .seal { font-family: var(--font-mono); font-size: 0.72em; color: var(--ink-3); letter-spacing: 0.04em; margin-top: 4px; }
+        .pred .seal b { color: var(--gold); font-weight: 500; }
+        .pred .status { font-family: var(--font-mono); font-size: 0.68em; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap; }
+        .pred .status.open { color: var(--teal); border-color: rgba(58,168,141,0.5); }
+        .pred .status.hit { color: var(--good); }
+        .pred .status.miss, .pred .status.falsified { color: var(--bad); }
+        .pred p.hyp { color: var(--ink-2); font-size: 0.86em; line-height: 1.5; margin: 12px 0 10px; max-width: 90ch; }
+        .forecasts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 8px; }
+        .forecast { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-size: 0.8em; }
+        .forecast .f-metric { font-family: var(--font-mono); font-size: 0.82em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+        .forecast .f-range { color: var(--ink); font-weight: 600; margin-top: 3px; font-size: 1.05em; }
+        .forecast .f-range small { color: var(--ink-3); font-weight: 400; font-family: var(--font-mono); }
+        .forecast .f-fals { color: var(--ink-3); margin-top: 5px; line-height: 1.4; }
+        .pred-foot { display: flex; gap: 14px; align-items: center; margin-top: 12px; flex-wrap: wrap; font-size: 0.76em; color: var(--ink-3); font-family: var(--font-mono); }
+        .pred-foot button { background: transparent; border: 1px solid var(--line-strong); color: var(--ink-2); font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+        .pred-foot button:hover { color: var(--gold); border-color: var(--gold); }
+        .events { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 0.82em; }
+        .events .ev { display: grid; grid-template-columns: 120px 90px 1fr; gap: 12px; padding: 5px 0; color: var(--ink-2); }
+        .events .ev .t { font-family: var(--font-mono); color: var(--ink-3); font-size: 0.9em; }
+        .events .ev .k { font-family: var(--font-mono); color: var(--gold); font-size: 0.86em; letter-spacing: 0.1em; text-transform: uppercase; }
+        .ledger-how { color: var(--ink-3); font-size: 0.84em; line-height: 1.55; max-width: 80ch; margin-bottom: 20px; }
+        .ledger-how b { color: var(--ink-2); font-weight: 600; }
+
+        /* Demand Scan: brief + alignment */
+        .brief { margin: 14px 0 6px; padding: 14px 16px; border-left: 3px solid var(--gold); border-radius: 0 12px 12px 0; background: linear-gradient(90deg, rgba(212,175,106,0.10), transparent 70%); }
+        .brief .b-head { font-family: var(--font-body); font-weight: 600; font-size: 1.02em; color: var(--ink); line-height: 1.4; }
+        .brief .b-read { color: var(--ink-2); font-size: 0.86em; line-height: 1.5; margin-top: 6px; }
+        .brief ol { margin: 8px 0 0 18px; color: var(--ink-2); font-size: 0.84em; line-height: 1.5; }
+        .brief ol li { margin: 3px 0; }
+        .brief .b-model { font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 8px; }
+        .align-row { display: grid; grid-template-columns: minmax(120px, 1fr) 120px 52px; gap: 10px; align-items: center; padding: 4px 0; font-size: 0.82em; }
+        .align-row .a-name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .align-row .a-track { height: 5px; border-radius: 3px; background: rgba(212,175,106,0.14); overflow: hidden; }
+        .align-row .a-fill { height: 100%; border-radius: 3px; background: var(--gold); }
+        .align-row.gap .a-fill { background: var(--ink-3); }
+        .align-row .a-val { text-align: right; font-family: var(--font-mono); color: var(--ink-2); font-size: 0.9em; }
+        .fit-method { font-family: var(--font-mono); font-size: 0.64em; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -966,6 +1165,7 @@ async def dashboard_v2():
             <button class="tab" onclick="showTab('trends')">Social Pulse</button>
             <button class="tab" onclick="showTab('moves')">Hotelier Bets</button>
             <button class="tab" onclick="showTab('demandscan')">Demand Scan</button>
+            <button class="tab" onclick="showTab('ledger')">Signal Ledger</button>
             <button class="tab" onclick="showTab('content')">Content</button>
             <button class="tab" onclick="showTab('scrapers')">Scrapers</button>
             <button class="tab" onclick="showTab('chat')">Chat</button>
@@ -974,33 +1174,100 @@ async def dashboard_v2():
 
         <div id="overview" class="section active">
             <div class="card">
-                <h2>Metrics</h2>
-                <div class="metrics-grid">
-                    <div class="metric">
-                        <div class="metric-value" id="m-content">-</div>
-                        <div class="metric-label">Content Items</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="m-processed">-</div>
-                        <div class="metric-label">Processed</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="m-trends">-</div>
-                        <div class="metric-label">Trends</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="m-moves">-</div>
-                        <div class="metric-label">Moves</div>
+                <div class="card-head">
+                    <div>
+                        <h2>Signal Room</h2>
+                        <div class="card-sub" id="room-sub">What the platform is watching right now, and what changed in the last seven days.</div>
                     </div>
                 </div>
+                <div class="stat-row" id="stat-row">
+                    <div class="stat"><div class="stat-label">Corpus</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
+                    <div class="stat"><div class="stat-label">Sources live</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
+                    <div class="stat"><div class="stat-label">Trends tracked</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
+                    <div class="stat"><div class="stat-label">Predictions staked</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
+                </div>
             </div>
-            <div class="card">
-                <h2>Latest Trend</h2>
-                <div id="latest-trend"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
+
+            <div class="room-grid">
+                <div class="card span-12">
+                    <div class="card-head">
+                        <div>
+                            <h2>Demand Curves</h2>
+                            <div class="card-sub" id="curves-sub">Daily destination attention across tracked cities, each indexed to its own 30-day average (100). The three strongest week-over-week risers are highlighted; every other city is the grey field behind them.</div>
+                        </div>
+                        <div class="card-tools">
+                            <button class="tool-btn active" id="curves-chart-btn" onclick="setCurvesView('chart')">Chart</button>
+                            <button class="tool-btn" id="curves-table-btn" onclick="setCurvesView('table')">Table</button>
+                        </div>
+                    </div>
+                    <div id="curves-legend" class="chart-legend"></div>
+                    <div class="chart-wrap" id="curves-chart">
+                        <div class="empty"><div class="icon"></div>Loading demand series&hellip;</div>
+                    </div>
+                    <div id="curves-table" hidden></div>
+                    <div class="movers" id="movers"></div>
+                </div>
             </div>
+
+            <div class="room-grid">
+                <div class="card span-7">
+                    <div class="card-head">
+                        <div>
+                            <h2>Trend Movers</h2>
+                            <div class="card-sub">Most recently strengthened demand clusters. Strength is cluster cohesion and volume; white space is how little supply answers it.</div>
+                        </div>
+                    </div>
+                    <div class="signal-list" id="room-trends"><div class="empty"><div class="icon"></div>Loading&hellip;</div></div>
+                </div>
+                <div class="card span-5">
+                    <div class="card-head">
+                        <div>
+                            <h2>Operator Bets</h2>
+                            <div class="card-sub">The latest strategic moves extracted from trade press. Where capital is already going.</div>
+                        </div>
+                    </div>
+                    <div class="signal-list" id="room-moves"><div class="empty"><div class="icon"></div>Loading&hellip;</div></div>
+                </div>
+            </div>
+
+            <div class="room-grid">
+                <div class="card span-7">
+                    <div class="card-head">
+                        <div>
+                            <h2>Attention Model</h2>
+                            <div class="card-sub">BrandClave decides what to read next with active inference: each source carries a belief about how productive it is, and the scheduler picks the action that minimises expected free energy, trading exploitation of known-good sources against exploring uncertain ones.</div>
+                        </div>
+                    </div>
+                    <div id="room-ai"><div class="empty"><div class="icon"></div>Loading beliefs&hellip;</div></div>
+                </div>
+                <div class="card span-5">
+                    <div class="card-head">
+                        <div>
+                            <h2>Coverage</h2>
+                            <div class="card-sub">Every registered source and when it last delivered. Fresh means within 24 hours.</div>
+                        </div>
+                    </div>
+                    <div class="coverage" id="room-coverage"></div>
+                    <div class="coverage-legend"><span class="l-live">Fresh</span><span class="l-stale">Ageing</span><span class="l-silent">Silent</span><span class="l-blocked">Blocked</span></div>
+                    <div id="room-registry" class="ai-explain"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ledger" class="section">
             <div class="card">
-                <h2>Latest Move</h2>
-                <div id="latest-move"><div class="empty"><div class="icon">⏳</div>Loading...</div></div>
+                <div class="card-head">
+                    <div>
+                        <h2>Signal Ledger</h2>
+                        <div class="card-sub">BrandClave stakes its forecasts before outcomes are known, so accuracy can be audited rather than claimed.</div>
+                    </div>
+                    <div class="card-tools"><button class="tool-btn" onclick="loadLedger(true)">Refresh</button></div>
+                </div>
+                <div class="ledger-how">
+                    Every record is <b>sealed</b> with a SHA-256 hash of its content at the moment it is written and can never be edited. Evidence and outcomes are <b>appended</b> as events, each timestamped. When a forecast horizon passes, the realised value is scored against the sealed range, and the hit rate, error and calibration below are computed from those scores only. An empty hit rate means no horizon has been reached yet; it is not filled in by hand.
+                </div>
+                <div class="ledger-kpis" id="ledger-kpis"></div>
+                <div id="ledger-list"><div class="empty"><div class="icon"></div>Loading ledger&hellip;</div></div>
             </div>
         </div>
 
@@ -1303,6 +1570,9 @@ async def dashboard_v2():
             event.target.classList.add('active');
         }
 
+        function setTextIf(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
+        function setHtmlIf(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+
         function setStatus(icon, text) {
             document.getElementById('status-icon').textContent = icon;
             document.getElementById('status-text').textContent = text;
@@ -1483,21 +1753,23 @@ async def dashboard_v2():
                 var scrapers = await scrapersRes.json();
 
                 // Update metrics
-                document.getElementById('m-content').textContent = (metrics.total_content ? metrics.total_content.toLocaleString() : '0');
-                document.getElementById('m-processed').textContent = (metrics.processed_content ? metrics.processed_content.toLocaleString() : '0');
-                document.getElementById('m-trends').textContent = metrics.trends_count || '0';
-                document.getElementById('m-moves').textContent = metrics.moves_count || '0';
+                // Headline tiles now live in the Signal Room (loadOverview); the legacy
+                // metric ids are optional so older markup keeps working.
+                setTextIf('m-content', metrics.total_content ? metrics.total_content.toLocaleString() : '0');
+                setTextIf('m-processed', metrics.processed_content ? metrics.processed_content.toLocaleString() : '0');
+                setTextIf('m-trends', metrics.trends_count || '0');
+                setTextIf('m-moves', metrics.moves_count || '0');
 
                 // Render trends
                 allTrends = trendsData.trends || [];
                 var trends = allTrends;
                 if (trends.length > 0) {
-                    document.getElementById('latest-trend').innerHTML = renderTrend(trends[0], 0);
+                    setHtmlIf('latest-trend', renderTrend(trends[0], 0));
                     var trendsHtml = '';
                     for (var ti = 0; ti < trends.length; ti++) { trendsHtml += renderTrend(trends[ti], ti); }
                     document.getElementById('trends-list').innerHTML = trendsHtml;
                 } else {
-                    document.getElementById('latest-trend').innerHTML = '<div class="empty"><div class="icon">📈</div>No trends yet. Run POPULATE_DATA.bat</div>';
+                    setHtmlIf('latest-trend', '<div class="empty"><div class="icon">📈</div>No trends yet. Run POPULATE_DATA.bat</div>');
                     document.getElementById('trends-list').innerHTML = '<div class="empty"><div class="icon">📈</div>No trends yet</div>';
                 }
 
@@ -1505,12 +1777,12 @@ async def dashboard_v2():
                 allMoves = movesData.moves || [];
                 var moves = allMoves;
                 if (moves.length > 0) {
-                    document.getElementById('latest-move').innerHTML = renderMove(moves[0], 0);
+                    setHtmlIf('latest-move', renderMove(moves[0], 0));
                     var movesHtml = '';
                     for (var mi = 0; mi < moves.length; mi++) { movesHtml += renderMove(moves[mi], mi); }
                     document.getElementById('moves-list').innerHTML = movesHtml;
                 } else {
-                    document.getElementById('latest-move').innerHTML = '<div class="empty"><div class="icon">♟️</div>No moves yet. Run POPULATE_DATA.bat</div>';
+                    setHtmlIf('latest-move', '<div class="empty"><div class="icon">♟️</div>No moves yet. Run POPULATE_DATA.bat</div>');
                     document.getElementById('moves-list').innerHTML = '<div class="empty"><div class="icon">♟️</div>No moves yet</div>';
                 }
 
@@ -1548,8 +1820,8 @@ async def dashboard_v2():
             } catch (err) {
                 console.error('Load error:', err);
                 setStatus('❌', 'Error: ' + err.message);
-                document.getElementById('latest-trend').innerHTML = '<div class="error">Failed to load data: ' + err.message + '</div>';
-                document.getElementById('latest-move').innerHTML = '<div class="error">Failed to load data: ' + err.message + '</div>';
+                setHtmlIf('latest-trend', '<div class="error">Failed to load data: ' + err.message + '</div>');
+                setHtmlIf('latest-move', '<div class="error">Failed to load data: ' + err.message + '</div>');
             }
         }
 
@@ -1738,6 +2010,29 @@ async def dashboard_v2():
                 flagsHtml += '</div>';
             }
 
+            // Executive brief (LLM read of the measured evidence)
+            var briefHtml = '';
+            var b = p.demand_brief;
+            if (b && (b.headline || b.read)) {
+                var movesHtml = (b.moves || []).map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('');
+                briefHtml = '<div class="brief"><div class="b-head">' + esc(b.headline || '') + '</div>' +
+                    (b.read ? '<div class="b-read">' + esc(b.read) + '</div>' : '') +
+                    (movesHtml ? '<ol>' + movesHtml + '</ol>' : '') +
+                    '<div class="b-model">Brief by ' + esc(b.model || 'llm') + ' from measured alignment only</div></div>';
+            }
+
+            // Trend alignment: the semantic evidence behind the score
+            var alignHtml = '';
+            var al = (p.trend_alignment || []).slice(0, 6);
+            if (al.length) {
+                alignHtml = '<div class="property-section"><div class="property-section-title">Demand Alignment</div>' + al.map(function (a) {
+                    var pct = Math.round((a.similarity || 0) * 100);
+                    var w = Math.max(2, Math.round(((a.similarity - 0.6) / 0.28) * 100));
+                    var cls = a.similarity >= 0.77 ? '' : ' gap';
+                    return '<div class="align-row' + cls + '" title="demand strength ' + Math.round((a.strength_score || 0) * 100) + '%, white space ' + Math.round((a.white_space_score || 0) * 100) + '%"><span class="a-name">' + esc(a.name) + '</span><div class="a-track"><div class="a-fill" style="width:' + Math.min(100, w) + '%"></div></div><span class="a-val">' + pct + '%</span></div>';
+                }).join('') + '<div class="fit-method">' + (p.fit_method === 'embedding' ? 'semantic match, mistral-embed' : 'keyword match') + '</div></div>';
+            }
+
             // Property themes
             var themes = (p.themes || []).slice(0, 4);
             var themesHtml = '';
@@ -1753,7 +2048,9 @@ async def dashboard_v2():
                 '<div class="location">' + (p.location || p.region || 'Location unknown') + '</div>' +
                 '<div style="margin-top:8px;">' + themesHtml + '</div></div>' +
                 '<div class="demand-score ' + scoreClass + '">' + score + '% ' + scoreLabel + '</div></div>' +
+                briefHtml +
                 flagsHtml +
+                alignHtml +
                 '<div class="property-section"><div class="property-section-title">Experience Gaps</div>' + gapsHtml + '</div>' +
                 '<div class="property-section"><div class="property-section-title">Opportunity Lanes</div>' + oppsHtml + '</div>' +
                 '<div class="property-actions">' +
@@ -3084,6 +3381,406 @@ async def dashboard_v2():
 
         // Auto-refresh every 60 seconds
         setInterval(loadAllData, 60000);
+
+        // =============================================
+        // Signal Room (overview) + Signal Ledger
+        // Inline SVG, no chart library. Categorical slots are fixed:
+        // gold, violet, teal; everything else is the grey field.
+        // =============================================
+        var SERIES_COLORS = ['#d4af6a', '#8b7ce0', '#3aa88d'];
+        var roomData = null;
+        var curvesView = 'chart';
+
+        function esc(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function fmtInt(n) { return (n || 0).toLocaleString(); }
+        // LLM output occasionally leaks markdown emphasis into stored summaries.
+        function stripMd(s) { return String(s || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '').replace(/^\s*[-*]\s+/gm, ''); }
+        function fmtPct(p, digits) {
+            if (p == null || isNaN(p)) return '&ndash;';
+            var v = p * 100;
+            return (v > 0 ? '+' : '') + v.toFixed(digits == null ? 0 : digits) + '%';
+        }
+        function fmtDate(iso) {
+            if (!iso) return '';
+            var d = new Date(iso);
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+        function fmtDateYear(iso) {
+            if (!iso) return '';
+            var d = new Date(iso);
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        function hoursAgo(h) {
+            if (h == null) return 'never';
+            if (h < 1) return Math.max(1, Math.round(h * 60)) + 'm';
+            if (h < 48) return Math.round(h) + 'h';
+            return Math.round(h / 24) + 'd';
+        }
+
+        function sparkline(series, width, height) {
+            var vals = series.map(function (p) { return p.count; });
+            var max = Math.max.apply(null, vals.concat([1]));
+            var n = vals.length;
+            var pts = vals.map(function (v, i) {
+                var x = (i / (n - 1)) * width;
+                var y = height - (v / max) * (height - 4) - 2;
+                return [x, y];
+            });
+            var path = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+            var last = pts[pts.length - 1];
+            return '<svg class="spark" viewBox="0 0 ' + width + ' ' + height + '" aria-hidden="true">' +
+                '<path d="' + path + '" fill="none" stroke="#857a68" stroke-width="1.5" stroke-linejoin="round"/>' +
+                '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.5" fill="#d4af6a" stroke="#201a12" stroke-width="2"/>' +
+                '</svg>';
+        }
+
+        function statTile(label, value, deltaHtml, sparkHtml) {
+            return '<div class="stat"><div class="stat-label">' + label + '</div>' +
+                '<div class="stat-value">' + value + '</div>' +
+                '<div class="stat-foot"><div class="stat-delta">' + deltaHtml + '</div>' + (sparkHtml || '') + '</div></div>';
+        }
+
+        function renderStats(d) {
+            var k = d.kpis;
+            var fresh = d.sources.freshness.filter(function (s) { return s.hours_since != null && s.hours_since <= 24; }).length;
+            var active = d.sources.freshness.filter(function (s) { return s.status === 'active'; }).length;
+            var contentDelta = k.content.last_7d > 0
+                ? '<span class="up">+' + fmtInt(k.content.last_7d) + '</span> <span class="vs">last 7 days</span>'
+                : '<span class="vs">no intake in 7 days</span>';
+            var trendDelta = k.trends.last_7d > 0
+                ? '<span class="up">+' + fmtInt(k.trends.last_7d) + '</span> <span class="vs">refreshed this week</span>'
+                : '<span class="vs">' + fmtInt(k.trends.total) + ' clusters on file</span>';
+            var L = d.ledger;
+            var ledgerDelta = L.resolved_predictions > 0
+                ? '<span class="up">' + Math.round((L.hit_rate || 0) * 100) + '% hit rate</span> <span class="vs">' + L.resolved_predictions + ' resolved</span>'
+                : '<span class="vs">' + L.open_predictions + ' open &middot; first horizon pending</span>';
+
+            document.getElementById('stat-row').innerHTML =
+                statTile('Corpus', fmtInt(k.content.total), contentDelta, sparkline(d.intake, 72, 30)) +
+                statTile('Sources live', fresh + '<small style="font-size:0.45em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px;">of ' + active + '</small>',
+                    '<span class="vs">' + (d.sources.registry.planned || 0) + ' planned &middot; ' + (d.sources.registry.blocked || 0) + ' blocked by ToS</span>') +
+                statTile('Trends tracked', fmtInt(k.trends.total), trendDelta) +
+                statTile('Predictions staked', fmtInt(L.total_predictions), ledgerDelta);
+            document.getElementById('room-sub').textContent = 'Snapshot ' + new Date(d.generated_at + 'Z').toLocaleString() + ' · ' + fmtInt(k.moves.total) + ' operator moves on file';
+        }
+
+        // ---------- Demand curves ----------
+        function renderCurves(demand) {
+            var wrap = document.getElementById('curves-chart');
+            var legend = document.getElementById('curves-legend');
+            var cities = demand.cities || [];
+            if (!cities.length) {
+                wrap.innerHTML = '<div class="empty"><div class="icon"></div>No demand series yet. The Wikimedia pageviews source fills this in.</div>';
+                legend.innerHTML = '';
+                return;
+            }
+            var highlight = demand.movers_up.slice(0, 3);
+            var byName = {};
+            cities.forEach(function (c) { byName[c.city] = c; });
+            var dates = cities[0].series.map(function (p) { return p.date; });
+            var n = dates.length;
+
+            var W = 960, H = 320, padL = 44, padR = 150, padT = 14, padB = 30;
+            var plotW = W - padL - padR, plotH = H - padT - padB;
+            var allIdx = [];
+            cities.forEach(function (c) { c.series.forEach(function (p) { if (p.index != null) allIdx.push(p.index); }); });
+            // Domain from the 2nd-98th percentile of all points: a single viral day in
+            // one city would otherwise flatten every other curve into the baseline.
+            // Clipped spikes run off the top; the subtitle says so.
+            var sortedIdx = allIdx.slice().sort(function (a, b) { return a - b; });
+            var pct = function (q) { return sortedIdx[Math.min(sortedIdx.length - 1, Math.floor(q * sortedIdx.length))]; };
+            var hiIdx = Math.max.apply(null, highlight.map(function (nm) { var c = byName[nm]; return c ? Math.max.apply(null, c.series.map(function (p) { return p.index; })) : 0; }));
+            var lo = Math.floor(Math.min(pct(0.02), 85) / 10) * 10;
+            var hi = Math.ceil(Math.max(pct(0.98), hiIdx, 120) / 10) * 10;
+            var clipped = sortedIdx[sortedIdx.length - 1] > hi;
+            var step = hi - lo > 160 ? 50 : hi - lo > 80 ? 25 : 10;
+            var x = function (i) { return padL + (i / (n - 1)) * plotW; };
+            var y = function (v) { return padT + plotH - ((v - lo) / (hi - lo)) * plotH; };
+
+            var svg = '<svg class="curves" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Indexed destination attention, last 30 days">';
+            // grid + axis
+            svg += '<g class="grid">';
+            var ticks = [];
+            for (var t = Math.ceil(lo / step) * step; t <= hi; t += step) ticks.push(t);
+            ticks.forEach(function (t) { svg += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>'; });
+            svg += '</g><g class="axis">';
+            ticks.forEach(function (t) { svg += '<text x="' + (padL - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + t + '</text>'; });
+            svg += '<line class="baseline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(100) + '" y2="' + y(100) + '"/>';
+            svg += '<text x="' + (padL + 6) + '" y="' + (y(100) - 5) + '" style="fill:rgba(212,175,106,0.7)">30-day average = 100</text>';
+            [0, Math.floor(n / 2), n - 1].forEach(function (i) {
+                svg += '<text x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + (i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle') + '">' + fmtDate(dates[i]) + '</text>';
+            });
+            svg += '</g>';
+            // grey field first, highlighted on top
+            var pathFor = function (c) {
+                return c.series.map(function (p, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.index).toFixed(1); }).join(' ');
+            };
+            cities.forEach(function (c) {
+                if (highlight.indexOf(c.city) !== -1) return;
+                svg += '<path class="series rest" d="' + pathFor(c) + '"/>';
+            });
+            var labelYs = [];
+            highlight.forEach(function (name, k) {
+                var c = byName[name]; if (!c) return;
+                var color = SERIES_COLORS[k];
+                svg += '<path class="series" stroke="' + color + '" d="' + pathFor(c) + '"/>';
+                var last = c.series[c.series.length - 1];
+                var ly = y(last.index);
+                // nudge colliding end-labels apart without detaching them far from the line
+                labelYs.forEach(function (prev) { if (Math.abs(prev - ly) < 16) ly = prev + 16; });
+                labelYs.push(ly);
+                svg += '<circle class="end-dot" cx="' + x(n - 1) + '" cy="' + y(last.index) + '" r="4.5" fill="' + color + '"/>';
+                svg += '<text class="end-label" x="' + (x(n - 1) + 12) + '" y="' + (ly + 4) + '">' + esc(c.city) + ' <tspan class="pct">' + fmtPct(c.change_pct) + '</tspan></text>';
+            });
+            svg += '<line id="curves-crosshair" class="crosshair" x1="0" x2="0" y1="' + padT + '" y2="' + (padT + plotH) + '" visibility="hidden"/>';
+            svg += '<rect class="hit" x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '"/>';
+            svg += '</svg><div class="chart-tip" id="curves-tip" hidden></div>';
+            wrap.innerHTML = svg;
+
+            legend.innerHTML = highlight.map(function (name, k) {
+                return '<span class="key"><i style="background:' + SERIES_COLORS[k] + '"></i>' + esc(name) + '</span>';
+            }).join('') + '<span class="key rest"><i></i>' + (cities.length - highlight.length) + ' other cities</span>';
+
+            // crosshair + tooltip: pointer finds the X, readout lists every highlighted series
+            var svgEl = wrap.querySelector('svg');
+            var hit = wrap.querySelector('.hit');
+            var cross = wrap.querySelector('#curves-crosshair');
+            var tip = document.getElementById('curves-tip');
+            function move(ev) {
+                var rect = svgEl.getBoundingClientRect();
+                var px = (ev.clientX - rect.left) * (W / rect.width);
+                var i = Math.round(((px - padL) / plotW) * (n - 1));
+                i = Math.max(0, Math.min(n - 1, i));
+                cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+                var rows = highlight.map(function (name, k) {
+                    var c = byName[name]; var p = c.series[i];
+                    return '<div class="tip-row"><i style="background:' + SERIES_COLORS[k] + '"></i><span>' + esc(name) + '</span><b>' + p.index.toFixed(0) + ' <small style="color:var(--ink-3)">(' + fmtInt(Math.round(p.value)) + ')</small></b></div>';
+                }).join('');
+                tip.innerHTML = '<div class="tip-date">' + fmtDateYear(dates[i]) + '</div>' + rows;
+                tip.hidden = false;
+                var leftPx = (x(i) / W) * rect.width;
+                tip.style.left = leftPx + 'px';
+                tip.style.top = (rect.height * 0.08) + 'px';
+            }
+            hit.addEventListener('pointermove', move);
+            hit.addEventListener('pointerleave', function () { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+
+            // table twin
+            var rowsHtml = cities.slice().sort(function (a, b) { return (b.change_pct || 0) - (a.change_pct || 0); }).map(function (c) {
+                return '<tr><td>' + esc(c.city) + '</td><td>' + esc(c.country || '') + '</td><td class="num">' + fmtInt(c.prior_7d_avg) + '</td><td class="num">' + fmtInt(c.recent_7d_avg) + '</td><td class="num">' + fmtPct(c.change_pct, 1) + '</td></tr>';
+            }).join('');
+            document.getElementById('curves-table').innerHTML = '<table class="chart-table"><thead><tr><th>City</th><th>Country</th><th style="text-align:right">Prior 7d avg</th><th style="text-align:right">Last 7d avg</th><th style="text-align:right">Change</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>';
+
+            // movers
+            var maxAbs = Math.max.apply(null, cities.map(function (c) { return Math.abs(c.change_pct || 0); }).concat([0.01]));
+            var mv = function (list, cls) {
+                return list.map(function (name) {
+                    var c = byName[name]; if (!c) return '';
+                    var w = Math.max(3, Math.round((Math.abs(c.change_pct) / maxAbs) * 100));
+                    return '<div class="mover ' + cls + '"><span class="name" title="' + esc(c.city) + '">' + esc(c.city) + '</span><div><div class="bar" style="width:' + w + '%"></div></div><span class="pct">' + fmtPct(c.change_pct) + '</span></div>';
+                }).join('');
+            };
+            document.getElementById('movers').innerHTML =
+                '<div><h4>Rising this week</h4>' + mv(demand.movers_up, 'up') + '</div>' +
+                '<div><h4>Cooling this week</h4>' + mv(demand.movers_down, 'down') + '</div>';
+            document.getElementById('curves-sub').textContent = 'Daily destination attention across ' + cities.length + ' cities (' + demand.metric.replace('_', ' ') + '), each indexed to its own 30-day average. The three strongest week-over-week risers are highlighted; the grey field is everyone else.' + (clipped ? ' Axis capped at ' + hi + '; one-day spikes above it run off the top.' : '');
+        }
+
+        function setCurvesView(v) {
+            curvesView = v;
+            document.getElementById('curves-chart').hidden = v !== 'chart';
+            document.getElementById('curves-legend').hidden = v !== 'chart';
+            document.getElementById('curves-table').hidden = v !== 'table';
+            document.getElementById('curves-chart-btn').classList.toggle('active', v === 'chart');
+            document.getElementById('curves-table-btn').classList.toggle('active', v === 'table');
+        }
+
+        // ---------- Trends + moves ----------
+        function meter(label, value, cls) {
+            var pct = Math.round((value || 0) * 100);
+            return '<div class="meter ' + (cls || '') + '"><div class="m-label"><span>' + label + '</span><span>' + pct + '%</span></div><div class="m-track"><div class="m-fill" style="width:' + pct + '%"></div></div></div>';
+        }
+        function renderRoomTrends(trends) {
+            var el = document.getElementById('room-trends');
+            if (!trends.length) { el.innerHTML = '<div class="empty"><div class="icon"></div>No trends yet</div>'; return; }
+            el.innerHTML = trends.map(function (t) {
+                var idx = allTrends ? allTrends.findIndex(function (x) { return x.id === t.id; }) : -1;
+                var open = idx >= 0 ? 'openTrendModal(' + idx + ')' : "showTab('trends')";
+                return '<div class="signal-item" onclick="' + open + '">' +
+                    '<div><h3>' + esc(t.name) + '</h3></div>' +
+                    '<div style="display:flex;gap:12px">' + meter('Strength', t.strength_score) + meter('White space', t.white_space_score, 'violet') + '</div>' +
+                    '<p>' + esc(truncate(stripMd(t.why_it_matters || ''), 170)) + '</p>' +
+                    '<div class="kicker">' + (t.region ? '<b>' + esc(t.region) + '</b> &middot; ' : '') + fmtInt(t.volume) + ' sources &middot; updated ' + fmtDate(t.last_updated) + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+        function renderRoomMoves(moves) {
+            var el = document.getElementById('room-moves');
+            if (!moves.length) { el.innerHTML = '<div class="empty"><div class="icon"></div>No moves yet</div>'; return; }
+            el.innerHTML = moves.map(function (m) {
+                var idx = allMoves ? allMoves.findIndex(function (x) { return x.id === m.id; }) : -1;
+                var open = idx >= 0 ? 'openMoveModal(' + idx + ')' : "showTab('moves')";
+                return '<div class="signal-item" onclick="' + open + '">' +
+                    '<div><h3>' + esc(truncate(m.title, 90)) + '</h3></div>' +
+                    '<div class="kicker" style="grid-column:auto;text-align:right">' + esc((m.move_type || '').replace('_', ' ')) + '</div>' +
+                    '<div class="kicker"><b>' + esc(m.company) + '</b>' + (m.market ? ' &middot; ' + esc(m.market) : '') + (m.investment_amount ? ' &middot; ' + esc(m.investment_amount) : '') + ' &middot; ' + esc(m.source_name) + (m.published_at ? ' &middot; ' + fmtDate(m.published_at) : '') + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        // ---------- Coverage ----------
+        function renderCoverage(sources) {
+            var el = document.getElementById('room-coverage');
+            el.innerHTML = sources.freshness.map(function (s) {
+                var cls = s.status === 'blocked' ? 'blocked' : s.hours_since == null ? 'silent' : s.hours_since <= 24 ? 'live' : s.hours_since <= 24 * 7 ? 'stale' : 'silent';
+                var age = s.status === 'blocked' ? 'ToS' : hoursAgo(s.hours_since);
+                return '<span class="chip ' + cls + '" title="' + esc(s.source) + ': ' + fmtInt(s.total_items) + ' items on file, ' + fmtInt(s.items_7d) + ' this week' + (s.status === 'blocked' ? ' (retained history; source blocked on terms of service)' : '') + '"><span class="dot"></span>' + esc(s.source.replace(/_/g, ' ')) + ' <span class="n">' + fmtInt(s.items_7d) + '</span><span class="age">' + age + '</span></span>';
+            }).join('');
+            var r = sources.registry;
+            document.getElementById('room-registry').innerHTML = 'Registry: <code>' + (r.active || 0) + ' active</code> &middot; <code>' + (r.planned || 0) + ' planned</code> &middot; <code>' + (r.blocked || 0) + ' blocked</code>. Blocked sources (Reddit, OTA reviews) are excluded on terms-of-service grounds, not for lack of a scraper.';
+        }
+
+        // ---------- Active inference ----------
+        async function loadAttention() {
+            var el = document.getElementById('room-ai');
+            try {
+                var res = await fetch('/api/scheduler/pomdp');
+                var d = await res.json();
+                if (!d.enabled || !d.status || d.error) {
+                    el.innerHTML = '<div class="empty"><div class="icon"></div>The scheduler is not running in this process, so no beliefs have been updated yet.</div>';
+                    return;
+                }
+                var st = d.status;
+                var srcs = Object.keys(st.sources || {}).map(function (k) { var s = st.sources[k]; s.name = k; return s; });
+                srcs.sort(function (a, b) { return (b.productivity || 0) - (a.productivity || 0); });
+                var fe = st.free_energy != null ? Number(st.free_energy).toFixed(3) : '&ndash;';
+                var rec = d.next_recommended_source;
+                var nx = rec && typeof rec === 'object' ? (rec.source || '') : (rec || '');
+                nx = String(nx || 'pending');
+                var reason = rec && typeof rec === 'object' && rec.reason ? rec.reason : '';
+                var efe = rec && typeof rec === 'object' && rec.efe_values ? rec.efe_values : {};
+                var head = '<div class="ai-head">' +
+                    '<div class="ai-fig"><div class="f-label">Expected free energy</div><div class="f-value">' + fe + '<small>lower is better</small></div></div>' +
+                    '<div class="ai-fig"><div class="f-label">Observations absorbed</div><div class="f-value">' + fmtInt(st.total_observations) + '</div></div>' +
+                    '<div class="ai-fig"><div class="f-label">Next to read</div><div class="f-value" style="font-size:1.15em">' + esc(nx.replace(/_/g, ' ')) + (reason ? '<small>' + esc(reason) + '</small>' : '') + '</div></div>' +
+                    '</div>';
+                var rows = srcs.map(function (s) {
+                    var p = Math.round((s.productivity || 0) * 100);
+                    var flag = s.observations === 0 ? '<span class="b-flag" title="Unobserved: exploration candidate">?</span>' : (s.error_rate > 0.3 ? '<span class="b-flag" title="Elevated error rate">!</span>' : '<span></span>');
+                    var g = efe[s.name] != null ? ' <small style="color:var(--ink-3)">G ' + Number(efe[s.name]).toFixed(2) + '</small>' : '';
+                    return '<div class="belief"><span class="b-name">' + esc(s.name.replace(/_/g, ' ')) + '</span><div class="b-track"><div class="b-fill" style="width:' + p + '%"></div></div><span class="b-val">' + p + '%' + g + '</span>' + flag + '</div>';
+                }).join('');
+                el.innerHTML = head + rows +
+                    '<div class="ai-explain">Bars are the current belief that a source will yield new, non-duplicate items on the next visit. <code>?</code> marks a source the agent has not yet observed &mdash; the epistemic term makes those attractive to try. ' +
+                    'Uniform 50% across the board means the scheduler has just started and the beliefs are priors.</div>';
+            } catch (e) {
+                el.innerHTML = '<div class="empty"><div class="icon"></div>Beliefs unavailable: ' + esc(e.message) + '</div>';
+            }
+        }
+
+        // ---------- Overview loader ----------
+        async function loadOverview() {
+            try {
+                var res = await fetch('/api/overview');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                roomData = await res.json();
+                renderStats(roomData);
+                renderCurves(roomData.demand);
+                renderRoomTrends(roomData.trends || []);
+                renderRoomMoves(roomData.moves || []);
+                renderCoverage(roomData.sources);
+                setCurvesView(curvesView);
+            } catch (e) {
+                console.error('overview failed', e);
+                document.getElementById('curves-chart').innerHTML = '<div class="error">Overview failed: ' + esc(e.message) + '</div>';
+            }
+            loadAttention();
+        }
+
+        // ---------- Ledger ----------
+        var ledgerLoaded = false;
+        async function loadLedger(force) {
+            if (ledgerLoaded && !force) return;
+            var list = document.getElementById('ledger-list');
+            var kpis = document.getElementById('ledger-kpis');
+            try {
+                var rs = await Promise.all([fetch('/api/signal-ledger/metrics'), fetch('/api/signal-ledger/predictions?limit=50')]);
+                var m = await rs[0].json();
+                var p = await rs[1].json();
+                var preds = p.predictions || p.items || (Array.isArray(p) ? p : []);
+                var hit = m.hit_rate == null ? '&ndash;' : Math.round(m.hit_rate * 100) + '%';
+                var err = m.mean_abs_error_pct == null ? '&ndash;' : Math.round(m.mean_abs_error_pct * 100) + '%';
+                var cal = m.calibration_gap == null ? '&ndash;' : ((m.calibration_gap > 0 ? '+' : '') + Math.round(m.calibration_gap * 100) + ' pts');
+                var horizons = [];
+                preds.forEach(function (q) { (q.forecasts || []).forEach(function (f) { if (f.horizon_date) horizons.push(new Date(f.horizon_date)); }); });
+                horizons.sort(function (a, b) { return a - b; });
+                var firstH = horizons.length ? horizons[0].toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '&ndash;';
+                kpis.innerHTML =
+                    '<div class="ledger-kpi"><div class="k-label">Staked</div><div class="k-value">' + fmtInt(m.total_predictions) + '</div><div class="k-note">sealed records</div></div>' +
+                    '<div class="ledger-kpi"><div class="k-label">Open</div><div class="k-value">' + fmtInt(m.open_predictions) + '</div><div class="k-note">first horizon ' + firstH + '</div></div>' +
+                    '<div class="ledger-kpi"><div class="k-label">Resolved</div><div class="k-value">' + fmtInt(m.resolved_predictions) + '</div><div class="k-note">scored against sealed ranges</div></div>' +
+                    '<div class="ledger-kpi"><div class="k-label">Hit rate</div><div class="k-value">' + hit + '</div><div class="k-note">in-range outcomes</div></div>' +
+                    '<div class="ledger-kpi"><div class="k-label">Mean abs error</div><div class="k-value">' + err + '</div><div class="k-note">vs range midpoint</div></div>' +
+                    '<div class="ledger-kpi"><div class="k-label">Calibration</div><div class="k-value">' + cal + '</div><div class="k-note">confidence minus hit rate</div></div>';
+                if (!preds.length) {
+                    list.innerHTML = '<div class="empty"><div class="icon"></div>No predictions staked yet.</div>';
+                } else {
+                    list.innerHTML = preds.map(renderPrediction).join('');
+                }
+                ledgerLoaded = true;
+            } catch (e) {
+                list.innerHTML = '<div class="error">Ledger failed: ' + esc(e.message) + '</div>';
+            }
+        }
+        function renderPrediction(q) {
+            var status = (q.status || 'open').replace('resolved_', '');
+            var forecasts = (q.forecasts || []).map(function (f) {
+                var unit = f.unit ? ' ' + esc(f.unit) : '';
+                return '<div class="forecast"><div class="f-metric">' + esc((f.metric || '').replace(/_/g, ' ')) + '</div>' +
+                    '<div class="f-range">' + fmtInt(Math.round(f.predicted_low)) + ' &ndash; ' + fmtInt(Math.round(f.predicted_high)) + unit + ' <small>by ' + fmtDateYear(f.horizon_date) + ' &middot; p=' + Number(f.confidence).toFixed(2) + '</small></div>' +
+                    (f.falsifier ? '<div class="f-fals">Falsified if: ' + esc(f.falsifier) + '</div>' : '') + '</div>';
+            }).join('');
+            return '<div class="pred" id="pred-' + esc(q.id) + '">' +
+                '<div class="pred-top"><div><h3>' + esc(q.title) + '</h3>' +
+                '<div class="seal">SEALED <b>' + esc((q.content_hash || '').slice(0, 16)) + '</b> &middot; recorded ' + fmtDateYear(q.recorded_at) + ' &middot; signal first seen ' + fmtDateYear(q.signal_date) + ' &middot; ' + esc(q.methodology_version || '') + '</div></div>' +
+                '<span class="status ' + esc(status) + '">' + esc(status) + '</span></div>' +
+                '<p class="hyp">' + esc(truncate(q.hypothesis || '', 260)) + '</p>' +
+                '<div class="forecasts">' + forecasts + '</div>' +
+                '<div class="pred-foot"><span>source: ' + esc(q.signal_source || '') + '</span>' + (q.location_thesis ? '<span>where: ' + esc(q.location_thesis) + '</span>' : '') +
+                (q.highest_evidence_stage ? '<span>stage: ' + esc(q.highest_evidence_stage) + '</span>' : '<span>stage: awareness</span>') +
+                '<button onclick="toggleEvents(&#39;' + esc(q.id) + '&#39;)">Events</button></div>' +
+                '<div class="events" id="ev-' + esc(q.id) + '" hidden></div></div>';
+        }
+        async function toggleEvents(id) {
+            var el = document.getElementById('ev-' + id);
+            if (!el.hidden) { el.hidden = true; return; }
+            el.hidden = false;
+            el.innerHTML = '<div class="ev"><span class="t">loading</span></div>';
+            try {
+                var r = await fetch('/api/signal-ledger/predictions/' + id);
+                var d = await r.json();
+                var evs = d.events || [];
+                var sealRow = '<div class="ev"><span class="t">' + fmtDateYear(d.recorded_at) + '</span><span class="k">sealed</span><span>' +
+                    (d.hash_verified ? 'Content hash re-derived and verified against the stored seal.' : 'Warning: stored hash does not match the record content.') + '</span></div>';
+                if (!evs.length) { el.innerHTML = sealRow + '<div class="ev"><span class="t"></span><span class="k">open</span><span>No evidence appended yet. Outcomes are scored here when horizons pass.</span></div>'; return; }
+                el.innerHTML = sealRow + evs.map(function (e) {
+                    return '<div class="ev"><span class="t">' + fmtDateYear(e.recorded_at) + '</span><span class="k">' + esc(e.event_type) + (e.stage ? ' / ' + esc(e.stage) : '') + '</span><span>' + esc(e.description) + (e.actual_value != null ? ' (' + e.actual_value + ')' : '') + '</span></div>';
+                }).join('');
+            } catch (e) { el.innerHTML = '<div class="ev"><span class="t">error</span><span></span><span>' + esc(e.message) + '</span></div>'; }
+        }
+
+        // Wire into the page lifecycle: overview on load and on the refresh
+        // cadence; ledger lazily when its tab opens.
+        var _origShowTab = showTab;
+        showTab = function (tabId) {
+            _origShowTab(tabId);
+            if (tabId === 'ledger') loadLedger(false);
+        };
+        document.addEventListener('DOMContentLoaded', function () { loadOverview(); });
+        setInterval(loadOverview, 120000);
     </script>
 
     <!-- Modal -->
@@ -3152,7 +3849,7 @@ async def build_a_brand_page():
                 radial-gradient(1.4px 1.4px at 84% 41%, rgba(226,193,132,0.20), transparent 100%),
                 radial-gradient(1px 1px at 39% 57%, rgba(242,236,223,0.16), transparent 100%),
                 var(--bg);
-            background-attachment: fixed;
+            /* background-attachment: fixed removed: nine stacked radial gradients repainted on every scroll tick and stalled the renderer */
         }
         ::selection { background: rgba(212,175,106,0.30); }
         ::-webkit-scrollbar { width: 11px; }
@@ -3190,7 +3887,7 @@ async def build_a_brand_page():
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 2px 18px rgba(212,175,106,0.18));
+            /* drop-shadow filter removed: on background-clip:text it makes Chrome rasterise the layer per scroll tick and stalls capture */
         }
         .hero p { color: var(--ink-2); margin-top: 14px; font-size: 0.98em; }
         .back-link {

@@ -17,7 +17,7 @@ class MistralLLM:
         self,
         api_key: str | None = None,
         model: str = "mistral-small-latest",
-        max_retries: int = 3,
+        max_retries: int = 6,
         base_delay: float = 0.5,
     ):
         """Initialize Mistral LLM client.
@@ -94,7 +94,9 @@ class MistralLLM:
             except Exception as e:
                 error_str = str(e).lower()
                 if "429" in error_str or "rate" in error_str:
-                    wait_time = self.base_delay * (2 ** attempt) + 1
+                    # The key is shared with the embedding pipeline, which can hold
+                    # the per-second budget for minutes at a time; back off for real.
+                    wait_time = min(30.0, 2.0 * (2 ** attempt) + 1)
                     logger.warning(f"LLM rate limited, waiting {wait_time:.1f}s (attempt {attempt + 1}/{self.max_retries})")
                     time.sleep(wait_time)
                     continue

@@ -46,6 +46,9 @@ class PropertyResponse(BaseModel):
     positioning_misalignment_flags: list[str]
     recommendations: list[str]
     matching_trend_ids: list[str]
+    trend_alignment: list[dict] = []
+    demand_brief: Optional[dict] = None
+    fit_method: str = "keywords"
     scraped_at: Optional[str]
 
 

@@ -19,17 +19,23 @@ sources:
     type: social
     status: active
     priority: high
-    note: "AT Protocol public search; unauthenticated, 3000 req/5min/IP; cleanest legal position"
+    note: "AT Protocol search via an authenticated session (BLUESKY_HANDLE + BLUESKY_APP_PASSWORD); public AppViews 403 scripted clients since 2026-07/09"
     config:
+      # Quoted phrases: bare "hotel stay" also matched every post containing "stay",
+      # which filled Social Pulse with unrelated chatter (verified 2026-09-04).
       queries:
-        - "hotel stay"
-        - "boutique hotel"
-        - "where to stay"
-        - "hotel recommendation"
-        - "wellness retreat"
-        - "workcation"
-        - "digital nomad city"
-        - "airbnb vs hotel"
+        - '"boutique hotel"'
+        - '"hotel recommendation"'
+        - '"hotel recommendations"'
+        - '"where to stay" hotel'
+        - '"wellness retreat"'
+        - '"workcation"'
+        - '"digital nomad" city'
+        - '"airbnb vs hotel"'
+        - '"best hotel" city'
+        - '"checked into" hotel'
+        - '"hotel bar"'
+        - '"design hotel"'
       max_per_query: 50
       lang: "en"
 

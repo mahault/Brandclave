@@ -18,7 +18,7 @@ feedparser>=6.0.0
 lxml>=4.9.0
 
 # NLP
-mistralai>=1.0.0
+mistralai>=1.0.0,<2.0  # 2.x moved the client out of the top-level package
 langdetect>=1.0.9
 textblob>=0.17.0
 sentence-transformers>=2.2.0  # Local fallback for embeddings
