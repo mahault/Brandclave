@@ -174,7 +174,7 @@ class SocialPulseService:
 
         # Extract sample texts for LLM
         sample_texts = [
-            f"{item.get('title', '')}\n{item.get('content', '')[:500]}"
+            f"{(item.get('title') or '')}\n{(item.get('content') or '')[:500]}"
             for item in content_items[:10]
         ]
 
@@ -193,7 +193,7 @@ class SocialPulseService:
 
         # Extract sample quotes
         sample_quotes = [
-            item.get("content", "")[:200]
+            (item.get('content') or '')[:200]
             for item in content_items[:3]
             if item.get("content")
         ]
@@ -244,7 +244,7 @@ class SocialPulseService:
             "list of", "roundup", "compilation"
         ]
 
-        titles = [item.get("title", "").lower() for item in content_items]
+        titles = [(item.get('title') or '').lower() for item in content_items]
         list_count = 0
 
         for title in titles:
@@ -273,7 +273,7 @@ class SocialPulseService:
         """
         # Extract themes from content
         all_text = " ".join(
-            f"{item.get('title', '')} {item.get('content', '')[:300]}"
+            f"{(item.get('title') or '')} {(item.get('content') or '')[:300]}"
             for item in content_items[:10]
         ).lower()
 
@@ -341,7 +341,7 @@ class SocialPulseService:
             Meaningful trend name
         """
         # Try to extract from titles
-        titles = [item.get("title", "") for item in content_items[:5] if item.get("title")]
+        titles = [(item.get('title') or '') for item in content_items[:5] if item.get("title")]
 
         if titles:
             # Use first meaningful title, cleaned up
@@ -352,7 +352,7 @@ class SocialPulseService:
 
         # Extract keywords from content
         all_text = " ".join(
-            item.get("title", "") + " " + item.get("content", "")[:200]
+            (item.get('title') or '') + " " + (item.get('content') or '')[:200]
             for item in content_items[:5]
         ).lower()
 
@@ -394,7 +394,7 @@ class SocialPulseService:
         }
 
         text = " ".join(
-            f"{item.get('title', '')} {item.get('content', '')}"
+            f"{(item.get('title') or '')} {(item.get('content') or '')}"
             for item in content_items
         ).lower()
 
@@ -434,7 +434,7 @@ class SocialPulseService:
         }
 
         text = " ".join(
-            f"{item.get('title', '')} {item.get('content', '')} {' '.join(topics)}"
+            f"{(item.get('title') or '')} {(item.get('content') or '')} {' '.join(topics)}"
             for item in content_items
         ).lower()
 

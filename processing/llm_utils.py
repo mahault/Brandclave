@@ -9,6 +9,10 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# Tried in order when the configured model is throttled. Both are on the free
+# tier's open-weights allowance and share none of mistral-small's quota.
+FALLBACK_MODELS = ["open-mistral-nemo", "ministral-8b-latest"]
+
 
 class MistralLLM:
     """Wrapper for Mistral API text generation with rate limiting."""
@@ -80,28 +84,39 @@ class MistralLLM:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        for attempt in range(self.max_retries):
-            try:
-                self._wait_for_rate_limit()
-                response = self.client.chat.complete(
-                    model=self.model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-                return response.choices[0].message.content
+        # Rate limits on the free tier are per model, so a capped primary model
+        # does not mean the key is exhausted: after two throttled attempts, fall
+        # through to the next model in the chain rather than burning all retries
+        # on one that will keep saying 429.
+        models = [self.model] + [m for m in FALLBACK_MODELS if m != self.model]
+        attempt = 0
+        for model_index, model in enumerate(models):
+            throttled_here = 0
+            while attempt < self.max_retries:
+                try:
+                    self._wait_for_rate_limit()
+                    response = self.client.chat.complete(
+                        model=model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                    )
+                    if model != self.model:
+                        logger.info(f"LLM served by fallback model {model}")
+                    return response.choices[0].message.content
 
-            except Exception as e:
-                error_str = str(e).lower()
-                if "429" in error_str or "rate" in error_str:
-                    # The key is shared with the embedding pipeline, which can hold
-                    # the per-second budget for minutes at a time; back off for real.
-                    wait_time = min(30.0, 2.0 * (2 ** attempt) + 1)
-                    logger.warning(f"LLM rate limited, waiting {wait_time:.1f}s (attempt {attempt + 1}/{self.max_retries})")
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "429" not in error_str and "rate" not in error_str:
+                        raise
+                    attempt += 1
+                    throttled_here += 1
+                    if throttled_here >= 2 and model_index < len(models) - 1:
+                        logger.warning(f"LLM model {model} rate limited twice, trying {models[model_index + 1]}")
+                        break
+                    wait_time = min(30.0, 2.0 * (2 ** throttled_here) + 1)
+                    logger.warning(f"LLM rate limited on {model}, waiting {wait_time:.1f}s (attempt {attempt}/{self.max_retries})")
                     time.sleep(wait_time)
-                    continue
-                else:
-                    raise
 
         raise Exception(f"LLM generation failed after {self.max_retries} retries")
 

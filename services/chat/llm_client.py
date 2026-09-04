@@ -66,20 +66,36 @@ class MistralLLMClient:
         Returns:
             LLMResponse with generated content
         """
-        try:
-            response = self.client.chat.complete(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+        # Free-tier rate limits are per model; when the configured model is
+        # throttled, the open-weights models still answer. Same chain as
+        # processing.llm_utils so every LLM surface degrades the same way.
+        from processing.llm_utils import FALLBACK_MODELS
 
-            content = response.choices[0].message.content
-            return LLMResponse(content=content, raw=response)
+        models = [self.model] + [m for m in FALLBACK_MODELS if m != self.model]
+        last_error: Exception | None = None
+        for model in models:
+            try:
+                response = self.client.chat.complete(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                if model != self.model:
+                    logger.info(f"Chat served by fallback model {model}")
+                content = response.choices[0].message.content
+                return LLMResponse(content=content, raw=response)
 
-        except Exception as e:
-            logger.error(f"Mistral chat failed: {e}")
-            raise
+            except Exception as e:
+                last_error = e
+                if "429" in str(e) or "rate" in str(e).lower():
+                    logger.warning(f"Mistral chat rate limited on {model}, trying next model")
+                    continue
+                logger.error(f"Mistral chat failed: {e}")
+                raise
+
+        logger.error(f"Mistral chat failed on every model: {last_error}")
+        raise last_error
 
 
 def get_llm_client() -> MistralLLMClient | None:

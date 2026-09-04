@@ -140,7 +140,9 @@ class NLPPipeline:
             sentiment_score = self.analyze_sentiment(cleaned_text)
 
             # Generate embedding
-            embedding = self.embedding_provider.embed(cleaned_text)
+            # mistral-embed rejects inputs over 8,192 tokens; long transcripts
+            # (YouTube) overflowed. ~20k characters keeps every item under the cap.
+            embedding = self.embedding_provider.embed(cleaned_text[:20000])
 
             # Store in vector store
             metadata = {
