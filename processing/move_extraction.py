@@ -93,15 +93,33 @@ JSON response:"""
             logger.debug(f"Low confidence ({confidence}) for: {title}")
             return None
 
+        # Smaller models return lists or objects where a string was asked for
+        # ("market": ["Lisbon", "Porto"]); text columns cannot bind those.
+        def text(value, default=None):
+            if value is None:
+                return default
+            if isinstance(value, (list, tuple)):
+                return ", ".join(str(v) for v in value if v) or default
+            if isinstance(value, dict):
+                return ", ".join(str(v) for v in value.values() if v) or default
+            return str(value).strip() or default
+
+        def items(value):
+            if isinstance(value, str):
+                return [value] if value.strip() else []
+            if isinstance(value, (list, tuple)):
+                return [text(v, "") for v in value if v]
+            return []
+
         return {
-            "company": data.get("company", "Unknown"),
-            "company_type": data.get("company_type"),
+            "company": text(data.get("company"), "Unknown"),
+            "company_type": text(data.get("company_type")),
             "move_type": move_type,
-            "market": data.get("market"),
-            "investment_amount": data.get("investment_amount"),
-            "title": data.get("title", title[:100]),
-            "summary": data.get("summary", ""),
-            "strategic_implications": data.get("strategic_implications", []),
+            "market": text(data.get("market")),
+            "investment_amount": text(data.get("investment_amount")),
+            "title": text(data.get("title"), title[:100]),
+            "summary": text(data.get("summary"), ""),
+            "strategic_implications": items(data.get("strategic_implications", [])),
             "confidence_score": confidence,
             "source_url": source_url,
             "source_name": source_name,

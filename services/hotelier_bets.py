@@ -316,8 +316,14 @@ class HotelierBetsService:
                     confidence_score=move.get("confidence_score", 0.5),
                     metadata_json=move.get("metadata", {}),
                 )
-                db.add(db_move)
-                saved += 1
+                # Savepoint per row so one malformed move cannot discard the batch
+                try:
+                    with db.begin_nested():
+                        db.add(db_move)
+                        db.flush()
+                    saved += 1
+                except Exception as exc:
+                    logger.warning(f"Skipping unsaveable move '{str(move.get('title', ''))[:60]}': {exc}")
 
             db.commit()
             logger.info(f"Saved {saved} moves to database")
