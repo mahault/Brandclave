@@ -21,7 +21,7 @@ from db.models import (
     RawContentModel,
     TrendSignalModel,
 )
-from ingestion.registry import get_registry
+from ingestion.registry import get_registry, retired_sources
 from services import signal_ledger
 
 logger = logging.getLogger(__name__)
@@ -45,18 +45,34 @@ def _kpis(db: Session, now: datetime) -> dict:
     week_ago = now - timedelta(days=WINDOW_DAYS)
     two_weeks_ago = now - timedelta(days=2 * WINDOW_DAYS)
 
-    def window(column):
-        cur = _count_between(db, column, week_ago, now)
-        prev = _count_between(db, column, two_weeks_ago, week_ago)
+    def window(column, extra=None):
+        base = db.query(func.count()).filter(column >= week_ago, column < now)
+        prev_q = db.query(func.count()).filter(column >= two_weeks_ago, column < week_ago)
+        if extra is not None:
+            base = base.filter(extra)
+            prev_q = prev_q.filter(extra)
+        cur = base.scalar() or 0
+        prev = prev_q.scalar() or 0
         return {"last_7d": cur, "prior_7d": prev, "change_pct": _pct_change(cur, prev)}
 
-    content_total = db.query(func.count(RawContentModel.id)).scalar() or 0
+    retired = retired_sources()
+    live_rows = RawContentModel.source.notin_(retired) if retired else True
+    content_total = db.query(func.count(RawContentModel.id)).filter(live_rows).scalar() or 0
+    archived = db.query(func.count(RawContentModel.id)).filter(RawContentModel.source.in_(retired)).scalar() or 0 if retired else 0
     processed = (
-        db.query(func.count(RawContentModel.id)).filter(RawContentModel.is_processed.is_(True)).scalar() or 0
+        db.query(func.count(RawContentModel.id))
+        .filter(RawContentModel.is_processed.is_(True), live_rows)
+        .scalar()
+        or 0
     )
 
     return {
-        "content": {"total": content_total, "processed": processed, **window(RawContentModel.scraped_at)},
+        "content": {
+            "total": content_total,
+            "archived": archived,
+            "processed": processed,
+            **window(RawContentModel.scraped_at, live_rows),
+        },
         "trends": {
             "total": db.query(func.count(TrendSignalModel.id)).scalar() or 0,
             **window(TrendSignalModel.last_updated),
@@ -71,9 +87,11 @@ def _kpis(db: Session, now: datetime) -> dict:
 def _intake_series(db: Session, now: datetime, days: int = 30) -> list[dict]:
     """Items scraped per day for the sparkline, zero-filled."""
     start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    retired = retired_sources()
     rows = (
         db.query(func.date(RawContentModel.scraped_at), func.count(RawContentModel.id))
         .filter(RawContentModel.scraped_at >= start)
+        .filter(RawContentModel.source.notin_(retired) if retired else True)
         .group_by(func.date(RawContentModel.scraped_at))
         .all()
     )
@@ -103,12 +121,15 @@ def _demand_cities(db: Session, metric: str, limit: int) -> dict:
 
     cities = []
     for city, points in by_city.items():
-        if len(points) < 2 * WINDOW_DAYS:
+        if len(points) < 2:
             continue
         values = [p.value for p in points]
         mean = sum(values) / len(values)
-        recent = values[-WINDOW_DAYS:]
-        prior = values[-2 * WINDOW_DAYS : -WINDOW_DAYS]
+        # Daily series compare the last 7 days with the 7 before; coarser
+        # series (monthly, quarterly) compare the last point with the previous.
+        window = WINDOW_DAYS if len(points) >= 2 * WINDOW_DAYS else 1
+        recent = values[-window:]
+        prior = values[-2 * window : -window]
         recent_avg = sum(recent) / len(recent)
         prior_avg = sum(prior) / len(prior)
         cities.append(

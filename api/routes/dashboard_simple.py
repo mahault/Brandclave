@@ -1213,6 +1213,13 @@ async def dashboard_v2():
                             <div class="card-sub" id="curves-sub">Daily destination attention across tracked cities, each indexed to its own 30-day average (100). The three strongest week-over-week risers are highlighted; every other city is the grey field behind them.</div>
                         </div>
                         <div class="card-tools">
+                            <select id="curves-metric" class="filter-select" onchange="setCurvesMetric(this.value)" title="Demand metric">
+                                <option value="wikipedia_pageviews">Attention · Wikipedia pageviews (daily)</option>
+                                <option value="eurostat_nights_spent">Nights spent · Eurostat (monthly, by country)</option>
+                                <option value="airbnb_reviews_per_month">Airbnb review velocity (quarterly)</option>
+                                <option value="airbnb_median_price">Airbnb median price (quarterly)</option>
+                                <option value="osm_hotels">Hotel supply · OpenStreetMap</option>
+                            </select>
                             <button class="tool-btn active" id="curves-chart-btn" onclick="setCurvesView('chart')">Chart</button>
                             <button class="tool-btn" id="curves-table-btn" onclick="setCurvesView('table')">Table</button>
                         </div>
@@ -3481,7 +3488,7 @@ async def dashboard_v2():
                 : '<span class="vs">' + L.open_predictions + ' open &middot; first horizon pending</span>';
 
             document.getElementById('stat-row').innerHTML =
-                statTile('Corpus', fmtInt(k.content.total), contentDelta, sparkline(d.intake, 72, 30)) +
+                statTile('Corpus', fmtInt(k.content.total), contentDelta + (k.content.archived ? ' <span class="vs">&middot; ' + fmtInt(k.content.archived) + ' archived (retired sources)</span>' : ''), sparkline(d.intake, 72, 30)) +
                 statTile('Sources live', fresh + '<small style="font-size:0.45em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px;">of ' + active + '</small>',
                     '<span class="vs">' + (d.sources.registry.planned || 0) + ' planned &middot; ' + (d.sources.registry.blocked || 0) + ' blocked by ToS</span>') +
                 statTile('Trends tracked', fmtInt(k.trends.total), trendDelta) +
@@ -3611,6 +3618,16 @@ async def dashboard_v2():
             document.getElementById('curves-sub').textContent = 'Daily destination attention across ' + cities.length + ' cities (' + demand.metric.replace('_', ' ') + '), each indexed to its own 30-day average. The three strongest week-over-week risers are highlighted; the grey field is everyone else.' + (clipped ? ' Axis capped at ' + hi + '; one-day spikes above it run off the top.' : '');
         }
 
+        var curvesMetric = 'wikipedia_pageviews';
+        async function setCurvesMetric(metric) {
+            curvesMetric = metric;
+            try {
+                var res = await fetch('/api/overview?demand_metric=' + encodeURIComponent(metric));
+                var d = await res.json();
+                renderCurves(d.demand);
+                setCurvesView(curvesView);
+            } catch (e) { console.error('metric switch failed', e); }
+        }
         function setCurvesView(v) {
             curvesView = v;
             document.getElementById('curves-chart').hidden = v !== 'chart';

@@ -190,7 +190,12 @@ async def get_recent_content(limit: int = Query(20, ge=1, le=100)):
 
     db = SessionLocal()
     try:
-        items = db.query(RawContentModel).order_by(
+        from ingestion.registry import retired_sources
+
+        retired = retired_sources()
+        items = db.query(RawContentModel).filter(
+            RawContentModel.source.notin_(retired) if retired else True
+        ).order_by(
             RawContentModel.scraped_at.desc()
         ).limit(limit).all()
 

@@ -68,6 +68,16 @@ def active_sources(kind: str | None = None) -> list[str]:
     ]
 
 
+def retired_sources() -> list[str]:
+    """Sources whose historical rows stay in the database but must not count.
+
+    A blocked source (Reddit after its API closed, OTA review sites on terms of
+    service) leaves content behind; trends, KPIs and listings treat it as
+    archive, so the numbers describe what the platform can still observe.
+    """
+    return [s.name for s in get_registry().values() if s.status == "blocked"]
+
+
 def runnable_sources() -> list[str]:
     """Every source with an implementation (active or blocked) — for the CLI."""
     return [s.name for s in get_registry().values() if s.class_path]

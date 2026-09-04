@@ -33,10 +33,10 @@ def test_blocked_sources_excluded_from_active():
 
 
 def test_planned_source_has_no_class_and_raises():
-    spec = get_source("eurostat_tourism")
+    spec = get_source("us_ntto_arrivals")
     assert spec.status == "planned"
     with pytest.raises(ValueError, match="planned"):
-        get_scraper_class("eurostat_tourism")
+        get_scraper_class("us_ntto_arrivals")
 
 
 def test_scraper_classes_import_for_all_implemented_sources():

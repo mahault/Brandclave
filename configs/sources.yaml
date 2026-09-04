@@ -56,11 +56,17 @@ sources:
     note: "verify terms and yield; demote or block if it stops returning"
 
   mastodon:
+    class: ingestion.social.mastodon_scraper.MastodonScraper
     kind: content
     type: social
-    status: planned
+    status: active
     priority: medium
-    note: "300 req/5min per instance; budget per instance, start with mastodon.social + travel instances"
+    note: "public hashtag timelines, no token; 300 req/5min per instance, budget per instance"
+    config:
+      instances: [mastodon.social, mstdn.social, fosstodon.org]
+      hashtags: [hotel, hotels, boutiquehotel, travel, hospitality, digitalnomad, staycation, resort]
+      limit_per_tag: 40
+      langs: [en]
 
   travel_substacks:
     kind: content
@@ -125,40 +131,88 @@ sources:
         - { city: "Tbilisi",       country: "Georgia",        article: "Tbilisi" }
 
   eurostat_tourism:
+    class: ingestion.metrics.eurostat_tourism.EurostatTourismScraper
     kind: metric
     type: metric
-    status: planned
+    status: active
     priority: high
-    note: "tour_occ_* arrivals/occupancy by NUTS region incl. short-term rentals from 2018; free, no key"
+    note: "official monthly nights spent (tour_occ_nim) by country; free JSON-stat API, no key"
+    config:
+      metric: eurostat_nights_spent
+      nace_r2: I551-I553
+      since: "2023-01"
+      geo: [ES, FR, IT, PT, EL, DE, NL, AT, HR, IS, IE, DK, SE, PL, CZ, HU, TR]
 
   us_ntto_arrivals:
     kind: metric
     type: metric
     status: planned
     priority: medium
-    note: "I-94/I-92 monthly international arrivals to the US, filterable by country"
+    note: "I-94 monthly international arrivals; api.trade.gov certificate expired (verified 2026-09-04) and the xlsx download path changes each release — needs a scrape of the program page"
 
   osm_overpass:
+    class: ingestion.metrics.osm_overpass.OSMOverpassScraper
     kind: metric
     type: metric
-    status: planned
+    status: active
     priority: medium
-    note: "supply-side density (hotels/restaurants/attractions per area); ~10k req/day fair use"
+    note: "supply-side density (hotels/restaurants/nightlife/attractions) per city boundary; ~10k req/day fair use; one query per city with a pause"
+    config:
+      cities:
+        - { city: "Lisbon", country: "Portugal", osm_admin_level: 7 }
+        - { city: "Porto", country: "Portugal", osm_admin_level: 7 }
+        - { city: "Barcelona", country: "Spain", osm_admin_level: 8 }
+        - { city: "Paris", country: "France", osm_admin_level: 8 }
+        - { city: "Rome", country: "Italy", osm_admin_level: 8 }
+        - { city: "Athens", country: "Greece", osm_admin_level: 8 }
+        - { city: "Miami", country: "USA", osm_admin_level: 8 }
+        - { city: "Austin", country: "USA", osm_admin_level: 8 }
+        - { city: "Mexico City", country: "Mexico", osm_admin_level: 4 }
+        - { city: "Buenos Aires", country: "Argentina", osm_admin_level: 4 }
+        - { city: "Istanbul", country: "Turkey", osm_admin_level: 4 }
+        - { city: "Dubai", country: "UAE", osm_admin_level: 4 }
+        - { city: "Reykjavik", country: "Iceland", osm_admin_level: 6 }
+        - { city: "Bangkok", country: "Thailand", osm_admin_level: 4 }
+        - { city: "Seoul", country: "South Korea", osm_admin_level: 4 }
+        - { city: "Singapore", country: "Singapore", osm_admin_level: 2 }
+        - { city: "Tokyo", country: "Japan", osm_admin_level: 4 }
 
   inside_airbnb:
+    class: ingestion.metrics.inside_airbnb.InsideAirbnbScraper
     kind: metric
     type: metric
-    status: planned
+    status: active
     priority: medium
-    note: "quarterly listings + review velocity (occupancy proxy); check per-city licence before commercial use"
+    note: "quarterly listings + review velocity (occupancy proxy) from the visualisations summary CSV; CC BY 4.0, attribute Inside Airbnb; check per-city licence before commercial use"
+    config:
+      cities:
+        - { city: "Lisbon", country: "Portugal", slug: lisbon }
+        - { city: "Porto", country: "Portugal", slug: porto }
+        - { city: "Barcelona", country: "Spain", slug: barcelona }
+        - { city: "Paris", country: "France", slug: paris }
+        - { city: "Rome", country: "Italy", slug: rome }
+        - { city: "Athens", country: "Greece", slug: athens }
+        - { city: "London", country: "UK", slug: london }
+        - { city: "New York City", country: "USA", slug: new-york-city }
+        - { city: "Austin", country: "USA", slug: austin }
+        - { city: "Mexico City", country: "Mexico", slug: mexico-city }
+        - { city: "Buenos Aires", country: "Argentina", slug: buenos-aires }
+        - { city: "Istanbul", country: "Turkey", slug: istanbul }
+        - { city: "Cape Town", country: "South Africa", slug: cape-town }
+        - { city: "Bangkok", country: "Thailand", slug: bangkok }
+        - { city: "Singapore", country: "Singapore", slug: singapore }
+        - { city: "Tokyo", country: "Japan", slug: tokyo }
 
   # ── Societal-shift signal (the actual thesis) ───────────────────────────────
   pew_research:
+    class: ingestion.news.culture_feeds.PewResearchScraper
     kind: content
     type: news
-    status: planned
-    priority: high
-    note: "consumer and social attitude research; free"
+    status: active
+    priority: low
+    note: "consumer and social attitude research; free RSS; keyword-filtered to travel/leisure"
+    config:
+      filter_keywords: true
 
   wef_reports:
     kind: content
@@ -179,43 +233,51 @@ sources:
     type: news
     status: planned
     priority: medium
-    note: "McKinsey/Deloitte/PwC/Accenture consumer & travel outlooks, published openly"
+    note: "McKinsey travel RSS 404 (2026-09-04); curate per-firm report pages"
 
   # ── Adjacent culture (where shifts surface first) ───────────────────────────
   dezeen:
+    class: ingestion.news.culture_feeds.DezeenScraper
     kind: content
     type: news
-    status: planned
-    priority: high
-    note: "design & architecture direction; free RSS"
+    status: active
+    priority: medium
+    note: "design & architecture direction; free RSS; keyword-filtered to hospitality typologies"
+    config:
+      filter_keywords: true
 
   archdaily:
+    class: ingestion.news.culture_feeds.ArchDailyScraper
     kind: content
     type: news
-    status: planned
+    status: active
     priority: medium
-    note: "free RSS"
+    note: "free RSS; keyword-filtered to hospitality typologies"
+    config:
+      filter_keywords: true
 
   resident_advisor:
     kind: content
     type: news
     status: planned
     priority: medium
-    note: "nightlife, electronic music, event geography — Sarah's own signal examples live here"
+    note: "no RSS (ra.co/xml/news 404, 2026-09-04); needs a page scraper"
 
   eater:
+    class: ingestion.news.culture_feeds.EaterScraper
     kind: content
     type: news
-    status: planned
+    status: active
     priority: medium
-    note: "food culture by city"
+    note: "food culture by city; free RSS"
 
   global_wellness_institute:
+    class: ingestion.news.culture_feeds.GlobalWellnessInstituteScraper
     kind: content
     type: news
-    status: planned
+    status: active
     priority: low
-    note: "wellness trend research"
+    note: "wellness economy research; free RSS"
 
   # ── Trade press (working, demoted: one voice, not ten) ─────────────────────
   skift:
@@ -281,11 +343,13 @@ sources:
 
   # ── Unreliable trade press (intermittent anti-bot; runnable manually) ───────
   hospitalitynet:
-    class: ingestion.news.hospitalitynet_rss.HospitalityNetScraper
+    class: ingestion.news.culture_feeds.HospitalityNetScraper
     kind: content
     type: news
-    status: blocked
-    note: "Cloudflare; works intermittently — run manually if needed"
+    status: active
+    priority: medium
+    note: "RSS is served even when pages sit behind Cloudflare (verified 2026-09-04); previously blocked"
+
   phocuswire:
     class: ingestion.news.hospitality_news.PhocusWireScraper
     kind: content
@@ -360,3 +424,26 @@ sources:
     type: review
     status: blocked
     note: "ToS; use licensed aggregators if brand review data matters"
+
+  gdelt:
+    class: ingestion.news.gdelt.GDELTScraper
+    kind: content
+    type: news
+    status: active
+    priority: high
+    note: "GDELT DOC 2.0 global news index; free; one request per 5 s; bodies fetched for the top articles"
+    config:
+      timespan: 3d
+      max_records: 75
+      fetch_bodies: 30
+
+  sec_edgar:
+    class: ingestion.news.sec_edgar.SECEdgarScraper
+    kind: content
+    type: news
+    status: active
+    priority: high
+    note: "official 8-K filings from hotel operators, REITs and travel platforms via per-company Atom feeds (full-text search endpoint is WAF-gated); SEC asks for a 'Company email' UA and <=10 req/s"
+    config:
+      forms: [8-K]
+      per_company: 5

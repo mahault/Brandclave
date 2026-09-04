@@ -155,7 +155,15 @@ class MetricsCollector:
         self._ensure_db()
 
         # Content counts
-        total = self.db.query(func.count(RawContentModel.id)).scalar() or 0
+        from ingestion.registry import retired_sources
+
+        retired = retired_sources()
+        total = (
+            self.db.query(func.count(RawContentModel.id))
+            .filter(RawContentModel.source.notin_(retired) if retired else True)
+            .scalar()
+            or 0
+        )
         processed = self.db.query(func.count(RawContentModel.id)).filter(
             RawContentModel.is_processed == True
         ).scalar() or 0
