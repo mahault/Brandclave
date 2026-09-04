@@ -111,13 +111,21 @@ TARGET SEGMENTS FROM RESEARCH:
         if not isinstance(journey, dict):
             raise ValueError("Invalid guest_journey format")
 
+        # Models name the phases differently ("check_in", "during_stay",
+        # "farewell"); read the first key that carries each phase.
+        def phase(*keys: str) -> str:
+            for key in keys:
+                if journey.get(key):
+                    return coerce_text(journey.get(key))
+            return ""
+
         guest_journey = {
-            "arrival": coerce_text(journey.get("arrival", "")),
-            "stay": coerce_text(journey.get("stay", "")),
-            "departure": coerce_text(journey.get("departure", "")),
+            "arrival": phase("arrival", "check_in", "checkin", "welcome", "day_one", "pre_arrival"),
+            "stay": phase("stay", "during_stay", "during", "in_stay", "the_stay", "experience", "middle"),
+            "departure": phase("departure", "check_out", "checkout", "farewell", "leaving", "post_stay"),
         }
 
-        if not all(guest_journey.values()):
+        if not any(guest_journey.values()):
             raise ValueError("Guest journey missing required phases")
 
         return {

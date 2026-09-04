@@ -25,7 +25,8 @@ def coerce_text(value) -> str:
     if value is None:
         return ""
     if isinstance(value, str):
-        return value.strip()
+        # Emphasis markers leak from the smaller models ("*piedra caliza*")
+        return re.sub(r"\*{1,2}", "", value).strip()
     if isinstance(value, dict):
         for key in ("text", "name", "value", "description", "content"):
             if isinstance(value.get(key), str):
@@ -36,6 +37,17 @@ def coerce_text(value) -> str:
         return "; ".join(p for p in (coerce_text(v) for v in value) if p)
     return str(value).strip()
 
+
+# The open-weights fallback models answer a request for "a design direction"
+# with a nested palette-by-hex-code essay and run out of tokens before the
+# last required key. Every stage gets the same output contract so the whole
+# document fits in one response and the parser sees every field.
+STAGE_MAX_TOKENS = 3000
+BREVITY_CONTRACT = (
+    "\n\nOutput contract: respond with ONE flat JSON object using exactly the keys requested. "
+    "Every string value is plain prose under 60 words; never nest objects inside a field that asks for text; "
+    "no markdown, no bullet characters, no comments. Total response under 900 words."
+)
 
 
 def _repair_json(text: str) -> str:
@@ -250,7 +262,7 @@ class BaseStage(ABC):
         rag_context = await self.retrieve_context(context)
 
         # Build prompts
-        system_prompt = self.get_system_prompt()
+        system_prompt = self.get_system_prompt() + BREVITY_CONTRACT
         user_prompt = self.build_user_prompt(context, rag_context)
 
         # Try with retries
@@ -314,7 +326,7 @@ class BaseStage(ABC):
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.7,
-                max_tokens=2000,
+                max_tokens=STAGE_MAX_TOKENS,
                 json_mode=True,
             )
 
