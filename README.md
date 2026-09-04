@@ -17,7 +17,7 @@ An intelligent system that scrapes hospitality news and social media, uses **PyM
    - Wait for "Setup complete!" message
 
 2. **Double-click `POPULATE_DATA.bat`**
-   - Scrapes content from 12 reliable hospitality sources
+   - Scrapes content from 26 registered sources (official statistics, filings, news, culture feeds, consumer voice)
    - Processes content with AI (embeddings, clustering)
    - Generates trends and extracts strategic moves
    - Takes about 10-15 minutes
@@ -67,8 +67,8 @@ The dashboard follows the SENTIENT design language: warm near-black surfaces, ch
      +--------+----+  +------+------+  +---+--------+
               |              |              |
      +--------v----+  +------v------+  +---v--------+
-     | 12 Sources  |  | Embeddings  |  | LLM/NER    |
-     | Reddit/News |  | HDBSCAN     |  | Analysis   |
+     | 26 Sources  |  | Embeddings  |  | LLM/NER    |
+     | Stats/News  |  | HDBSCAN     |  | Analysis   |
      +--------+----+  +------+------+  +---+--------+
               |              |              |
               +--------------+--------------+
@@ -130,16 +130,22 @@ Initialized Scraping POMDP with 12 sources (JAX/JIT enabled)
 Clustering POMDP enabled for adaptive parameter selection
 ```
 
-### Data Sources (12 Reliable)
+### Data Sources (26 active, registry-driven)
 
-**Social Media:**
-- Reddit (r/hotels, r/travel, r/digitalnomad, etc.)
-- YouTube (hotel reviews, travel vlogs)
+Every source is declared in `configs/sources.yaml` (status `active` / `planned` / `blocked`).
+All active sources are free and used within their publishers' terms; blocked sources
+(Reddit, TripAdvisor, Booking, paywalled trade sites) are excluded from every number.
 
-**Hospitality News:**
-- Skift, Hotel Dive, Hotel Management
-- Top Hotel News, SiteMinder, EHL Insights
-- eHotelier, Lodging Magazine, Luxury Hospitality, Hotel Business
+| Layer | Sources |
+|-------|---------|
+| **Official demand & supply metrics** | Eurostat `tour_occ_nim` (monthly nights by country), Wikimedia pageviews (daily destination attention, 27 cities), OSM Overpass (hotel / restaurant / nightlife / attraction counts per city), Inside Airbnb (quarterly listings, entire-home share, median price, review velocity; CC BY 4.0) |
+| **Primary-source operator moves** | SEC EDGAR 8-K filings from 14 hotel operators, REITs and travel platforms |
+| **News breadth** | GDELT DOC 2.0 (global, timestamped, bodies fetched for the top articles) |
+| **Trade press (RSS)** | Skift, Hotel Dive, Hotel Management, Lodging, Hotel Business, eHotelier, SiteMinder, Luxury Hospitality, TopHotelNews, Hospitality Net, EHL Insights |
+| **Culture & research (RSS)** | Dezeen, ArchDaily, Eater, Pew Research, Global Wellness Institute (broad feeds pass a hospitality keyword gate) |
+| **Consumer voice** | Bluesky (authenticated AT Protocol search), Mastodon hashtag timelines, YouTube Data API, Quora |
+
+Adding a source is one YAML entry plus a small scraper class; see `docs/ARCHITECTURE.md`.
 
 ### Processing Pipeline
 
