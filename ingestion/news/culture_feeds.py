@@ -8,12 +8,15 @@ hospitality-adjacent items by keyword so the corpus stays on topic.
 """
 
 import logging
+import re
 
 from data_models.raw_content import RawContentCreate
 from ingestion.news.hospitality_news import RSSNewsScraper
 from ingestion.registry import get_source_config
 
 logger = logging.getLogger(__name__)
+
+TAG_RE = re.compile(r"<[^>]+>")
 
 # Broad-topic feeds keep only entries that touch travel, hospitality or the
 # built environment of leisure. Matching is case-insensitive over title+summary.
@@ -35,11 +38,16 @@ class FilteredRSSScraper(RSSNewsScraper):
         cfg = get_source_config(self.source_name)
         if not cfg.get("filter_keywords", self.filter_by_default):
             return items
-        keywords = [k.lower() for k in cfg.get("keywords", DEFAULT_KEYWORDS)]
+        keywords = [k.strip().lower() for k in cfg.get("keywords", DEFAULT_KEYWORDS)]
+        # Word-boundary match on the title and the opening of the body only:
+        # feeds that ship whole pages (Dezeen) carry every keyword in their
+        # footers and tag clouds, which is not a signal about the article.
+        pattern = re.compile(r"\b(" + "|".join(re.escape(k) for k in keywords) + r")\b")
         kept = []
         for item in items:
-            haystack = f"{item.title or ''} {item.content or ''}".lower()
-            if any(k in haystack for k in keywords):
+            body = TAG_RE.sub(" ", item.content or "")
+            haystack = f"{item.title or ''} {body[:600]}".lower()
+            if pattern.search(haystack):
                 kept.append(item)
         logger.info(f"{self.source_name}: kept {len(kept)} of {len(items)} entries after keyword filter")
         return kept

@@ -20,6 +20,21 @@ USER_AGENT = "BrandClaveDemandBot/1.0 (https://github.com/mahault/Brandclave; ma
 TAG_RE = re.compile(r"<[^>]+>")
 
 
+def _looks_like_a_post(text: str, acct: str | None, seen_prefixes: dict[str, int]) -> bool:
+    """Reject the two spam shapes hashtag timelines carry: emoji walls with
+    little prose, and the same message re-posted under many tags."""
+    letters = sum(ch.isalpha() for ch in text)
+    if letters < 0.5 * max(len(text), 1):
+        return False
+    opening = text[:60]
+    symbols = sum(1 for ch in opening if not (ch.isalnum() or ch.isspace() or ch in ".,;:!?'\"()-#@/&"))
+    if symbols > 6:
+        return False
+    key = (acct or "") + "|" + re.sub(r"\W+", "", text.lower())[:60]
+    seen_prefixes[key] = seen_prefixes.get(key, 0) + 1
+    return seen_prefixes[key] <= 1
+
+
 def _strip_html(html: str) -> str:
     text = TAG_RE.sub(" ", html or "")
     return re.sub(r"\s+", " ", text).replace("&amp;", "&").replace("&#39;", "'").replace("&quot;", '"').strip()
@@ -40,6 +55,7 @@ class MastodonScraper(BaseScraper):
 
         items: list[RawContentCreate] = []
         seen: set[str] = set()
+        seen_prefixes: dict[str, int] = {}
         for instance in instances:
             for tag in hashtags:
                 url = f"https://{instance}/api/v1/timelines/tag/{tag}"
@@ -53,9 +69,12 @@ class MastodonScraper(BaseScraper):
                     continue
                 for status in statuses:
                     item = self._status_to_item(status, instance, tag, langs)
-                    if item is not None and item.url not in seen:
-                        seen.add(item.url)
-                        items.append(item)
+                    if item is None or item.url in seen:
+                        continue
+                    if not _looks_like_a_post(item.content, item.metadata.get("acct"), seen_prefixes):
+                        continue
+                    seen.add(item.url)
+                    items.append(item)
         logger.info(f"Mastodon: collected {len(items)} statuses across {len(instances)} instances")
         return items
 

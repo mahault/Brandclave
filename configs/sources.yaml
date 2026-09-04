@@ -64,7 +64,7 @@ sources:
     note: "public hashtag timelines, no token; 300 req/5min per instance, budget per instance"
     config:
       instances: [mastodon.social, mstdn.social, fosstodon.org]
-      hashtags: [hotel, hotels, boutiquehotel, travel, hospitality, digitalnomad, staycation, resort]
+      hashtags: [hotel, hotels, boutiquehotel, hospitality, digitalnomad, resort, hostel, airbnb, hoteldesign]
       limit_per_tag: 40
       langs: [en]
 
