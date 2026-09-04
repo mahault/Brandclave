@@ -3417,7 +3417,7 @@ async def dashboard_v2():
             wikipedia_pageviews: { what: 'Daily destination attention (Wikipedia pageviews)', unit: 'cities', base: 'its own 30-day average', movers: 'week-over-week', period: 'this week' },
             eurostat_nights_spent: { what: 'Monthly nights spent at hotels and similar accommodation (Eurostat tour_occ_nim)', unit: 'countries', base: 'its own multi-year average', movers: 'month-over-month (seasonal by nature)', period: 'latest month' },
             airbnb_reviews_per_month: { what: 'Quarterly Airbnb review velocity, the standard short-term-rental occupancy proxy (Inside Airbnb, CC BY 4.0)', unit: 'cities', base: 'its own average', movers: 'snapshot-over-snapshot', period: 'latest snapshot' },
-            airbnb_median_price: { what: 'Quarterly Airbnb median nightly price (Inside Airbnb, CC BY 4.0)', unit: 'cities', base: 'its own average', movers: 'snapshot-over-snapshot', period: 'latest snapshot' },
+            airbnb_median_price: { what: 'Quarterly Airbnb median nightly price in each city’s local currency (Inside Airbnb, CC BY 4.0) — compare a city with itself over time, not cities with each other', unit: 'cities', base: 'its own average', movers: 'snapshot-over-snapshot', period: 'latest snapshot' },
             osm_hotels: { what: 'Hotel, hostel and guest-house supply inside each city boundary (OpenStreetMap)', unit: 'cities', base: 'its own average', movers: 'run-over-run', period: 'latest run' }
         };
         function metricCopy(metric) { return METRIC_COPY[metric] || { what: metric.replace(/_/g, ' '), unit: 'series', base: 'its own average', movers: 'latest vs previous', period: 'latest' }; }
@@ -3520,6 +3520,26 @@ async def dashboard_v2():
             cities.forEach(function (c) { byName[c.city] = c; });
             var dates = cities[0].series.map(function (p) { return p.date; });
             var n = dates.length;
+
+            if (demand.snapshot || n < 2) {
+                // One observation per city: a curve has nothing to draw, so the
+                // league table is the chart. Movers become "highest / lowest".
+                var mcS = metricCopy(demand.metric);
+                legend.innerHTML = '';
+                wrap.innerHTML = '<div class="empty"><div class="icon"></div>' + esc(mcS.what) + ': one snapshot per city so far (' + esc(cities[0].latest_date) + '). Levels are in the table; a curve appears once the next snapshot lands.</div>';
+                var rowsS = cities.slice().sort(function (a, b) { return b.recent_7d_avg - a.recent_7d_avg; }).map(function (c) {
+                    return '<tr><td>' + esc(c.city) + '</td><td>' + esc(c.country || '') + '</td><td class="num">' + esc(c.latest_date) + '</td><td class="num">' + (c.recent_7d_avg >= 100 ? fmtInt(c.recent_7d_avg) : c.recent_7d_avg) + '</td></tr>';
+                }).join('');
+                document.getElementById('curves-table').innerHTML = '<table class="chart-table"><thead><tr><th>City</th><th>Country</th><th style="text-align:right">Snapshot</th><th style="text-align:right">Value</th></tr></thead><tbody>' + rowsS + '</tbody></table>';
+                var maxV = Math.max.apply(null, cities.map(function (c) { return c.recent_7d_avg; }).concat([0.01]));
+                var lv = function (list) {
+                    return list.map(function (name) { var c = byName[name]; if (!c) return ''; var w = Math.max(3, Math.round((c.recent_7d_avg / maxV) * 100)); return '<div class="mover up"><span class="name">' + esc(c.city) + '</span><div><div class="bar" style="width:' + w + '%"></div></div><span class="pct">' + (c.recent_7d_avg >= 100 ? fmtInt(c.recent_7d_avg) : c.recent_7d_avg) + '</span></div>'; }).join('');
+                };
+                document.getElementById('movers').innerHTML = '<div><h4>Highest</h4>' + lv(demand.movers_up) + '</div><div><h4>Lowest</h4>' + lv(demand.movers_down) + '</div>';
+                document.getElementById('curves-sub').textContent = mcS.what + ' across ' + cities.length + ' ' + mcS.unit + '. Single snapshot per city: shown as levels, ranked.';
+                setCurvesView('table');
+                return;
+            }
 
             var W = 960, H = 320, padL = 44, padR = 150, padT = 14, padB = 30;
             var plotW = W - padL - padR, plotH = H - padT - padB;

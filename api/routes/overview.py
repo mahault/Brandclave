@@ -121,17 +121,18 @@ def _demand_cities(db: Session, metric: str, limit: int) -> dict:
 
     cities = []
     for city, points in by_city.items():
-        if len(points) < 2:
+        if not points:
             continue
         values = [p.value for p in points]
         mean = sum(values) / len(values)
         # Daily series compare the last 7 days with the 7 before; coarser
-        # series (monthly, quarterly) compare the last point with the previous.
+        # series (monthly, quarterly) compare the last point with the previous;
+        # a single snapshot has no change yet and is reported as a level.
         window = WINDOW_DAYS if len(points) >= 2 * WINDOW_DAYS else 1
         recent = values[-window:]
-        prior = values[-2 * window : -window]
+        prior = values[-2 * window : -window] if len(values) > window else []
         recent_avg = sum(recent) / len(recent)
-        prior_avg = sum(prior) / len(prior)
+        prior_avg = sum(prior) / len(prior) if prior else 0.0
         cities.append(
             {
                 "city": city,
@@ -148,17 +149,26 @@ def _demand_cities(db: Session, metric: str, limit: int) -> dict:
             }
         )
 
-    cities.sort(key=lambda c: (c["change_pct"] is None, -(c["change_pct"] or 0)))
-    movers_up = [c for c in cities if c["change_pct"] is not None][:limit]
-    movers_down = sorted(
-        [c for c in cities if c["change_pct"] is not None], key=lambda c: c["change_pct"]
-    )[:limit]
+    snapshot = all(len(c["series"]) == 1 for c in cities) if cities else False
+    if snapshot:
+        # No change to rank by: order by level so the "movers" read as a league table.
+        cities.sort(key=lambda c: -c["recent_7d_avg"])
+        movers_up = [c["city"] for c in cities[:limit]]
+        movers_down = [c["city"] for c in cities[-limit:][::-1]]
+    else:
+        cities.sort(key=lambda c: (c["change_pct"] is None, -(c["change_pct"] or 0)))
+        movers_up = [c["city"] for c in cities if c["change_pct"] is not None][:limit]
+        movers_down = [
+            c["city"]
+            for c in sorted([c for c in cities if c["change_pct"] is not None], key=lambda c: c["change_pct"])[:limit]
+        ]
     return {
         "metric": metric,
+        "snapshot": snapshot,
         "city_count": len(cities),
         "cities": cities,
-        "movers_up": [c["city"] for c in movers_up],
-        "movers_down": [c["city"] for c in movers_down],
+        "movers_up": movers_up,
+        "movers_down": movers_down,
     }
 
 
