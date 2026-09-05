@@ -120,6 +120,24 @@ def compose_prompt(ctx: dict, scene: dict) -> str:
     return " ".join(p.strip() for p in parts if p.strip())
 
 
+def _write_display_copy(out_dir: Path, filename: str, width: int = 1280) -> str | None:
+    """A JPEG at display width next to the 3 MB PNG, so a four-tile mood board
+    is ~1 MB on the page instead of ~12. The PNG stays as the download."""
+    try:
+        from PIL import Image
+
+        with Image.open(out_dir / filename) as im:
+            im = im.convert("RGB")
+            if im.width > width:
+                im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+            display = filename.rsplit(".", 1)[0] + ".jpg"
+            im.save(out_dir / display, "JPEG", quality=86, optimize=True, progressive=True)
+            return display
+    except Exception as exc:
+        logger.debug(f"Display copy skipped for {filename}: {exc}")
+        return None
+
+
 def render_dir(blueprint_id: str) -> Path:
     return RENDERS_ROOT / blueprint_id
 
@@ -171,12 +189,15 @@ def generate_renders(bp, blueprint_id: str, *, scenes: list[str] | None = None, 
         image_bytes = base64.b64decode(data.b64_json)
         filename = f"{scene['key']}.png"
         (out_dir / filename).write_bytes(image_bytes)
+        display = _write_display_copy(out_dir, filename)
         renders.append(
             {
                 "scene": scene["key"],
                 "label": scene["label"],
                 "file": filename,
-                "url": f"/api/brand-blueprint/{blueprint_id}/renders/{filename}",
+                "display_file": display,
+                "url": f"/api/brand-blueprint/{blueprint_id}/renders/{display or filename}",
+                "original_url": f"/api/brand-blueprint/{blueprint_id}/renders/{filename}",
                 "prompt": prompt,
                 "model": model,
                 "size": size,

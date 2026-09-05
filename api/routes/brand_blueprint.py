@@ -245,9 +245,10 @@ async def create_renders(blueprint_id: str, request: RenderRequest):
 @router.get("/brand-blueprint/{blueprint_id}/renders/{filename}")
 async def get_render_file(blueprint_id: str, filename: str):
     """Serve one rendered PNG."""
-    if not filename.endswith(".png") or "/" in filename or "\\" in filename or ".." in filename:
+    if not (filename.endswith(".png") or filename.endswith(".jpg")) or "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid file name")
     path = concept_renders.render_dir(blueprint_id) / filename
     if not path.exists():
         raise HTTPException(status_code=404, detail="Render not found (it may have been cleared on redeploy; regenerate)")
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    media = "image/jpeg" if filename.endswith(".jpg") else "image/png"
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "public, max-age=86400"})
