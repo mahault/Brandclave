@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     bluesky_handle: Optional[str] = None
     bluesky_app_password: Optional[str] = None
 
+    # OpenAI, used only for image generation (brand concept renders).
+    openai_api_key: Optional[str] = None
+    openai_image_model: str = "gpt-image-1.5"
+
     # --- Auth ---
     # Secret used to sign JWT access tokens (env JWT_SECRET). Optional: when
     # unset, services.auth generates an ephemeral secret at boot and logs a

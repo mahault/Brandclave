@@ -193,3 +193,61 @@ async def generate_blueprint_simple(
     )
 
     return await generate_blueprint(full_request, user=user)
+
+
+# ---------------------------------------------------------------------------
+# Concept renders: a blueprint's design direction, F&B concept and brand
+# feeling turned into four architectural visualisations (OpenAI images).
+# ---------------------------------------------------------------------------
+
+from fastapi.responses import FileResponse  # noqa: E402
+
+from services.brand_blueprint import renders as concept_renders  # noqa: E402
+
+
+class RenderRequest(BaseModel):
+    scenes: Optional[list[str]] = None  # subset of arrival|lobby|room|fnb; default all
+    quality: str = "medium"  # low|medium|high
+    size: str = "1536x1024"
+
+
+@router.get("/brand-blueprint/{blueprint_id}/renders")
+async def get_renders(blueprint_id: str):
+    """Manifest of the renders that exist on disk for a blueprint."""
+    manifest = concept_renders.load_manifest(blueprint_id)
+    if manifest is None:
+        raise HTTPException(status_code=404, detail="No renders yet for this blueprint")
+    return manifest
+
+
+@router.post("/brand-blueprint/{blueprint_id}/renders")
+async def create_renders(blueprint_id: str, request: RenderRequest):
+    """Generate (or regenerate) concept renders for a saved blueprint."""
+    repository = BlueprintRepository()
+    blueprint = repository.get(blueprint_id)
+    if blueprint is None:
+        raise HTTPException(status_code=404, detail="Blueprint not found")
+    valid = {s["key"] for s in concept_renders.SCENES}
+    scenes = [s for s in (request.scenes or []) if s in valid] or None
+    if request.quality not in {"low", "medium", "high"}:
+        raise HTTPException(status_code=400, detail="quality must be low, medium or high")
+    try:
+        return concept_renders.generate_renders(
+            blueprint, blueprint_id, scenes=scenes, quality=request.quality, size=request.size
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Render generation failed for {blueprint_id}: {exc}")
+        raise HTTPException(status_code=502, detail=f"Image generation failed: {exc}")
+
+
+@router.get("/brand-blueprint/{blueprint_id}/renders/{filename}")
+async def get_render_file(blueprint_id: str, filename: str):
+    """Serve one rendered PNG."""
+    if not filename.endswith(".png") or "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    path = concept_renders.render_dir(blueprint_id) / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Render not found (it may have been cleared on redeploy; regenerate)")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})

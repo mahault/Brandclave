@@ -4305,6 +4305,23 @@ async def build_a_brand_page():
             font-size: 0.78em;
             margin-top: 8px;
         }
+
+        /* Concept renders */
+        .renders { margin-top: 22px; }
+        .renders-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+        .renders-head p { color: var(--ink-2); font-size: 0.88em; max-width: 64ch; line-height: 1.5; }
+        .renders-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        @media (max-width: 760px) { .renders-grid { grid-template-columns: 1fr; } }
+        .render-tile { position: relative; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface-2); aspect-ratio: 3 / 2; }
+        .render-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .render-tile .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 14px; background: linear-gradient(180deg, transparent, rgba(8,6,4,0.85)); color: var(--ink); font-family: var(--font-mono); font-size: 0.7em; letter-spacing: 0.14em; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+        .render-tile .cap button { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); color: var(--ink); font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+        .render-tile.pending { display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-family: var(--font-mono); font-size: 0.72em; letter-spacing: 0.14em; text-transform: uppercase; }
+        .render-tile.pending::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(212,175,106,0.08), transparent); animation: shimmer 1.6s infinite; }
+        @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+        .render-note { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 10px; }
+        .render-prompt { color: var(--ink-3); font-size: 0.78em; line-height: 1.5; margin-top: 8px; display: none; }
+        .render-tile:hover .render-prompt { display: block; }
     </style>
 </head>
 <body>
@@ -4469,6 +4486,20 @@ async def build_a_brand_page():
                 <div class="blueprint-section">
                     <h3>F&B Concepts</h3>
                     <div id="bp-fnb"></div>
+                </div>
+
+                <div class="blueprint-section renders" id="bp-renders-section">
+                    <div class="renders-head">
+                        <div>
+                            <h3>Concept renders</h3>
+                            <p>Four spaces every concept has to answer for, visualised from this blueprint's own design direction, F&amp;B concept and brand feeling. Nothing is added that the concept did not specify.</p>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button class="btn-secondary" id="bp-render-btn" onclick="generateRenders()">Visualise the concept</button>
+                        </div>
+                    </div>
+                    <div class="renders-grid" id="bp-renders"></div>
+                    <div class="render-note" id="bp-renders-note"></div>
                 </div>
 
                 <div class="blueprint-section">
@@ -4724,6 +4755,81 @@ async def build_a_brand_page():
             return prompt;
         }
 
+
+        // ---------- Concept renders ----------
+        var RENDER_SCENES = [
+            { key: 'arrival', label: 'Arrival & facade' },
+            { key: 'lobby', label: 'Lobby & social heart' },
+            { key: 'room', label: 'Signature guest room' },
+            { key: 'fnb', label: 'Food & beverage' }
+        ];
+        function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function renderTiles(manifest, pendingKeys) {
+            var grid = document.getElementById('bp-renders');
+            var byScene = {};
+            ((manifest && manifest.renders) || []).forEach(function (r) { byScene[r.scene] = r; });
+            grid.innerHTML = RENDER_SCENES.map(function (sc) {
+                var r = byScene[sc.key];
+                if (pendingKeys && pendingKeys.indexOf(sc.key) !== -1) {
+                    return '<div class="render-tile pending">rendering ' + esc(sc.label) + '&hellip;</div>';
+                }
+                if (!r) {
+                    return '<div class="render-tile pending" style="animation:none">' + esc(sc.label) + '</div>';
+                }
+                var bust = r.generated_at ? '?v=' + encodeURIComponent(r.generated_at) : '';
+                return '<div class="render-tile"><img src="' + r.url + bust + '" alt="' + esc(sc.label) + '" loading="lazy">' +
+                    '<div class="cap"><span>' + esc(sc.label) + '</span><button onclick="generateRenders(&#39;' + sc.key + '&#39;)">Redo</button></div></div>';
+            }).join('');
+            var note = document.getElementById('bp-renders-note');
+            if (manifest && manifest.renders && manifest.renders.length) {
+                note.textContent = manifest.renders.length + ' of 4 rendered · ' + (manifest.model || '') + ' · generated ' + parseUtcDate(manifest.generated_at);
+            } else {
+                note.textContent = '';
+            }
+        }
+        function parseUtcDate(iso) {
+            if (!iso) return '';
+            var d = new Date(/[Zz]$|[+-][0-9]{2}:?[0-9]{2}$/.test(String(iso)) ? iso : iso + 'Z');
+            return d.toLocaleString();
+        }
+        async function loadRenders(blueprintId) {
+            if (!blueprintId) { renderTiles(null); return; }
+            try {
+                var res = await fetch('/api/brand-blueprint/' + blueprintId + '/renders');
+                if (res.status === 404) { renderTiles(null); return; }
+                var manifest = await res.json();
+                renderTiles(manifest);
+            } catch (e) { renderTiles(null); }
+        }
+        async function generateRenders(sceneKey) {
+            var bp = currentBlueprint;
+            var id = bp && (bp.id || bp.blueprint_id);
+            if (!id) { alert('Save or reload the blueprint first so it has an id.'); return; }
+            var btn = document.getElementById('bp-render-btn');
+            var keys = sceneKey ? [sceneKey] : RENDER_SCENES.map(function (s) { return s.key; });
+            btn.disabled = true; btn.textContent = sceneKey ? 'Rendering…' : 'Rendering 4 scenes…';
+            var existing = null;
+            try { var r0 = await fetch('/api/brand-blueprint/' + id + '/renders'); if (r0.ok) existing = await r0.json(); } catch (e) {}
+            renderTiles(existing, keys);
+            try {
+                var res = await fetch('/api/brand-blueprint/' + id + '/renders', {
+                    method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ scenes: keys, quality: 'medium' })
+                });
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+                renderTiles(data);
+                if (data.failures && data.failures.length) {
+                    document.getElementById('bp-renders-note').textContent += ' · ' + data.failures.length + ' scene(s) failed: ' + data.failures.map(function (f) { return f.error; }).join('; ');
+                }
+            } catch (e) {
+                document.getElementById('bp-renders-note').textContent = 'Render failed: ' + e.message;
+                renderTiles(existing);
+            } finally {
+                btn.disabled = false; btn.textContent = 'Visualise the concept';
+            }
+        }
+
         function displayBlueprint(blueprint) {
             currentBlueprint = blueprint;
 
@@ -4860,6 +4966,8 @@ async def build_a_brand_page():
                 document.getElementById('bp-tokens').textContent =
                     'Tokens: ' + tokens.total_tokens + ' (~$' + (tokens.estimated_cost_usd || 0).toFixed(3) + ')';
             }
+
+            loadRenders(blueprint.id || blueprint.blueprint_id);
         }
 
         function parseResponse(text) {

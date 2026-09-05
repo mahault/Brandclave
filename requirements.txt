@@ -31,6 +31,9 @@ uvicorn>=0.27.0
 # Auth
 pyjwt>=2.8
 
+# Image generation (brand concept renders)
+openai>=1.50
+
 # Utilities
 pyyaml>=6.0
 
