@@ -4332,7 +4332,7 @@ async def build_a_brand_page():
             overflow: hidden;
         }
         .hero::before {
-            content: 'BRANDCLAVE / CONCEPT STUDIO';
+            content: 'BRANDCLAVE / STEP 4 · MAKE';
             display: block;
             font-family: var(--font-mono);
             font-size: 0.72em;
@@ -4648,6 +4648,15 @@ async def build_a_brand_page():
         .render-note { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.66em; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 10px; }
         .render-prompt { color: var(--ink-3); font-size: 0.78em; line-height: 1.5; margin-top: 8px; display: none; }
         .render-tile:hover .render-prompt { display: block; }
+        .pick-chip {
+            background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink); border-radius: 999px;
+            padding: 8px 14px; font-size: 0.86em; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: border-color 0.2s, background 0.2s;
+        }
+        .pick-chip:hover { border-color: var(--gold); background: var(--surface-3); }
+        .pick-chip .ws { font-family: var(--font-mono); font-size: 0.72em; color: var(--gold); letter-spacing: 0.06em; }
+        .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .card-head h2 { margin-bottom: 6px; }
+        .card-sub { color: var(--ink-3); font-size: 0.86em; max-width: 64ch; margin-bottom: 14px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -4658,6 +4667,16 @@ async def build_a_brand_page():
     </div>
 
     <div class="container">
+        <div id="picks-card" class="card" style="display:none;">
+            <div class="card-head">
+                <div>
+                    <h2>Start from your picks</h2>
+                    <div class="card-sub">Trends you saved on the dashboard. Pick one and the brief below fills from it; the blueprint stays grounded in that signal's evidence.</div>
+                </div>
+            </div>
+            <div id="picks-chips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
+
         <div id="source-trend-card" class="source-trend" style="display:none;">
             <h3 id="source-trend-name">Source Trend</h3>
             <p id="source-trend-desc">Description</p>
@@ -4872,6 +4891,33 @@ async def build_a_brand_page():
                 if (t) h['Authorization'] = 'Bearer ' + t;
             } catch (e) {}
             return h;
+        }
+
+        // Saved picks from the dashboard become one-click starting points.
+        function renderPicks() {
+            var chips = document.getElementById('picks-chips'), card = document.getElementById('picks-card');
+            var saved = [];
+            try { saved = JSON.parse(localStorage.getItem('brandclave_saved_trends') || '[]'); } catch (e) {}
+            if (!Array.isArray(saved) || !saved.length) { card.style.display = 'none'; return; }
+            chips.innerHTML = saved.slice(0, 12).map(function (t, i) {
+                var ws = t.white_space_score != null ? Math.round(t.white_space_score * 100) + '% white space' : '';
+                return '<button class="pick-chip" onclick="startFromPick(' + i + ')">' + (t.name || t.trend_name || 'Saved trend') + (ws ? ' <span class="ws">' + ws + '</span>' : '') + '</button>';
+            }).join('');
+            card.style.display = 'block';
+        }
+        function startFromPick(i) {
+            var saved = [];
+            try { saved = JSON.parse(localStorage.getItem('brandclave_saved_trends') || '[]'); } catch (e) {}
+            var t = saved[i]; if (!t) return;
+            sessionStorage.setItem('brandclave_brand_input', JSON.stringify({
+                source_trend_id: t.id, source_trend_name: t.name || t.trend_name,
+                initial_segment: t.audience_segment || 'lifestyle', initial_region: t.region || '',
+                topics: t.topics || [], white_space_score: t.white_space_score,
+                description: t.description, why_it_matters: t.why_it_matters
+            }));
+            sessionStorage.removeItem('brandclave_profile_data');
+            loadSourceTrend();
+            var card = document.getElementById('source-trend-card'); if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // Load source trend or profile from sessionStorage
@@ -5511,7 +5557,7 @@ async def build_a_brand_page():
         }
 
         // Initialize
-        loadSourceTrend();
+        loadSourceTrend(); renderPicks();
         loadSavedBlueprints();
     </script>
 </body>
