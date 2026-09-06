@@ -960,7 +960,8 @@ async def dashboard_v2():
         .span-6 { grid-column: span 6; }
         .span-5 { grid-column: span 5; }
         .span-4 { grid-column: span 4; }
-        @media (max-width: 1100px) { .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 12; } }
+        .span-3 { grid-column: span 3; }
+        @media (max-width: 1100px) { .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 12; } .span-3 { grid-column: span 6; } }
         .room-grid + .room-grid { margin-top: 22px; }
 
         .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -1387,8 +1388,7 @@ async def dashboard_v2():
         <div id="citydesires" class="section">
             <div class="card">
                 <h2>City Desires</h2>
-                <p style="color:var(--ink-2);margin-bottom:15px;">Discover what travelers are craving in specific destinations. Uncover unmet needs, frustrations, and white-space opportunities from social conversations.</p>
-                <p style="color:var(--ink-2);margin-bottom:15px;">Type a city to discover what travelers want but can't find.</p>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Pick a destination. The fact sheet shows what the metric sources measure there — attention, short-term-rental market, built supply and official country demand — and the analysis below reads what travellers say they want but cannot find.</p>
                 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
                     <input type="text" id="city-input" placeholder="City name (e.g., Lisbon)"
                            style="padding:10px 15px;border:1px solid var(--line-strong);border-radius:6px;font-size:1em;flex:1;min-width:150px;">
@@ -1407,6 +1407,7 @@ async def dashboard_v2():
                     <button onclick="quickCity('Bali','Indonesia')" class="quick-city">Bali</button>
                     <button onclick="quickCity('Paris','France')" class="quick-city">Paris</button>
                 </div>
+                <div id="city-facts" class="room-grid" style="margin-bottom:22px;display:none;"></div>
                 <div id="city-results">
                     <div class="empty"><div class="icon">🔍</div>Enter a city to analyze traveler desires</div>
                 </div>
@@ -3070,6 +3071,7 @@ async def dashboard_v2():
 
             var btn = document.getElementById('analyze-btn');
             var resultsDiv = document.getElementById('city-results');
+            loadCityFacts(city);
 
             btn.disabled = true;
             btn.textContent = 'Analyzing...';
@@ -4034,6 +4036,34 @@ async def dashboard_v2():
             });
             document.getElementById('mvw-table').innerHTML = '<table class="chart-table"><thead><tr><th>Week of</th>' + groups.map(function (g) { return '<th style="text-align:right">' + MOVE_GROUP_SLOTS[g].label + '</th>'; }).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>' +
                 weeks.slice().reverse().map(function (w, i) { return '<tr><td>' + fmtDateYear(w.week) + '</td>' + groups.map(function (g) { return '<td class="num">' + (w[g] || 0) + '</td>'; }).join('') + '<td class="num">' + totals[weeks.length - 1 - i] + '</td></tr>'; }).join('') + '</tbody></table>';
+        }
+
+        // ---------- City fact sheet (Cities tab) ----------
+        function miniSpark(series, w, h, color) {
+            if (!series || series.length < 2) return '';
+            var vals = series.map(function (p) { return p.value; }); var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals) || 1;
+            var pts = vals.map(function (v, i) { return [(i / (vals.length - 1)) * w, h - ((v - mn) / ((mx - mn) || 1)) * (h - 6) - 3]; });
+            return '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:' + h + 'px;overflow:hidden" aria-hidden="true"><path d="' + pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ') + '" fill="none" stroke="' + (color || '#d4af6a') + '" stroke-width="2" stroke-linejoin="round"/><circle cx="' + pts[pts.length - 1][0].toFixed(1) + '" cy="' + pts[pts.length - 1][1].toFixed(1) + '" r="3.5" fill="' + (color || '#d4af6a') + '" stroke="#17140f" stroke-width="2"/></svg>';
+        }
+        function factTile(label, value, sub, spark) {
+            return '<div class="card span-3" style="padding:18px 20px"><div class="stat-label">' + label + '</div><div class="stat-value" style="font-size:1.7em">' + value + '</div>' + (spark || '') + '<div class="stat-delta" style="margin-top:6px;white-space:normal">' + sub + '</div></div>';
+        }
+        async function loadCityFacts(city) {
+            var el = document.getElementById('city-facts');
+            if (!el) return;
+            try {
+                var res = await fetch('/api/overview/city/' + encodeURIComponent(city));
+                if (!res.ok) { el.style.display = 'none'; return; }
+                var f = await res.json();
+                var a = f.attention, b = f.airbnb, s = f.supply, n = f.country_nights;
+                var tiles = '';
+                tiles += factTile('Attention · Wikipedia', a.series.length ? fmtInt(Math.round(a.series[a.series.length - 1].value)) + '<small style="font-size:0.5em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px">/day</small>' : '&ndash;', a.change_pct != null ? '<span class="' + (a.change_pct >= 0 ? 'up' : 'down') + '">' + fmtPct(a.change_pct) + '</span> <span class="vs">week over week</span>' : '<span class="vs">no series yet</span>', miniSpark(a.series, 200, 34));
+                tiles += factTile('Airbnb market', b.listings ? fmtInt(b.listings) + '<small style="font-size:0.5em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px">listings</small>' : '&ndash;', b.listings ? Math.round((b.entire_home_share || 0) * 100) + '% entire homes &middot; ' + (b.reviews_per_month || 0) + ' reviews/mo &middot; median ' + fmtInt(b.median_price_local || 0) + ' (local)' : '<span class="vs">no Inside Airbnb snapshot</span>');
+                tiles += factTile('Built supply · OSM', s.hotels != null ? fmtInt(s.hotels) + '<small style="font-size:0.5em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px">hotels</small>' : '&ndash;', s.hotels != null ? fmtInt(s.restaurants || 0) + ' restaurants &middot; ' + fmtInt(s.nightlife || 0) + ' bars/clubs &middot; ' + fmtInt(s.attractions || 0) + ' attractions' : '<span class="vs">boundary not mapped yet</span>');
+                tiles += factTile('Country nights · Eurostat', n.series && n.series.length ? fmtInt(Math.round(n.series[n.series.length - 1].value / 1e6 * 10) / 10) + '<small style="font-size:0.5em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px">M / month</small>' : '&ndash;', n.series && n.series.length ? esc(n.country) + ', ' + n.series[n.series.length - 1].date + ' &middot; official monthly nights spent' : '<span class="vs">outside Eurostat coverage</span>', miniSpark(n.series, 200, 34, '#8b7ce0'));
+                el.innerHTML = tiles;
+                el.style.display = 'grid';
+            } catch (e) { el.style.display = 'none'; }
         }
 
         // ---------- Company league (Market Moves tab) ----------

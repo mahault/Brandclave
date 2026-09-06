@@ -10,7 +10,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
@@ -435,4 +435,78 @@ async def get_overview(
             }
             for m in latest_moves
         ],
+    }
+
+
+COUNTRY_TO_EUROSTAT = {
+    "Portugal": "Portugal", "Spain": "Spain", "France": "France", "Italy": "Italy", "Greece": "Greece",
+    "Iceland": "Iceland", "Turkey": "Türkiye", "Germany": "Germany", "Netherlands": "Netherlands",
+    "Austria": "Austria", "Croatia": "Croatia", "Ireland": "Ireland", "Denmark": "Denmark", "Sweden": "Sweden",
+    "Poland": "Poland", "Czechia": "Czechia", "Hungary": "Hungary",
+}
+
+
+@router.get("/overview/city/{city}")
+async def get_city_facts(city: str, db: Session = Depends(get_db)):
+    """Everything the metric sources know about one city, for the Cities view."""
+    name = city.strip()
+    rows = (
+        db.query(DemandMetricModel)
+        .filter(func.lower(DemandMetricModel.city) == name.lower())
+        .order_by(DemandMetricModel.metric, DemandMetricModel.date)
+        .all()
+    )
+    series: dict[str, list[dict]] = defaultdict(list)
+    country = None
+    for r in rows:
+        series[r.metric].append({"date": r.date.strftime("%Y-%m-%d"), "value": r.value})
+        country = country or r.country
+    attention = series.get("wikipedia_pageviews", [])
+    change = None
+    if len(attention) >= 14:
+        recent = sum(p["value"] for p in attention[-7:]) / 7
+        prior = sum(p["value"] for p in attention[-14:-7]) / 7
+        change = _pct_change(recent, prior)
+    latest = lambda m: (series[m][-1]["value"] if series.get(m) else None)  # noqa: E731
+
+    nights = []
+    eu_name = COUNTRY_TO_EUROSTAT.get(country or "")
+    if eu_name:
+        nights = [
+            {"date": r.date.strftime("%Y-%m"), "value": r.value}
+            for r in db.query(DemandMetricModel)
+            .filter(DemandMetricModel.metric == "eurostat_nights_spent", DemandMetricModel.city == eu_name)
+            .order_by(DemandMetricModel.date)
+            .all()
+        ]
+
+    trend_hits = (
+        db.query(TrendSignalModel)
+        .filter(func.lower(TrendSignalModel.name).like(f"%{name.lower()}%") | func.lower(TrendSignalModel.description).like(f"%{name.lower()}%"))
+        .order_by(TrendSignalModel.strength_score.desc())
+        .limit(5)
+        .all()
+    )
+
+    if not rows and not trend_hits:
+        raise HTTPException(status_code=404, detail=f"No metrics on file for {name}")
+
+    return {
+        "city": name,
+        "country": country,
+        "attention": {"series": attention[-30:], "change_pct": change},
+        "airbnb": {
+            "listings": latest("airbnb_listings"),
+            "entire_home_share": latest("airbnb_entire_home_share"),
+            "median_price_local": latest("airbnb_median_price"),
+            "reviews_per_month": latest("airbnb_reviews_per_month"),
+        },
+        "supply": {
+            "hotels": latest("osm_hotels"),
+            "restaurants": latest("osm_restaurants"),
+            "nightlife": latest("osm_nightlife"),
+            "attractions": latest("osm_attractions"),
+        },
+        "country_nights": {"country": eu_name, "series": nights[-24:]},
+        "trends": [{"id": t.id, "name": t.name, "strength": t.strength_score, "white_space": t.white_space_score} for t in trend_hits],
     }
