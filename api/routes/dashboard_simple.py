@@ -72,7 +72,7 @@ async def dashboard_v2():
 
         .hero {
             position: relative;
-            padding: 88px 20px 64px;
+            padding: 34px 20px 26px;
             text-align: center;
             border-bottom: 1px solid var(--line);
             background:
@@ -83,17 +83,17 @@ async def dashboard_v2():
             content: 'HOSPITALITY DEMAND INTELLIGENCE';
             display: block;
             font-family: var(--font-mono);
-            font-size: 0.72em;
+            font-size: 0.66em;
             letter-spacing: 0.42em;
             text-indent: 0.42em;
             color: var(--gold);
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             text-shadow: 0 0 24px rgba(212,175,106,0.45);
         }
         .hero h1 {
             font-family: var(--font-display);
             font-weight: 900;
-            font-size: clamp(2.4em, 6vw, 3.4em);
+            font-size: clamp(1.5em, 3.2vw, 2.1em);
             letter-spacing: 0.06em;
             text-transform: uppercase;
             line-height: 1.08;
@@ -114,7 +114,7 @@ async def dashboard_v2():
             display: block;
             width: 148px;
             height: 3px;
-            margin: 30px auto 0;
+            margin: 16px auto 0;
             background: var(--grad);
             border-radius: 2px;
             box-shadow: 0 0 18px rgba(139,124,224,0.35);
@@ -221,7 +221,24 @@ async def dashboard_v2():
             margin-bottom: 30px;
             flex-wrap: wrap;
             border-bottom: 1px solid var(--line);
+            align-items: center;
         }
+        .tabs .tab-group-label { font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); padding: 0 10px 0 22px; border-left: 1px solid var(--line); margin-left: 12px; }
+        .tabs .tab.secondary { font-size: 0.68em; color: var(--ink-3); padding: 13px 12px; }
+        .funnel {
+            display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 0; align-items: stretch;
+            margin: 0 0 22px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface);
+        }
+        .funnel .step { padding: 12px 16px; border-right: 1px solid var(--line); cursor: pointer; transition: background 0.2s; }
+        .funnel .step:hover { background: var(--surface-2); }
+        .funnel .step .n { font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
+        .funnel .step .t { font-family: var(--font-display); font-weight: 700; font-size: 0.92em; color: var(--ink); margin-top: 3px; }
+        .funnel .step .d { color: var(--ink-3); font-size: 0.76em; margin-top: 2px; }
+        .funnel .picks { padding: 12px 18px; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 200px; background: linear-gradient(90deg, rgba(212,175,106,0.08), transparent); }
+        .funnel .picks .k { font-family: var(--font-mono); font-size: 0.62em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); }
+        .funnel .picks .v { color: var(--ink); font-size: 0.86em; }
+        .funnel .picks a { color: var(--gold); text-decoration: none; font-family: var(--font-mono); font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase; }
+        @media (max-width: 1000px) { .funnel { grid-template-columns: 1fr 1fr; } .funnel .picks { grid-column: 1 / -1; } }
         .tab {
             padding: 13px 17px;
             background: transparent;
@@ -1115,6 +1132,25 @@ async def dashboard_v2():
         .ledger-how { color: var(--ink-3); font-size: 0.84em; line-height: 1.55; max-width: 80ch; margin-bottom: 20px; }
         .ledger-how b { color: var(--ink-2); font-weight: 600; }
 
+        /* Scatter figures */
+        .fig-wrap { position: relative; }
+        .fig-wrap svg { width: 100%; height: auto; display: block; overflow: hidden; }
+        .fig-wrap .grid line { stroke: rgba(242,236,223,0.07); stroke-width: 1; }
+        .fig-wrap .median { stroke: rgba(212,175,106,0.28); stroke-width: 1; }
+        .fig-wrap .axis text { fill: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
+        .fig-wrap .axis-title { fill: var(--ink-3); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+        .fig-wrap .quad { fill: var(--ink-3); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
+        .fig-wrap .dot { stroke: var(--surface); stroke-width: 2; cursor: pointer; transition: opacity 0.15s; }
+        .fig-wrap .dot.dim { opacity: 0.25; }
+        .fig-wrap .lbl { fill: var(--ink); font-family: var(--font-body); font-size: 11.5px; font-weight: 600; pointer-events: none; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+        .fig-wrap .bar { cursor: pointer; }
+        .fig-wrap .bar:hover { filter: brightness(1.15); }
+        .fig-legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 2px 0 10px; font-size: 0.8em; color: var(--ink-2); }
+        .fig-legend .key { display: inline-flex; align-items: center; gap: 8px; }
+        .fig-legend .key i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+        .fig-legend .key i.sq { border-radius: 2px; width: 12px; height: 12px; }
+        .fig-foot { color: var(--ink-3); font-size: 0.78em; line-height: 1.5; margin-top: 10px; }
+
         /* Stake a prediction */
         .stake-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
         .stake-form .full { grid-column: 1 / -1; }
@@ -1176,17 +1212,25 @@ async def dashboard_v2():
             </div>
         </div>
 
+        <div class="funnel" id="funnel">
+            <div class="step" onclick="showTab('overview')"><div class="n">1 · See</div><div class="t">Signal Room</div><div class="d">where demand is moving</div></div>
+            <div class="step" onclick="showTab('trends')"><div class="n">2 · Pick</div><div class="t">Trends &amp; cities</div><div class="d">save the signals that matter</div></div>
+            <div class="step" onclick="showTab('demandscan')"><div class="n">3 · Test</div><div class="t">Scan a property</div><div class="d">fit, gaps, white space</div></div>
+            <div class="step" onclick="window.location.href='/api/monitoring/build-a-brand'"><div class="n">4 · Make</div><div class="t">Build the brand</div><div class="d">blueprint, then renders</div></div>
+            <div class="picks"><div class="k">Your picks</div><div class="v" id="funnel-picks">nothing saved yet</div><a href="/api/monitoring/build-a-brand" id="funnel-build">Build from picks &rarr;</a></div>
+        </div>
         <div class="tabs">
-            <button class="tab active" onclick="showTab('overview')">Overview</button>
-            <button class="tab" onclick="showTab('citydesires')">City Desires</button>
-            <button class="tab" onclick="showTab('trends')">Social Pulse</button>
-            <button class="tab" onclick="showTab('moves')">Hotelier Bets</button>
+            <button class="tab active" onclick="showTab('overview')">Signal Room</button>
+            <button class="tab" onclick="showTab('trends')">Trends</button>
+            <button class="tab" onclick="showTab('citydesires')">Cities</button>
+            <button class="tab" onclick="showTab('moves')">Market Moves</button>
             <button class="tab" onclick="showTab('demandscan')">Demand Scan</button>
             <button class="tab" onclick="showTab('ledger')">Signal Ledger</button>
-            <button class="tab" onclick="showTab('content')">Content</button>
-            <button class="tab" onclick="showTab('scrapers')">Scrapers</button>
-            <button class="tab" onclick="showTab('chat')">Chat</button>
-            <button class="tab" onclick="showTab('projects')" id="projects-tab">My Projects</button>
+            <span class="tab-group-label">Data &amp; tools</span>
+            <button class="tab secondary" onclick="showTab('chat')">Chat</button>
+            <button class="tab secondary" onclick="showTab('content')">Content</button>
+            <button class="tab secondary" onclick="showTab('scrapers')">Sources</button>
+            <button class="tab secondary" onclick="showTab('projects')" id="projects-tab">My Projects</button>
         </div>
 
         <div id="overview" class="section active">
@@ -1202,6 +1246,35 @@ async def dashboard_v2():
                     <div class="stat"><div class="stat-label">Sources live</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
                     <div class="stat"><div class="stat-label">Trends tracked</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
                     <div class="stat"><div class="stat-label">Predictions staked</div><div class="stat-value">&ndash;</div><div class="stat-foot"><div class="stat-delta">loading</div></div></div>
+                </div>
+            </div>
+
+            <div class="room-grid">
+                <div class="card span-7">
+                    <div class="card-head">
+                        <div>
+                            <h2>Opportunity Map</h2>
+                            <div class="card-sub">Every demand cluster the platform tracks. Right is stronger demand; up is less supply answering it. Bubble size is source volume. The upper-right is where a concept should be built; click any bubble to open it or build from it.</div>
+                        </div>
+                        <div class="card-tools"><button class="tool-btn" id="omap-table-btn" onclick="toggleFigTable('omap')">Table</button></div>
+                    </div>
+                    <div class="fig-legend" id="omap-legend"></div>
+                    <div class="fig-wrap" id="omap"></div>
+                    <div id="omap-table" hidden></div>
+                    <div class="fig-foot" id="omap-foot"></div>
+                </div>
+                <div class="card span-5">
+                    <div class="card-head">
+                        <div>
+                            <h2>City Matrix</h2>
+                            <div class="card-sub">Where attention is moving against how much supply already exists. Right is rising attention this week (Wikipedia); up is more hotels on the map (OpenStreetMap). Bubble size is Airbnb listings. Lower-right is thin supply meeting rising interest.</div>
+                        </div>
+                        <div class="card-tools"><button class="tool-btn" id="cmat-table-btn" onclick="toggleFigTable('cmat')">Table</button></div>
+                    </div>
+                    <div class="fig-legend" id="cmat-legend"></div>
+                    <div class="fig-wrap" id="cmat"></div>
+                    <div id="cmat-table" hidden></div>
+                    <div class="fig-foot" id="cmat-foot"></div>
                 </div>
             </div>
 
@@ -1237,11 +1310,15 @@ async def dashboard_v2():
                 <div class="card span-7">
                     <div class="card-head">
                         <div>
-                            <h2>Trend Movers</h2>
-                            <div class="card-sub">Most recently strengthened demand clusters. Strength is cluster cohesion and volume; white space is how little supply answers it.</div>
+                            <h2>Where Capital Is Moving</h2>
+                            <div class="card-sub">Operator moves per week, grouped by kind. Deals are acquisitions, expansions, reflags and partnerships; product is launches, concepts, renovations and repositionings. Filings count alongside press.</div>
                         </div>
+                        <div class="card-tools"><button class="tool-btn" id="mvw-table-btn" onclick="toggleFigTable('mvw')">Table</button></div>
                     </div>
-                    <div class="signal-list" id="room-trends"><div class="empty"><div class="icon"></div>Loading&hellip;</div></div>
+                    <div class="fig-legend" id="mvw-legend"></div>
+                    <div class="fig-wrap" id="mvw"></div>
+                    <div id="mvw-table" hidden></div>
+                    <div class="fig-foot" id="mvw-foot"></div>
                 </div>
                 <div class="card span-5">
                     <div class="card-head">
@@ -1258,13 +1335,25 @@ async def dashboard_v2():
                 <div class="card span-7">
                     <div class="card-head">
                         <div>
+                            <h2>Trend Movers</h2>
+                            <div class="card-sub">Most recently strengthened demand clusters. Strength is cluster cohesion and volume; white space is how little supply answers it.</div>
+                        </div>
+                    </div>
+                    <div class="signal-list" id="room-trends"><div class="empty"><div class="icon"></div>Loading&hellip;</div></div>
+                </div>
+                <div class="card span-5">
+                    <div class="card-head">
+                        <div>
                             <h2>Attention Model</h2>
                             <div class="card-sub">BrandClave decides what to read next with active inference: each source carries a belief about how productive it is, and the scheduler picks the action that minimises expected free energy, trading exploitation of known-good sources against exploring uncertain ones.</div>
                         </div>
                     </div>
                     <div id="room-ai"><div class="empty"><div class="icon"></div>Loading beliefs&hellip;</div></div>
                 </div>
-                <div class="card span-5">
+            </div>
+
+            <div class="room-grid">
+                <div class="card span-12">
                     <div class="card-head">
                         <div>
                             <h2>Coverage</h2>
@@ -3498,7 +3587,7 @@ async def dashboard_v2():
 
             document.getElementById('stat-row').innerHTML =
                 statTile('Corpus', fmtInt(k.content.total), contentDelta + (k.content.archived ? ' <span class="vs">&middot; ' + fmtInt(k.content.archived) + ' archived (retired sources)</span>' : ''), sparkline(d.intake, 72, 30)) +
-                statTile('Sources live', fresh + '<small style="font-size:0.45em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px;">of ' + active + '</small>',
+                statTile('Sources fresh · 24h', fresh + '<small style="font-size:0.45em;color:var(--ink-3);-webkit-text-fill-color:var(--ink-3);margin-left:6px;">of ' + active + ' active</small>',
                     '<span class="vs">' + (d.sources.registry.planned || 0) + ' planned &middot; ' + (d.sources.registry.blocked || 0) + ' blocked by ToS</span>') +
                 statTile('Trends tracked', fmtInt(k.trends.total), trendDelta) +
                 statTile('Predictions staked', fmtInt(L.total_predictions), ledgerDelta);
@@ -3752,6 +3841,191 @@ async def dashboard_v2():
             }
         }
 
+
+        // ---------- Figures: Opportunity Map, City Matrix, Moves timeline ----------
+        var REGION_SLOTS = { europe: { color: '#d4af6a', label: 'Europe' }, asia: { color: '#8b7ce0', label: 'Asia' }, north_america: { color: '#3aa88d', label: 'North America' }, other: { color: '#857a68', label: 'Other / global' } };
+        var MOVE_GROUP_SLOTS = { deals: { color: '#d4af6a', label: 'Deals' }, product: { color: '#8b7ce0', label: 'Product' }, technology: { color: '#3aa88d', label: 'Technology' }, other: { color: '#857a68', label: 'Other' } };
+        var figTip = null;
+        function tip(wrap, html, x, y) {
+            if (!figTip) { figTip = document.createElement('div'); figTip.className = 'chart-tip'; document.body.appendChild(figTip); }
+            figTip.innerHTML = html; figTip.hidden = false;
+            figTip.style.position = 'fixed'; figTip.style.left = (x + 14) + 'px'; figTip.style.top = (y + 14) + 'px'; figTip.style.transform = 'none';
+        }
+        function hideTip() { if (figTip) figTip.hidden = true; }
+        function toggleFigTable(key) {
+            var t = document.getElementById(key + '-table'), f = document.getElementById(key), b = document.getElementById(key + '-table-btn');
+            var showTable = t.hidden; t.hidden = !showTable; f.hidden = showTable; b.classList.toggle('active', showTable); b.textContent = showTable ? 'Chart' : 'Table';
+        }
+        function legendHtml(slots, shape) {
+            return Object.keys(slots).map(function (k) { return '<span class="key"><i class="' + (shape || '') + '" style="background:' + slots[k].color + '"></i>' + esc(slots[k].label) + '</span>'; }).join('');
+        }
+        function nice(v) { return Math.abs(v) >= 100 ? fmtInt(Math.round(v)) : (Math.round(v * 10) / 10); }
+
+        function renderOpportunityMap(points) {
+            var wrap = document.getElementById('omap');
+            if (!points || !points.length) { wrap.innerHTML = '<div class="empty"><div class="icon"></div>No trends yet</div>'; return; }
+            var W = 640, H = 420, pl = 46, pr = 18, pt = 16, pb = 44;
+            var xs = points.map(function (p) { return p.strength; }), ys = points.map(function (p) { return p.white_space; });
+            var xmin = Math.max(0, Math.min.apply(null, xs) - 0.05), xmax = Math.min(1, Math.max.apply(null, xs) + 0.05);
+            var ymin = 0, ymax = Math.min(1, Math.max.apply(null, ys) + 0.06);
+            var X = function (v) { return pl + (v - xmin) / (xmax - xmin) * (W - pl - pr); };
+            var Y = function (v) { return pt + (1 - (v - ymin) / (ymax - ymin)) * (H - pt - pb); };
+            var sorted = function (a) { return a.slice().sort(function (p, q) { return p - q; }); };
+            var med = function (a) { var b = sorted(a); return b[Math.floor(b.length / 2)]; };
+            var mx = med(xs), my = med(ys);
+            var maxVol = Math.max.apply(null, points.map(function (p) { return p.volume; }).concat([1]));
+            var R = function (v) { return 4 + Math.sqrt(v / maxVol) * 22; };
+            var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Trend opportunity map">';
+            svg += '<g class="grid">';
+            [0.2, 0.4, 0.6, 0.8, 1.0].forEach(function (v) { if (v >= xmin && v <= xmax) svg += '<line x1="' + X(v) + '" x2="' + X(v) + '" y1="' + pt + '" y2="' + (H - pb) + '"/>'; });
+            [0.2, 0.4, 0.6, 0.8].forEach(function (v) { if (v <= ymax) svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>'; });
+            svg += '</g>';
+            svg += '<line class="median" x1="' + X(mx) + '" x2="' + X(mx) + '" y1="' + pt + '" y2="' + (H - pb) + '"/><line class="median" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(my) + '" y2="' + Y(my) + '"/>';
+            svg += '<text class="quad" x="' + (W - pr - 4) + '" y="' + (pt + 12) + '" text-anchor="end">white space</text>';
+            svg += '<text class="quad" x="' + (W - pr - 4) + '" y="' + (H - pb - 6) + '" text-anchor="end">crowded</text>';
+            svg += '<text class="quad" x="' + (pl + 4) + '" y="' + (pt + 12) + '">emerging</text>';
+            svg += '<text class="quad" x="' + (pl + 4) + '" y="' + (H - pb - 6) + '">noise</text>';
+            svg += '<g class="axis">';
+            [0.2, 0.4, 0.6, 0.8, 1.0].forEach(function (v) { if (v >= xmin && v <= xmax) svg += '<text x="' + X(v) + '" y="' + (H - pb + 16) + '" text-anchor="middle">' + Math.round(v * 100) + '%</text>'; });
+            [0.2, 0.4, 0.6, 0.8].forEach(function (v) { if (v <= ymax) svg += '<text x="' + (pl - 8) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + Math.round(v * 100) + '%</text>'; });
+            svg += '<text class="axis-title" x="' + (W / 2) + '" y="' + (H - 6) + '" text-anchor="middle">demand strength</text>';
+            svg += '<text class="axis-title" transform="translate(12 ' + (H / 2) + ') rotate(-90)" text-anchor="middle">white space</text></g>';
+            var byScore = points.slice().sort(function (a, b) { return (b.strength * b.white_space) - (a.strength * a.white_space); });
+            var labelled = byScore.slice(0, 5).map(function (p) { return p.id; });
+            points.slice().sort(function (a, b) { return b.volume - a.volume; }).forEach(function (p, i) {
+                var c = REGION_SLOTS[p.region] || REGION_SLOTS.other;
+                svg += '<circle class="dot" data-i="' + esc(p.id) + '" cx="' + X(p.strength).toFixed(1) + '" cy="' + Y(p.white_space).toFixed(1) + '" r="' + R(p.volume).toFixed(1) + '" fill="' + c.color + '" fill-opacity="0.78"/>';
+            });
+            var placedL = [];
+            labelled.forEach(function (id) {
+                var p = points.filter(function (q) { return q.id === id; })[0];
+                var name = truncate(p.name, 28), cx = X(p.strength), r = R(p.volume);
+                // ~6.3px per character at this size; flip to the left when the label would leave the plot
+                var fitsRight = cx + r + 4 + name.length * 6.3 < W - pr;
+                var lx = fitsRight ? cx + r + 4 : cx - r - 4, ly = Y(p.white_space) + 4;
+                var width = name.length * 6.3, x0 = fitsRight ? lx : lx - width, x1 = x0 + width;
+                // push down when another label occupies the same band
+                placedL.forEach(function (q) { if (Math.abs(q.y - ly) < 14 && x0 < q.x1 && x1 > q.x0) ly = q.y + 14; });
+                placedL.push({ y: ly, x0: x0, x1: x1 });
+                svg += '<text class="lbl" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '"' + (fitsRight ? '' : ' text-anchor="end"') + '>' + esc(name) + '</text>';
+            });
+            svg += '</svg>';
+            wrap.innerHTML = svg;
+            document.getElementById('omap-legend').innerHTML = legendHtml(REGION_SLOTS) + '<span class="key" style="color:var(--ink-3)">bubble = source volume</span>';
+            document.getElementById('omap-foot').textContent = points.length + ' clusters. Medians drawn at ' + Math.round(mx * 100) + '% strength and ' + Math.round(my * 100) + '% white space.';
+            var byId = {}; points.forEach(function (p) { byId[p.id] = p; });
+            wrap.querySelectorAll('.dot').forEach(function (el) {
+                el.addEventListener('pointermove', function (ev) { var p = byId[el.getAttribute('data-i')]; tip(wrap, '<div class="tip-date">' + esc((REGION_SLOTS[p.region] || REGION_SLOTS.other).label) + '</div><div class="tip-row"><span>' + esc(p.name) + '</span></div><div class="tip-row"><span>strength</span><b>' + Math.round(p.strength * 100) + '%</b></div><div class="tip-row"><span>white space</span><b>' + Math.round(p.white_space * 100) + '%</b></div><div class="tip-row"><span>sources</span><b>' + fmtInt(p.volume) + '</b></div><div class="tip-row"><span style="color:var(--ink-3)">click to open / build</span></div>', ev.clientX, ev.clientY); });
+                el.addEventListener('pointerleave', hideTip);
+                el.addEventListener('click', function () { var p = byId[el.getAttribute('data-i')]; var idx = allTrends ? allTrends.findIndex(function (x) { return x.id === p.id; }) : -1; if (idx >= 0) openTrendModal(idx); else showTab('trends'); });
+            });
+            document.getElementById('omap-table').innerHTML = '<table class="chart-table"><thead><tr><th>Trend</th><th>Region</th><th style="text-align:right">Strength</th><th style="text-align:right">White space</th><th style="text-align:right">Sources</th></tr></thead><tbody>' +
+                byScore.map(function (p) { return '<tr><td>' + esc(p.name) + '</td><td>' + esc((REGION_SLOTS[p.region] || REGION_SLOTS.other).label) + '</td><td class="num">' + Math.round(p.strength * 100) + '%</td><td class="num">' + Math.round(p.white_space * 100) + '%</td><td class="num">' + fmtInt(p.volume) + '</td></tr>'; }).join('') + '</tbody></table>';
+        }
+
+        function renderCityMatrix(points) {
+            var wrap = document.getElementById('cmat');
+            if (!points || !points.length) { wrap.innerHTML = '<div class="empty"><div class="icon"></div>Needs attention and supply metrics for the same cities.</div>'; return; }
+            var W = 520, H = 420, pl = 50, pr = 16, pt = 16, pb = 44;
+            var xs = points.map(function (p) { return p.attention_change_pct; });
+            var xr = Math.max(0.1, Math.max.apply(null, xs.map(Math.abs)) * 1.15);
+            var ys = points.map(function (p) { return Math.log10(Math.max(1, p.hotels)); });
+            var ymin = Math.floor(Math.min.apply(null, ys) * 2) / 2 - 0.1, ymax = Math.ceil(Math.max.apply(null, ys) * 2) / 2 + 0.1;
+            // Signed square-root scale: one city at +46% must not flatten the
+            // dozen sitting between -5% and +5% into a single blob.
+            var sq = function (v) { return (v < 0 ? -1 : 1) * Math.sqrt(Math.abs(v)); };
+            var X = function (v) { return pl + (sq(v) + sq(xr)) / (2 * sq(xr)) * (W - pl - pr); };
+            var Y = function (v) { return pt + (1 - (v - ymin) / (ymax - ymin)) * (H - pt - pb); };
+            var maxL = Math.max.apply(null, points.map(function (p) { return p.airbnb_listings || 0; }).concat([1]));
+            var R = function (p) { return p.airbnb_listings ? 5 + Math.sqrt(p.airbnb_listings / maxL) * 20 : 5; };
+            var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="City attention vs supply">';
+            svg += '<g class="grid">';
+            var yticks = []; for (var t = Math.ceil(ymin); t <= ymax; t += 0.5) yticks.push(t);
+            yticks.forEach(function (v) { svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>'; });
+            svg += '</g>';
+            svg += '<line class="median" x1="' + X(0) + '" x2="' + X(0) + '" y1="' + pt + '" y2="' + (H - pb) + '"/>';
+            svg += '<text class="quad" x="' + (W - pr - 4) + '" y="' + (H - pb - 6) + '" text-anchor="end">rising, thin supply</text>';
+            svg += '<text class="quad" x="' + (pl + 4) + '" y="' + (pt + 12) + '">cooling, dense supply</text>';
+            svg += '<g class="axis">';
+            var xt = [-0.4, -0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2, 0.4].filter(function (v) { return Math.abs(v) <= xr; });
+            xt.forEach(function (v) { svg += '<text x="' + X(v) + '" y="' + (H - pb + 16) + '" text-anchor="middle">' + (v > 0 ? '+' : '') + Math.round(v * 100) + '%</text>'; });
+            yticks.forEach(function (v) { svg += '<text x="' + (pl - 8) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + fmtInt(Math.round(Math.pow(10, v))) + '</text>'; });
+            svg += '<text class="axis-title" x="' + (W / 2) + '" y="' + (H - 6) + '" text-anchor="middle">attention, week over week (square-root scale)</text>';
+            svg += '<text class="axis-title" transform="translate(12 ' + (H / 2) + ') rotate(-90)" text-anchor="middle">hotels (log)</text></g>';
+            var placed = [];
+            points.slice().sort(function (a, b) { return R(b) - R(a); }).forEach(function (p) {
+                var c = REGION_SLOTS[p.region] || REGION_SLOTS.other;
+                var y = Math.log10(Math.max(1, p.hotels));
+                svg += '<circle class="dot" data-c="' + esc(p.city) + '" cx="' + X(p.attention_change_pct).toFixed(1) + '" cy="' + Y(y).toFixed(1) + '" r="' + R(p).toFixed(1) + '" fill="' + c.color + '" fill-opacity="' + (p.airbnb_listings ? 0.8 : 0.35) + '"' + (p.airbnb_listings ? '' : ' stroke-dasharray="3 2"') + '/>';
+            });
+            // Labels after all dots (so they sit on top), nudged apart when two land within 13px.
+            points.slice().sort(function (a, b) { return Math.log10(Math.max(1, a.hotels)) - Math.log10(Math.max(1, b.hotels)); }).forEach(function (p) {
+                var cx = X(p.attention_change_pct), cy = Y(Math.log10(Math.max(1, p.hotels))), r = R(p);
+                var right = cx + r + 4 + p.city.length * 6.3 < W - pr;
+                var ly = cy + 4;
+                placed.forEach(function (q) { if (q.right === right && Math.abs(q.y - ly) < 13 && Math.abs(q.x - cx) < 140) ly = q.y + 13; });
+                placed.push({ x: cx, y: ly, right: right });
+                svg += '<text class="lbl" x="' + (right ? cx + r + 4 : cx - r - 4).toFixed(1) + '" y="' + ly.toFixed(1) + '"' + (right ? '' : ' text-anchor="end"') + '>' + esc(p.city) + '</text>';
+            });
+            svg += '</svg>';
+            wrap.innerHTML = svg;
+            document.getElementById('cmat-legend').innerHTML = legendHtml(REGION_SLOTS) + '<span class="key" style="color:var(--ink-3)">bubble = Airbnb listings (dashed: no snapshot)</span>';
+            document.getElementById('cmat-foot').textContent = points.length + ' cities with both an attention series and a supply count. Supply is hotels, hostels and guest houses inside the administrative boundary; boundaries differ in size, so read positions within a region.';
+            var byCity = {}; points.forEach(function (p) { byCity[p.city] = p; });
+            wrap.querySelectorAll('.dot').forEach(function (el) {
+                el.addEventListener('pointermove', function (ev) { var p = byCity[el.getAttribute('data-c')]; tip(wrap, '<div class="tip-date">' + esc(p.city) + (p.country ? ', ' + esc(p.country) : '') + '</div><div class="tip-row"><span>attention w/w</span><b>' + fmtPct(p.attention_change_pct) + '</b></div><div class="tip-row"><span>hotels (OSM)</span><b>' + fmtInt(p.hotels) + '</b></div>' + (p.airbnb_listings ? '<div class="tip-row"><span>Airbnb listings</span><b>' + fmtInt(p.airbnb_listings) + '</b></div><div class="tip-row"><span>reviews / month</span><b>' + p.airbnb_reviews_per_month + '</b></div>' : '') + '<div class="tip-row"><span style="color:var(--ink-3)">click to explore desires</span></div>', ev.clientX, ev.clientY); });
+                el.addEventListener('pointerleave', hideTip);
+                el.addEventListener('click', function () { exploreCity(el.getAttribute('data-c')); });
+            });
+            document.getElementById('cmat-table').innerHTML = '<table class="chart-table"><thead><tr><th>City</th><th style="text-align:right">Attention w/w</th><th style="text-align:right">Hotels</th><th style="text-align:right">Airbnb listings</th><th style="text-align:right">Reviews / mo</th></tr></thead><tbody>' +
+                points.slice().sort(function (a, b) { return b.attention_change_pct - a.attention_change_pct; }).map(function (p) { return '<tr><td>' + esc(p.city) + '</td><td class="num">' + fmtPct(p.attention_change_pct) + '</td><td class="num">' + fmtInt(p.hotels) + '</td><td class="num">' + (p.airbnb_listings ? fmtInt(p.airbnb_listings) : '&ndash;') + '</td><td class="num">' + (p.airbnb_reviews_per_month != null ? p.airbnb_reviews_per_month : '&ndash;') + '</td></tr>'; }).join('') + '</tbody></table>';
+        }
+        function exploreCity(name) {
+            showTab('citydesires');
+            var input = document.querySelector('#citydesires input[type="text"], #citydesires input');
+            if (input) { input.value = name; input.focus(); }
+        }
+
+        function renderMovesByWeek(data) {
+            var wrap = document.getElementById('mvw');
+            var weeks = (data && data.weeks) || [];
+            if (!weeks.length) { wrap.innerHTML = '<div class="empty"><div class="icon"></div>No moves in window</div>'; return; }
+            var groups = data.groups;
+            var W = 640, H = 260, pl = 40, pr = 12, pt = 12, pb = 34;
+            var totals = weeks.map(function (w) { return groups.reduce(function (a, g) { return a + (w[g] || 0); }, 0); });
+            var max = Math.max.apply(null, totals.concat([1]));
+            var step = max > 40 ? 20 : max > 16 ? 10 : max > 8 ? 5 : 2;
+            var ymax = Math.ceil(max / step) * step;
+            var slot = (W - pl - pr) / weeks.length, bw = Math.min(24, slot * 0.6);
+            var Y = function (v) { return pt + (1 - v / ymax) * (H - pt - pb); };
+            var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Operator moves per week">';
+            svg += '<g class="grid">'; for (var v = 0; v <= ymax; v += step) svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>'; svg += '</g>';
+            svg += '<g class="axis">'; for (var v2 = 0; v2 <= ymax; v2 += step) svg += '<text x="' + (pl - 8) + '" y="' + (Y(v2) + 4) + '" text-anchor="end">' + v2 + '</text>';
+            weeks.forEach(function (w, i) { if (i % 2 === (weeks.length - 1) % 2) svg += '<text x="' + (pl + slot * i + slot / 2) + '" y="' + (H - pb + 16) + '" text-anchor="middle">' + fmtDate(w.week) + '</text>'; });
+            svg += '</g>';
+            weeks.forEach(function (w, i) {
+                var x = pl + slot * i + (slot - bw) / 2, acc = 0;
+                groups.forEach(function (g, gi) {
+                    var v = w[g] || 0; if (!v) return;
+                    var y0 = Y(acc + v), y1 = Y(acc); acc += v;
+                    var h = Math.max(0, y1 - y0 - 2); // 2px surface gap between segments
+                    var isTop = acc === totals[i];
+                    svg += '<rect class="bar" data-w="' + i + '" x="' + x.toFixed(1) + '" y="' + y0.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" fill="' + MOVE_GROUP_SLOTS[g].color + '"' + (isTop ? ' rx="4"' : '') + '/>';
+                });
+            });
+            svg += '</svg>';
+            wrap.innerHTML = svg;
+            document.getElementById('mvw-legend').innerHTML = legendHtml(MOVE_GROUP_SLOTS, 'sq');
+            document.getElementById('mvw-foot').textContent = fmtInt(data.total) + ' moves in the last ' + weeks.length + ' weeks, ' + fmtInt(data.from_filings) + ' read directly from SEC filings. Weeks with no extraction run show as empty, not as quiet markets.';
+            wrap.querySelectorAll('.bar').forEach(function (el) {
+                el.addEventListener('pointermove', function (ev) { var w = weeks[Number(el.getAttribute('data-w'))]; tip(wrap, '<div class="tip-date">week of ' + fmtDateYear(w.week) + '</div>' + groups.map(function (g) { return '<div class="tip-row"><i style="background:' + MOVE_GROUP_SLOTS[g].color + '"></i><span>' + MOVE_GROUP_SLOTS[g].label + '</span><b>' + (w[g] || 0) + '</b></div>'; }).join(''), ev.clientX, ev.clientY); });
+                el.addEventListener('pointerleave', hideTip);
+                el.addEventListener('click', function () { showTab('moves'); });
+            });
+            document.getElementById('mvw-table').innerHTML = '<table class="chart-table"><thead><tr><th>Week of</th>' + groups.map(function (g) { return '<th style="text-align:right">' + MOVE_GROUP_SLOTS[g].label + '</th>'; }).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>' +
+                weeks.slice().reverse().map(function (w, i) { return '<tr><td>' + fmtDateYear(w.week) + '</td>' + groups.map(function (g) { return '<td class="num">' + (w[g] || 0) + '</td>'; }).join('') + '<td class="num">' + totals[weeks.length - 1 - i] + '</td></tr>'; }).join('') + '</tbody></table>';
+        }
+
         // ---------- Overview loader ----------
         async function loadOverview() {
             try {
@@ -3759,6 +4033,9 @@ async def dashboard_v2():
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 roomData = await res.json();
                 renderStats(roomData);
+                renderOpportunityMap(roomData.trend_map || []);
+                renderCityMatrix(roomData.city_matrix || []);
+                renderMovesByWeek(roomData.moves_by_week);
                 renderCurves(roomData.demand);
                 renderRoomTrends(roomData.trends || []);
                 renderRoomMoves(roomData.moves || []);
@@ -3919,7 +4196,30 @@ async def dashboard_v2():
             _origShowTab(tabId);
             if (tabId === 'ledger') loadLedger(false);
         };
-        document.addEventListener('DOMContentLoaded', function () { loadOverview(); });
+        function updateFunnelPicks() {
+            try {
+                // Count whatever the save buttons have stored; keys differ per item type.
+                var counts = { trend: 0, move: 0, property: 0, blueprint: 0 };
+                for (var i = 0; i < localStorage.length; i++) {
+                    var key = localStorage.key(i);
+                    if (!/^brandclave_/.test(key) || /token|user|prefill/.test(key)) continue;
+                    var val; try { val = JSON.parse(localStorage.getItem(key)); } catch (e2) { continue; }
+                    var n = Array.isArray(val) ? val.length : (val && typeof val === 'object' ? Object.keys(val).length : 0);
+                    if (!n) continue;
+                    if (/move/.test(key)) counts.move += n; else if (/propert/.test(key)) counts.property += n; else if (/blueprint/.test(key)) counts.blueprint += n; else counts.trend += n;
+                }
+                var parts = [];
+                if (counts.trend) parts.push(counts.trend + ' trend' + (counts.trend > 1 ? 's' : ''));
+                if (counts.property) parts.push(counts.property + ' scanned propert' + (counts.property > 1 ? 'ies' : 'y'));
+                if (counts.move) parts.push(counts.move + ' move' + (counts.move > 1 ? 's' : ''));
+                if (counts.blueprint) parts.push(counts.blueprint + ' blueprint' + (counts.blueprint > 1 ? 's' : ''));
+                var el = document.getElementById('funnel-picks');
+                if (el) el.textContent = parts.length ? parts.join(' · ') + ' saved' : 'nothing saved yet — save a trend or scan a property to start a brief';
+            } catch (e) {}
+        }
+        document.addEventListener('DOMContentLoaded', function () { loadOverview(); updateFunnelPicks(); });
+        window.addEventListener('storage', updateFunnelPicks);
+        setInterval(updateFunnelPicks, 5000);
         setInterval(loadOverview, 120000);
     </script>
 

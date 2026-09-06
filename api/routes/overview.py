@@ -224,6 +224,128 @@ def _source_freshness(db: Session, now: datetime) -> list[dict]:
     return ordered
 
 
+# Region slots for categorical colour: fixed order, never cycled (dataviz rule).
+REGION_SLOTS = ["europe", "asia", "north_america", "other"]
+COUNTRY_REGION = {
+    "Portugal": "europe", "Spain": "europe", "France": "europe", "Italy": "europe", "Greece": "europe",
+    "UK": "europe", "Iceland": "europe", "Turkey": "europe", "Georgia": "europe",
+    "Japan": "asia", "Indonesia": "asia", "India": "asia", "Thailand": "asia", "South Korea": "asia",
+    "Singapore": "asia", "UAE": "asia",
+    "USA": "north_america", "Mexico": "north_america",
+}
+
+MOVE_GROUPS = {
+    "acquisition": "deals", "expansion": "deals", "reflag": "deals", "partnership": "deals",
+    "launch": "product", "concept": "product", "renovation": "product", "repositioning": "product",
+    "technology": "technology",
+}
+MOVE_GROUP_ORDER = ["deals", "product", "technology", "other"]
+
+
+def _trend_map(db: Session) -> list[dict]:
+    """Every trend as a point: strength x white space, sized by volume."""
+    rows = db.query(TrendSignalModel).order_by(TrendSignalModel.strength_score.desc()).limit(200).all()
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "strength": round(t.strength_score or 0, 3),
+            "white_space": round(t.white_space_score or 0, 3),
+            "volume": t.volume or 0,
+            "region": (t.region if t.region in REGION_SLOTS else "other"),
+            "region_raw": t.region,
+            "last_updated": t.last_updated.isoformat() if t.last_updated else None,
+        }
+        for t in rows
+    ]
+
+
+def _latest_metric(db: Session, metric: str) -> dict[str, float]:
+    """city -> most recent value for a metric."""
+    rows = (
+        db.query(DemandMetricModel.city, DemandMetricModel.value, DemandMetricModel.date)
+        .filter(DemandMetricModel.metric == metric)
+        .order_by(DemandMetricModel.city, DemandMetricModel.date.desc())
+        .all()
+    )
+    out: dict[str, float] = {}
+    for city, value, _date in rows:
+        out.setdefault(city, value)
+    return out
+
+
+def _city_matrix(db: Session, demand: dict) -> list[dict]:
+    """Attention momentum (Wikipedia, week over week) against hotel supply
+    (OSM), bubble by Airbnb listings. Only cities with both axes plot."""
+    hotels = _latest_metric(db, "osm_hotels")
+    listings = _latest_metric(db, "airbnb_listings")
+    velocity = _latest_metric(db, "airbnb_reviews_per_month")
+    restaurants = _latest_metric(db, "osm_restaurants")
+    points = []
+    for c in demand.get("cities", []):
+        if c["city"] not in hotels or c["change_pct"] is None:
+            continue
+        points.append(
+            {
+                "city": c["city"],
+                "country": c["country"],
+                "region": COUNTRY_REGION.get(c["country"] or "", "other"),
+                "attention_change_pct": round(c["change_pct"], 4),
+                "attention_daily": c["recent_7d_avg"],
+                "hotels": hotels[c["city"]],
+                "restaurants": restaurants.get(c["city"]),
+                "airbnb_listings": listings.get(c["city"]),
+                "airbnb_reviews_per_month": velocity.get(c["city"]),
+            }
+        )
+    return points
+
+
+def _moves_by_week(db: Session, now: datetime, weeks: int = 12) -> dict:
+    start = (now - timedelta(weeks=weeks)).replace(hour=0, minute=0, second=0, microsecond=0)
+    start -= timedelta(days=start.weekday())  # Monday
+    rows = (
+        db.query(HotelierMoveModel.move_type, HotelierMoveModel.published_at, HotelierMoveModel.extracted_at, HotelierMoveModel.source_name)
+        .filter(func.coalesce(HotelierMoveModel.published_at, HotelierMoveModel.extracted_at) >= start)
+        .all()
+    )
+    buckets: dict[str, dict[str, int]] = {}
+    filings = 0
+    for move_type, published, extracted, source in rows:
+        when = published or extracted
+        week_start = (when - timedelta(days=when.weekday())).strftime("%Y-%m-%d")
+        group = MOVE_GROUPS.get((move_type or "other").lower(), "other")
+        buckets.setdefault(week_start, {g: 0 for g in MOVE_GROUP_ORDER})[group] += 1
+        if source == "sec_edgar":
+            filings += 1
+    series = []
+    cursor = start
+    while cursor <= now:
+        key = cursor.strftime("%Y-%m-%d")
+        series.append({"week": key, **buckets.get(key, {g: 0 for g in MOVE_GROUP_ORDER})})
+        cursor += timedelta(weeks=1)
+    return {"groups": MOVE_GROUP_ORDER, "weeks": series, "total": len(rows), "from_filings": filings}
+
+
+def _intake_by_type(db: Session, now: datetime, days: int = 30) -> list[dict]:
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    retired = retired_sources()
+    rows = (
+        db.query(func.date(RawContentModel.scraped_at), RawContentModel.source_type, func.count(RawContentModel.id))
+        .filter(RawContentModel.scraped_at >= start)
+        .filter(RawContentModel.source.notin_(retired) if retired else True)
+        .group_by(func.date(RawContentModel.scraped_at), RawContentModel.source_type)
+        .all()
+    )
+    table: dict[str, dict[str, int]] = {}
+    for day, source_type, n in rows:
+        table.setdefault(str(day), {})[source_type or "other"] = n
+    return [
+        {"date": (start + timedelta(days=i)).strftime("%Y-%m-%d"), **table.get((start + timedelta(days=i)).strftime("%Y-%m-%d"), {})}
+        for i in range(days)
+    ]
+
+
 @router.get("/overview")
 async def get_overview(
     demand_metric: str = Query("wikipedia_pageviews", description="Demand metric to chart"),
@@ -242,12 +364,19 @@ async def get_overview(
     for spec in registry.values():
         status_counts[spec.status] += 1
 
+    demand = _demand_cities(db, demand_metric, movers)
+    attention = demand if demand_metric == "wikipedia_pageviews" else _demand_cities(db, "wikipedia_pageviews", movers)
+
     return {
         "generated_at": now.isoformat(),
         "window_days": WINDOW_DAYS,
         "kpis": _kpis(db, now),
         "intake": _intake_series(db, now),
-        "demand": _demand_cities(db, demand_metric, movers),
+        "intake_by_type": _intake_by_type(db, now),
+        "demand": demand,
+        "trend_map": _trend_map(db),
+        "city_matrix": _city_matrix(db, attention),
+        "moves_by_week": _moves_by_week(db, now),
         "sources": {
             "registry": dict(status_counts),
             "freshness": _source_freshness(db, now),
