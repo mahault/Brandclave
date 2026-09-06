@@ -1691,7 +1691,11 @@ async def dashboard_v2():
             var tabs = document.querySelectorAll('.tab');
             for (var j = 0; j < tabs.length; j++) { tabs[j].classList.remove('active'); }
             document.getElementById(tabId).classList.add('active');
-            event.target.classList.add('active');
+            // Highlight the tab button by id: showTab is also called from the
+            // funnel steps, chart clicks and scripts, where event.target is not a tab.
+            var btn = document.querySelector('.tabs .tab[onclick*="\\'' + tabId + '\\'"]');
+            if (btn) btn.classList.add('active');
+            window.scrollTo({ top: Math.min(window.scrollY, 260), behavior: 'smooth' });
         }
 
         function setTextIf(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
