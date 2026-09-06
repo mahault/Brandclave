@@ -58,7 +58,10 @@ class OSMOverpassScraper(MetricScraper):
             area = entry.get("osm_area", city)
             level = str(entry.get("osm_admin_level", 8))
             query = self._build_query(area, level)
-            response = self.fetch(OVERPASS_URL, params={"data": query}, headers={"User-Agent": USER_AGENT})
+            # Hard client timeout just above the server-side [timeout:90]; a
+            # throttled Overpass otherwise holds the connection open for ages
+            # and stalls the whole rotation behind one city.
+            response = self.fetch(OVERPASS_URL, params={"data": query}, headers={"User-Agent": USER_AGENT}, timeout=100)
             if response is None:
                 logger.warning(f"Overpass failed for {city}, continuing")
                 time.sleep(PAUSE_SECONDS)

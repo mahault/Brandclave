@@ -1381,6 +1381,8 @@ async def dashboard_v2():
                     Every record is <b>sealed</b> with a SHA-256 hash of its content at the moment it is written and can never be edited. Evidence and outcomes are <b>appended</b> as events, each timestamped. When a forecast horizon passes, the realised value is scored against the sealed range, and the hit rate, error and calibration below are computed from those scores only. An empty hit rate means no horizon has been reached yet; it is not filled in by hand.
                 </div>
                 <div class="ledger-kpis" id="ledger-kpis"></div>
+                <div class="card-head" style="margin-top:6px"><div><h3 style="font-family:var(--font-display);font-size:0.95em;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink);margin-bottom:4px">Horizons</h3><div class="card-sub">When each sealed forecast comes due. Dot size is the stated confidence; gold is a corpus-volume forecast, violet an operator-moves forecast. Nothing here resolves by hand: the first dots pass in December.</div></div></div>
+                <div class="fig-wrap" id="ledger-horizons" style="margin-bottom:18px"></div>
                 <div id="ledger-list"><div class="empty"><div class="icon"></div>Loading ledger&hellip;</div></div>
             </div>
         </div>
@@ -4133,6 +4135,7 @@ async def dashboard_v2():
                     '<div class="ledger-kpi"><div class="k-label">Hit rate</div><div class="k-value">' + hit + '</div><div class="k-note">in-range outcomes</div></div>' +
                     '<div class="ledger-kpi"><div class="k-label">Mean abs error</div><div class="k-value">' + err + '</div><div class="k-note">vs range midpoint</div></div>' +
                     '<div class="ledger-kpi"><div class="k-label">Calibration</div><div class="k-value">' + cal + '</div><div class="k-note">confidence minus hit rate</div></div>';
+                renderHorizons(preds);
                 if (!preds.length) {
                     list.innerHTML = '<div class="empty"><div class="icon"></div>No predictions staked yet.</div>';
                 } else {
@@ -4143,6 +4146,47 @@ async def dashboard_v2():
                 list.innerHTML = '<div class="error">Ledger failed: ' + esc(e.message) + '</div>';
             }
         }
+        var METRIC_SLOTS = { source_volume: { color: '#d4af6a', label: 'corpus volume' }, operator_moves_citing_theme: { color: '#8b7ce0', label: 'operator moves' } };
+        function renderHorizons(preds) {
+            var wrap = document.getElementById('ledger-horizons');
+            if (!wrap) return;
+            var items = [];
+            preds.forEach(function (q) { (q.forecasts || []).forEach(function (f) { if (f.horizon_date) items.push({ t: parseUtc(f.horizon_date).getTime(), conf: Number(f.confidence) || 0.5, metric: f.metric, title: q.title, low: f.predicted_low, high: f.predicted_high, unit: f.unit, status: q.status, recorded: parseUtc(q.recorded_at).getTime() }); }); });
+            if (!items.length) { wrap.innerHTML = ''; return; }
+            var W = 960, H = 150, pl = 16, pr = 16, pt = 22, pb = 34;
+            var now = Date.now();
+            var t0 = Math.min.apply(null, items.map(function (i) { return i.recorded; }).concat([now])) - 5 * 864e5;
+            var t1 = Math.max.apply(null, items.map(function (i) { return i.t; })) + 20 * 864e5;
+            var X = function (t) { return pl + (t - t0) / (t1 - t0) * (W - pl - pr); };
+            var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Forecast horizons">';
+            // month ticks
+            var d = new Date(t0); d.setDate(1); d.setMonth(d.getMonth() + 1);
+            svg += '<g class="grid">';
+            var labels = '';
+            while (d.getTime() < t1) { var x = X(d.getTime()); svg += '<line x1="' + x + '" x2="' + x + '" y1="' + pt + '" y2="' + (H - pb) + '"/>'; labels += '<text class="axis" x="' + x + '" y="' + (H - pb + 16) + '" text-anchor="middle" style="fill:var(--ink-3);font-family:var(--font-mono);font-size:11px">' + d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }) + '</text>'; d.setMonth(d.getMonth() + 1); }
+            svg += '</g>' + labels;
+            var midY = pt + (H - pt - pb) / 2;
+            svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + midY + '" y2="' + midY + '" stroke="rgba(242,236,223,0.12)"/>';
+            svg += '<line class="median" x1="' + X(now) + '" x2="' + X(now) + '" y1="' + pt + '" y2="' + (H - pb) + '"/><text class="quad" x="' + (X(now) + 5) + '" y="' + (pt - 6) + '">today</text>';
+            // sealed markers: small ticks where records were written
+            items.forEach(function (it) { svg += '<line x1="' + X(it.recorded) + '" x2="' + X(it.recorded) + '" y1="' + (midY - 6) + '" y2="' + (midY + 6) + '" stroke="rgba(212,175,106,0.5)"/>'; });
+            // horizon dots, jittered by lane to avoid perfect overlap
+            var lanes = {};
+            items.sort(function (a, b) { return a.t - b.t; }).forEach(function (it, i) {
+                var key = Math.round(X(it.t) / 14); lanes[key] = (lanes[key] || 0) + 1; var lane = lanes[key] - 1;
+                var y = midY + ((lane % 2 ? 1 : -1) * Math.ceil(lane / 2) * 16);
+                var c = (METRIC_SLOTS[it.metric] || { color: '#857a68' }).color;
+                svg += '<circle class="dot" data-i="' + i + '" cx="' + X(it.t).toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (4 + it.conf * 8).toFixed(1) + '" fill="' + c + '" fill-opacity="0.85"/>';
+            });
+            svg += '</svg>';
+            wrap.innerHTML = svg;
+            var sortedItems = items;
+            wrap.querySelectorAll('.dot').forEach(function (el) {
+                el.addEventListener('pointermove', function (ev) { var it = sortedItems[Number(el.getAttribute('data-i'))]; tip(wrap, '<div class="tip-date">due ' + fmtDateYear(new Date(it.t).toISOString()) + '</div><div class="tip-row"><span>' + esc(it.title) + '</span></div><div class="tip-row"><i style="background:' + (METRIC_SLOTS[it.metric] || { color: '#857a68' }).color + '"></i><span>' + esc((METRIC_SLOTS[it.metric] || { label: it.metric }).label) + '</span><b>' + fmtInt(Math.round(it.low)) + '&ndash;' + fmtInt(Math.round(it.high)) + ' ' + esc(it.unit || '') + '</b></div><div class="tip-row"><span>stated confidence</span><b>' + Math.round(it.conf * 100) + '%</b></div>', ev.clientX, ev.clientY); });
+                el.addEventListener('pointerleave', hideTip);
+            });
+        }
+
         function renderPrediction(q) {
             var status = (q.status || 'open').replace('resolved_', '');
             var forecasts = (q.forecasts || []).map(function (f) {
