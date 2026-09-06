@@ -148,7 +148,10 @@ async def analyze_city_adaptive(request: CityDesireRequest):
     try:
         with AdaptiveCityAnalyzer(
             alpha=1.0,
-            fit_threshold=0.3,
+            # fit = 0.7 * normalised cosine + 0.3 * keyword Jaccard; with
+            # mistral-embed unrelated signals score ~0.58, related ones ~0.66+.
+            # 0.3 merged every signal into one category.
+            fit_threshold=0.63,
             max_iterations=8,
             confidence_threshold=0.7,
         ) as analyzer:

@@ -23,6 +23,28 @@ from bs4 import BeautifulSoup
 from ingestion.http_client import resilient_get
 
 from .structure_learner import StructureLearner, Observation, Category
+from services.brand_blueprint.stages.base import _repair_json
+
+
+def _loads_lenient(text: str):
+    """json.loads with the repair pass the smaller models need (unescaped quotes, truncation)."""
+    import json
+
+    try:
+        return json.loads(text, strict=False)
+    except json.JSONDecodeError:
+        return json.loads(_repair_json(text), strict=False)
+
+
+def _strip_md_deep(value):
+    """Remove markdown emphasis the smaller models leak into every string field."""
+    if isinstance(value, str):
+        return re.sub(r"\*\*|__", "", value).strip()
+    if isinstance(value, list):
+        return [_strip_md_deep(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _strip_md_deep(v) for k, v in value.items()}
+    return value
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +75,10 @@ class AdaptiveCityAnalyzer:
     def __init__(
         self,
         alpha: float = 1.0,  # Category creation tendency
-        fit_threshold: float = 0.5,  # Cosine similarity threshold
+        # Fit = 0.7 * normalised cosine + 0.3 * keyword Jaccard. With mistral-embed,
+        # unrelated hospitality texts score ~0.58 and related ones ~0.66+, so 0.5
+        # put every signal in one category.
+        fit_threshold: float = 0.63,
         max_iterations: int = 10,  # Max active inference loops
         confidence_threshold: float = 0.7,  # When to stop exploring
         use_llm: bool = True,  # Whether to use LLM for insight synthesis
@@ -740,7 +765,7 @@ For each cluster, provide:
 
 Be specific and actionable. Focus on human insights, not data summaries.
 
-Output format: a JSON object {"clusters": [...]} only, no markdown."""
+Output format: a JSON object {"clusters": [...]} only, no markdown. Keep every string under 35 words; escape quotes inside strings."""
 
         user_prompt = f"""Analyze these {len(clusters)} theme clusters for {city}, {country}:
 
@@ -772,9 +797,10 @@ Transform these keyword lists into human insights. What's the story?"""
             )
 
             json_str = _strip_markdown_json(response)
-            results = json.loads(json_str, strict=False)
+            results = _loads_lenient(json_str)
             if isinstance(results, dict):
                 results = next((v for v in results.values() if isinstance(v, list)), [])
+            results = _strip_md_deep(results)
 
             # Map results back to category IDs
             insights = {}
@@ -814,7 +840,7 @@ Rules:
 3. Connect features to the underlying desires they solve
 4. Be creative but grounded in the data
 
-Output format: JSON only, no markdown."""
+Output format: JSON only, no markdown. Keep every string under 35 words; escape quotes inside strings."""
 
         user_prompt = f"""Based on these desire themes for {city}, {country}, recommend hotel concepts:
 
@@ -841,14 +867,17 @@ Provide 2-3 hotel concept recommendations as JSON:
             response = self.llm.generate(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
-                max_tokens=1000,
+                max_tokens=1800,
                 temperature=0.7,
                 json_mode=True,
             )
 
             json_str = _strip_markdown_json(response)
-            result = json.loads(json_str)
-            return result.get("concepts", [])
+            result = _loads_lenient(json_str)
+            if isinstance(result, list):
+                return _strip_md_deep(result)
+            lanes = result.get("concepts") or next((v for v in result.values() if isinstance(v, list)), [])
+            return _strip_md_deep(lanes)
 
         except Exception as e:
             logger.warning(f"Failed to synthesize concept lanes: {e}")
