@@ -1415,8 +1415,8 @@ async def dashboard_v2():
 
         <div id="trends" class="section">
             <div class="card">
-                <h2>Social Pulse Trends</h2>
-                <p style="color:var(--ink-2);margin-bottom:15px;">Track emerging hospitality trends from Reddit, industry news, and social conversations. Discover what's gaining momentum and find white-space opportunities before your competitors.</p>
+                <h2>Demand Trends</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Demand clusters found across consumer conversation (Bluesky, Mastodon, YouTube), trade press, the global news index and culture feeds. Strength is cluster cohesion and volume; white space is how little supply answers it. Save the ones that matter, then build from them.</p>
                 <div class="filter-bar">
                     <select id="filter-region" class="filter-select" onchange="applyFilters()">
                         <option value="">All Regions</option>
@@ -1439,8 +1439,18 @@ async def dashboard_v2():
 
         <div id="moves" class="section">
             <div class="card">
-                <h2>Hotelier Bets</h2>
-                <p style="color:var(--ink-2);margin-bottom:15px;">Monitor strategic moves by hotel companies worldwide. Track launches, acquisitions, repositionings, and partnerships to understand where the industry is heading and identify competitive signals.</p>
+                <div class="card-head">
+                    <div>
+                        <h2>Who Is Moving</h2>
+                        <div class="card-sub">Operators, REITs and platforms ranked by moves extracted in the window, with the mix of what they are doing. Filings are read from the SEC directly; the rest from trade press and the global news index.</div>
+                    </div>
+                </div>
+                <div class="fig-legend" id="company-legend"></div>
+                <div id="company-league"></div>
+            </div>
+            <div class="card">
+                <h2>Market Moves</h2>
+                <p style="color:var(--ink-2);margin-bottom:15px;">Every strategic move on file: launches, acquisitions, renovations, repositionings, partnerships and technology bets, from trade press, the global news index and SEC filings.</p>
                 <div class="filter-bar">
                     <select id="filter-company" onchange="applyMoveFilters()">
                         <option value="">All Companies</option>
@@ -4026,6 +4036,21 @@ async def dashboard_v2():
                 weeks.slice().reverse().map(function (w, i) { return '<tr><td>' + fmtDateYear(w.week) + '</td>' + groups.map(function (g) { return '<td class="num">' + (w[g] || 0) + '</td>'; }).join('') + '<td class="num">' + totals[weeks.length - 1 - i] + '</td></tr>'; }).join('') + '</tbody></table>';
         }
 
+        // ---------- Company league (Market Moves tab) ----------
+        function renderCompanyLeague(companies) {
+            var el = document.getElementById('company-league');
+            var lg = document.getElementById('company-legend');
+            if (!el) return;
+            if (lg) lg.innerHTML = legendHtml(MOVE_GROUP_SLOTS, 'sq');
+            if (!companies || !companies.length) { el.innerHTML = '<div class="empty"><div class="icon"></div>No moves extracted yet</div>'; return; }
+            var max = Math.max.apply(null, companies.map(function (c) { return c.moves; }));
+            el.innerHTML = '<table class="chart-table"><thead><tr><th>Company</th><th>Moves</th><th style="width:34%">Mix</th><th>Markets</th><th>Latest</th></tr></thead><tbody>' + companies.map(function (c) {
+                var order = Object.keys(MOVE_GROUP_SLOTS);
+                var bar = '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;width:' + Math.max(8, Math.round(c.moves / max * 100)) + '%">' + order.map(function (g) { var v = c.groups[g] || 0; return v ? '<span title="' + MOVE_GROUP_SLOTS[g].label + ': ' + v + '" style="flex:' + v + ';background:' + MOVE_GROUP_SLOTS[g].color + '"></span>' : ''; }).join('') + '</div>';
+                return '<tr><td><strong>' + esc(c.company) + '</strong>' + (c.filings ? ' <span class="badge badge-success" title="read from SEC filings">' + c.filings + ' filing' + (c.filings > 1 ? 's' : '') + '</span>' : '') + '</td><td class="num">' + c.moves + '</td><td>' + bar + '</td><td style="color:var(--ink-2)">' + esc((c.markets || []).join(', ')) + '</td><td style="color:var(--ink-2)">' + esc(truncate(c.latest || '', 60)) + '</td></tr>';
+            }).join('') + '</tbody></table>';
+        }
+
         // ---------- Overview loader ----------
         async function loadOverview() {
             try {
@@ -4036,6 +4061,7 @@ async def dashboard_v2():
                 renderOpportunityMap(roomData.trend_map || []);
                 renderCityMatrix(roomData.city_matrix || []);
                 renderMovesByWeek(roomData.moves_by_week);
+                renderCompanyLeague(roomData.companies || []);
                 renderCurves(roomData.demand);
                 renderRoomTrends(roomData.trends || []);
                 renderRoomMoves(roomData.moves || []);

@@ -346,6 +346,31 @@ def _intake_by_type(db: Session, now: datetime, days: int = 30) -> list[dict]:
     ]
 
 
+def _companies(db: Session, limit: int = 12) -> list[dict]:
+    """Who is moving most, with the mix of what they are doing."""
+    rows = db.query(HotelierMoveModel).order_by(HotelierMoveModel.extracted_at.desc()).limit(600).all()
+    by: dict[str, dict] = {}
+    for m in rows:
+        name = (m.company or "Unknown").strip()
+        if name.lower() in {"unknown", "n/a", ""}:
+            continue
+        entry = by.setdefault(name, {"company": name, "moves": 0, "filings": 0, "groups": {g: 0 for g in MOVE_GROUP_ORDER}, "markets": set(), "latest": None, "latest_at": None})
+        entry["moves"] += 1
+        if m.source_name == "sec_edgar":
+            entry["filings"] += 1
+        entry["groups"][MOVE_GROUPS.get((m.move_type or "other").lower(), "other")] += 1
+        if m.market:
+            entry["markets"].add(m.market)
+        when = m.published_at or m.extracted_at
+        if when and (entry["latest_at"] is None or when > entry["latest_at"]):
+            entry["latest_at"], entry["latest"] = when, m.title
+    ranked = sorted(by.values(), key=lambda e: (-e["moves"], -e["filings"]))[:limit]
+    for e in ranked:
+        e["markets"] = sorted(e["markets"])[:3]
+        e["latest_at"] = e["latest_at"].isoformat() if e["latest_at"] else None
+    return ranked
+
+
 @router.get("/overview")
 async def get_overview(
     demand_metric: str = Query("wikipedia_pageviews", description="Demand metric to chart"),
@@ -377,6 +402,7 @@ async def get_overview(
         "trend_map": _trend_map(db),
         "city_matrix": _city_matrix(db, attention),
         "moves_by_week": _moves_by_week(db, now),
+        "companies": _companies(db),
         "sources": {
             "registry": dict(status_counts),
             "freshness": _source_freshness(db, now),
