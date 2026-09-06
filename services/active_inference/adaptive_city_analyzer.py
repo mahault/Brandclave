@@ -11,6 +11,7 @@ This replaces the fixed DesireCategory enum with learned, adaptive categories.
 """
 
 import logging
+import re
 import time
 from datetime import datetime
 from typing import Optional
@@ -188,13 +189,152 @@ class AdaptiveCityAnalyzer:
             "timestamp": datetime.utcnow().isoformat(),
         })
 
-        # Search Reddit
+        # Reddit's public JSON has been 403 since March 2026; kept as a no-op probe.
         observations_added += self._search_reddit(query, location)
 
-        # Search YouTube (simplified)
+        # YouTube result titles
         observations_added += self._search_youtube(query, location)
 
+        # Bluesky: the live consumer-voice source; authenticated search per query
+        observations_added += self._search_bluesky(query, location)
+
+        # Mastodon hashtag timeline and the platform corpus: once per analysis
+        if not getattr(self, "_static_sources_done", False):
+            self._static_sources_done = True
+            observations_added += self._search_mastodon(location)
+            observations_added += self._search_corpus(location)
+
         return observations_added
+
+    # Signals must be about travelling to / staying in the place, not just mention it.
+    _RELEVANCE = re.compile(
+        r"\b(hotel|hotels|hostel|airbnb|stay|stayed|staying|accommodation|apartment|guesthouse|resort|room|rooms|"
+        r"neighbou?rhood|where to|visit|visiting|trip|travel|weekend|nightlife|restaurant|cafe|coffee|brunch|"
+        r"rooftop|beach|old town|district|area|recommend|recommendation|tips|itinerary|nomad|coworking|wifi)\b",
+        re.I,
+    )
+    _BOTTY = re.compile(r"(invece di|\bpromo\b|discount code|casino|betting|\$\d+ off|-\d{2}% )", re.I)
+
+    def _is_signal(self, text: str, location: str) -> bool:
+        if not text or len(text) < 40:
+            return False
+        city = location.lower().split()[0]
+        low = text.lower()
+        if city not in low:
+            return False
+        if self._BOTTY.search(text):
+            return False
+        letters = sum(ch.isalpha() for ch in text)
+        if letters < 0.55 * len(text):
+            return False
+        return bool(self._RELEVANCE.search(text))
+
+    def _observe_text(self, text: str, source: str) -> bool:
+        key = re.sub(r"\W+", "", text.lower())[:80]
+        seen = getattr(self, "_seen_texts", None)
+        if seen is None:
+            seen = self._seen_texts = set()
+        if key in seen:
+            return False
+        seen.add(key)
+        obs = Observation(
+            text=text[:400],
+            embedding=self._get_embedding(text[:400]),
+            keywords=self._extract_keywords(text),
+            source=source,
+        )
+        self.structure_learner.observe(obs)
+        return True
+
+    def _search_bluesky(self, query: str, location: str) -> int:
+        """Authenticated AT Protocol search (public AppViews 403 scripted clients)."""
+        try:
+            from config.settings import get_settings
+            from ingestion.social.bluesky_scraper import SEARCH_URL, USER_AGENT, _SESSIONS
+
+            settings = get_settings()
+            if not settings.bluesky_handle or not settings.bluesky_app_password:
+                return 0
+            token = _SESSIONS.token(settings.bluesky_handle, settings.bluesky_app_password)
+            response = resilient_get(
+                SEARCH_URL,
+                params={"q": query, "limit": 50, "lang": "en"},
+                headers={"User-Agent": USER_AGENT, "Authorization": f"Bearer {token}"},
+                timeout=20,
+                client=self.client,
+            )
+            if response is None or response.status_code != 200:
+                return 0
+            count = 0
+            for post in response.json().get("posts", []):
+                text = ((post.get("record") or {}).get("text") or "").strip()
+                if self._is_signal(text, location) and self._observe_text(text, "bluesky"):
+                    count += 1
+            return count
+        except Exception as exc:
+            logger.debug(f"Bluesky city search error: {exc}")
+            return 0
+
+    def _search_mastodon(self, location: str) -> int:
+        """Public hashtag timeline for the city (no token needed)."""
+        tag = re.sub(r"[^a-z0-9]", "", location.lower().split()[0])
+        if not tag:
+            return 0
+        count = 0
+        for instance in ("mastodon.social", "mstdn.social"):
+            try:
+                response = resilient_get(
+                    f"https://{instance}/api/v1/timelines/tag/{tag}",
+                    params={"limit": 40},
+                    headers={"User-Agent": "BrandClaveDemandBot/1.0 (mahault.albarracin@gmail.com)"},
+                    timeout=20,
+                    client=self.client,
+                )
+                if response is None or response.status_code != 200:
+                    continue
+                for status in response.json():
+                    if status.get("language") not in (None, "en"):
+                        continue
+                    text = re.sub(r"<[^>]+>", " ", status.get("content", ""))
+                    text = re.sub(r"\s+", " ", text).strip()
+                    if self._is_signal(text, location) and self._observe_text(text, "mastodon"):
+                        count += 1
+            except Exception as exc:
+                logger.debug(f"Mastodon city search error ({instance}): {exc}")
+        return count
+
+    def _search_corpus(self, location: str) -> int:
+        """What the platform has already collected about this city, all live sources."""
+        try:
+            from db.database import SessionLocal
+            from db.models import RawContentModel
+            from ingestion.registry import retired_sources
+
+            city = location.split()[0]
+            db = SessionLocal()
+            try:
+                rows = (
+                    db.query(RawContentModel.title, RawContentModel.content, RawContentModel.source)
+                    .filter(RawContentModel.source.notin_(retired_sources()))
+                    .filter(RawContentModel.content.ilike(f"%{city}%") | RawContentModel.title.ilike(f"%{city}%"))
+                    .order_by(RawContentModel.scraped_at.desc())
+                    .limit(120)
+                    .all()
+                )
+            finally:
+                db.close()
+            count = 0
+            for title, content, source in rows:
+                text = f"{title or ''}. {content or ''}".strip(". ")
+                # keep the sentence(s) that mention the city, not whole articles
+                sentences = [snt for snt in re.split(r"(?<=[.!?])\s+", text) if city.lower() in snt.lower()]
+                snippet = " ".join(sentences)[:400] or text[:400]
+                if self._is_signal(snippet, location) and self._observe_text(snippet, f"corpus:{source}"):
+                    count += 1
+            return count
+        except Exception as exc:
+            logger.debug(f"Corpus city search error: {exc}")
+            return 0
 
     def _search_reddit(self, query: str, location: str) -> int:
         """Search Reddit and create observations."""
@@ -600,7 +740,7 @@ For each cluster, provide:
 
 Be specific and actionable. Focus on human insights, not data summaries.
 
-Output format: JSON array only, no markdown."""
+Output format: a JSON object {"clusters": [...]} only, no markdown."""
 
         user_prompt = f"""Analyze these {len(clusters)} theme clusters for {city}, {country}:
 
@@ -628,10 +768,13 @@ Transform these keyword lists into human insights. What's the story?"""
                 system_prompt=system_prompt,
                 max_tokens=2000,
                 temperature=0.6,
+                json_mode=True,
             )
 
             json_str = _strip_markdown_json(response)
-            results = json.loads(json_str)
+            results = json.loads(json_str, strict=False)
+            if isinstance(results, dict):
+                results = next((v for v in results.values() if isinstance(v, list)), [])
 
             # Map results back to category IDs
             insights = {}
@@ -700,6 +843,7 @@ Provide 2-3 hotel concept recommendations as JSON:
                 system_prompt=system_prompt,
                 max_tokens=1000,
                 temperature=0.7,
+                json_mode=True,
             )
 
             json_str = _strip_markdown_json(response)
