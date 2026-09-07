@@ -61,16 +61,24 @@ class ContentClusterer:
         self.min_samples = min_samples
         self.metric = metric
 
-        # Initialize POMDP for adaptive clustering
+        # The POMDP (JAX) costs seconds to build on a small box, so it is created
+        # on first use by cluster_content(), never by merely constructing the
+        # service to read rows.
         self.use_adaptive = use_adaptive and CLUSTERING_POMDP_AVAILABLE
-        self.clustering_pomdp: Optional[ClusteringPOMDP] = None
-        if self.use_adaptive:
+        self._clustering_pomdp: Optional[ClusteringPOMDP] = None
+        self._pomdp_resolved = False
+
+    @property
+    def clustering_pomdp(self) -> Optional[ClusteringPOMDP]:
+        if self.use_adaptive and not self._pomdp_resolved:
+            self._pomdp_resolved = True
             try:
-                self.clustering_pomdp = get_clustering_pomdp()
+                self._clustering_pomdp = get_clustering_pomdp()
                 logger.info("Clustering POMDP enabled for adaptive parameter selection")
             except Exception as e:
                 logger.warning(f"Failed to initialize Clustering POMDP: {e}")
                 self.use_adaptive = False
+        return self._clustering_pomdp
 
     def get_embeddings_from_db(
         self,

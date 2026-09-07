@@ -104,7 +104,11 @@ def health_check():
     )
 
 
+from api.cache import ttl_cache
+
+
 @router.get("/monitoring/metrics", response_model=SystemMetricsResponse)
+@ttl_cache(60)
 def get_system_metrics():
     """Get overall system metrics."""
     with MetricsCollector() as collector:
@@ -126,6 +130,7 @@ def get_system_metrics():
 
 
 @router.get("/monitoring/scrapers", response_model=list[ScraperMetricsResponse])
+@ttl_cache(120)
 def get_scraper_metrics():
     """Get metrics for all scrapers."""
     with MetricsCollector() as collector:
@@ -183,6 +188,7 @@ def get_recent_activity(hours: int = Query(24, ge=1, le=168)):
 
 
 @router.get("/monitoring/content")
+@ttl_cache(60)
 def get_recent_content(limit: int = Query(20, ge=1, le=100)):
     """Get recent scraped content for display."""
     from db.database import SessionLocal

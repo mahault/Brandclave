@@ -51,7 +51,11 @@ class GenerateResponse(BaseModel):
     message: str
 
 
+from api.cache import ttl_cache
+
+
 @router.get("/hotelier-bets", response_model=MoveListResponse)
+@ttl_cache(60)
 def get_moves(
     limit: int = Query(20, ge=1, le=100, description="Maximum moves to return"),
     company: Optional[str] = Query(None, description="Filter by company name"),
@@ -85,6 +89,7 @@ def get_moves(
 
 
 @router.get("/hotelier-bets/companies")
+@ttl_cache(300)
 def get_companies():
     """Get list of companies with extracted moves."""
     service = HotelierBetsService()
@@ -97,6 +102,7 @@ def get_companies():
 
 
 @router.get("/hotelier-bets/move-types")
+@ttl_cache(300)
 def get_move_types():
     """Get list of move types with descriptions."""
     # Return all possible move types with descriptions

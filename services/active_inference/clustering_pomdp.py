@@ -559,11 +559,13 @@ class ClusteringPOMDP:
 
 # Singleton instance
 _clustering_pomdp: Optional[ClusteringPOMDP] = None
+_clustering_pomdp_lock = __import__("threading").Lock()
 
 
 def get_clustering_pomdp() -> ClusteringPOMDP:
     """Get or create the clustering POMDP instance."""
     global _clustering_pomdp
-    if _clustering_pomdp is None:
-        _clustering_pomdp = ClusteringPOMDP()
+    with _clustering_pomdp_lock:
+        if _clustering_pomdp is None:
+            _clustering_pomdp = ClusteringPOMDP()
     return _clustering_pomdp

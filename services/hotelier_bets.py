@@ -49,16 +49,22 @@ class HotelierBetsService:
         self.use_llm = use_llm
         self.confidence_threshold = confidence_threshold
 
-        # Initialize POMDP for adaptive extraction
+        # Built on first use by extract_moves(); listing moves must stay cheap.
         self.use_adaptive = use_adaptive and EXTRACTION_POMDP_AVAILABLE
-        self.extraction_pomdp: Optional[MoveExtractionPOMDP] = None
-        if self.use_adaptive:
+        self._extraction_pomdp: Optional[MoveExtractionPOMDP] = None
+        self._pomdp_resolved = False
+
+    @property
+    def extraction_pomdp(self) -> Optional[MoveExtractionPOMDP]:
+        if self.use_adaptive and not self._pomdp_resolved:
+            self._pomdp_resolved = True
             try:
-                self.extraction_pomdp = get_extraction_pomdp()
+                self._extraction_pomdp = get_extraction_pomdp()
                 logger.info("Move Extraction POMDP enabled for adaptive strategy selection")
             except Exception as e:
                 logger.warning(f"Failed to initialize Move Extraction POMDP: {e}")
                 self.use_adaptive = False
+        return self._extraction_pomdp
 
     def extract_moves(
         self,

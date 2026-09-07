@@ -58,7 +58,11 @@ class GenerateResponse(BaseModel):
 # STATIC ROUTES (must come before parameterized routes)
 # =============================================================================
 
+from api.cache import ttl_cache
+
+
 @router.get("/social-pulse", response_model=TrendListResponse)
+@ttl_cache(60)
 def get_trends(
     limit: int = Query(20, ge=1, le=100, description="Maximum trends to return"),
     region: Optional[str] = Query(None, description="Filter by region"),
@@ -89,6 +93,7 @@ def get_trends(
 
 
 @router.get("/social-pulse/regions")
+@ttl_cache(300)
 def get_regions():
     """Get available regions with trend counts."""
     db = SessionLocal()
@@ -115,6 +120,7 @@ def get_regions():
 
 
 @router.get("/social-pulse/audiences")
+@ttl_cache(300)
 def get_audiences():
     """Get available audience segments with trend counts."""
     db = SessionLocal()

@@ -581,11 +581,13 @@ class MoveExtractionPOMDP:
 
 # Singleton instance
 _extraction_pomdp: Optional[MoveExtractionPOMDP] = None
+_extraction_pomdp_lock = __import__("threading").Lock()
 
 
 def get_extraction_pomdp() -> MoveExtractionPOMDP:
     """Get or create the move extraction POMDP instance."""
     global _extraction_pomdp
-    if _extraction_pomdp is None:
-        _extraction_pomdp = MoveExtractionPOMDP()
+    with _extraction_pomdp_lock:
+        if _extraction_pomdp is None:
+            _extraction_pomdp = MoveExtractionPOMDP()
     return _extraction_pomdp
