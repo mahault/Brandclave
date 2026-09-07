@@ -3827,6 +3827,11 @@ async def dashboard_v2():
             try {
                 var res = await fetch('/api/scheduler/pomdp');
                 var d = await res.json();
+                if (d.warming) {
+                    el.innerHTML = '<div class="empty"><div class="icon"></div>The attention model is computing its first beliefs on this machine. This panel refreshes itself.</div>';
+                    setTimeout(loadAttention, 30000);
+                    return;
+                }
                 if (!d.enabled || !d.status || d.error) {
                     el.innerHTML = '<div class="empty"><div class="icon"></div>The scheduler is not running in this process, so no beliefs have been updated yet.</div>';
                     return;
@@ -3853,7 +3858,8 @@ async def dashboard_v2():
                 }).join('');
                 el.innerHTML = head + rows +
                     '<div class="ai-explain">Bars are the current belief that a source will yield new, non-duplicate items on the next visit. <code>?</code> marks a source the agent has not yet observed &mdash; the epistemic term makes those attractive to try. ' +
-                    'Uniform 50% across the board means the scheduler has just started and the beliefs are priors.</div>';
+                    'Uniform 50% across the board means the scheduler has just started and the beliefs are priors.' +
+                    (d.computed_at ? ' Beliefs computed ' + esc(String(d.computed_at).replace('T', ' ').slice(0, 16)) + ' UTC.' : '') + '</div>';
             } catch (e) {
                 el.innerHTML = '<div class="empty"><div class="icon"></div>Beliefs unavailable: ' + esc(e.message) + '</div>';
             }

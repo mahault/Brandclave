@@ -1,7 +1,11 @@
 """Scheduler management API routes."""
 
+import json
 import logging
+import threading
+import time
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -218,54 +222,105 @@ def stop_scheduler():
     return {"status": "stopped", "message": "Scheduler stopped"}
 
 
-# JAX status + schedule recommendation costs seconds of CPU on a small box and
-# blocks nothing now that the handler is sync, but it is still worth not
-# recomputing for every dashboard load.
+# The POMDP status is expensive: the schedule recommendation alone takes ~8 s
+# of JAX work on a laptop and minutes on a small instance. Beliefs only move
+# when the scheduler runs, so the payload is computed in a background thread,
+# persisted to data/pomdp_status.json and served from there. A request never
+# waits on JAX.
 _POMDP_CACHE: dict[str, tuple[float, dict]] = {}
-_POMDP_TTL_SECONDS = 120.0
+_POMDP_TTL_SECONDS = 3600.0
+_POMDP_SNAPSHOT_MAX_AGE_SECONDS = 24 * 3600.0
+_POMDP_SNAPSHOT = Path(__file__).resolve().parents[2] / "data" / "pomdp_status.json"
+_POMDP_BUILDING = threading.Lock()
+
+
+def compute_pomdp_payload() -> dict:
+    """Run the full status computation (slow). Called off the request path."""
+    scheduler = get_scheduler()
+    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
+        return {"enabled": False, "reason": "Scraping POMDP not available or disabled"}
+    payload = {
+        "enabled": True,
+        "status": scheduler.get_pomdp_status(),
+        "next_recommended_source": scheduler.get_next_source_pomdp(),
+        "recommended_schedule": scheduler.get_scraping_schedule_pomdp(budget_minutes=60),
+        "computed_at": datetime.utcnow().isoformat() + "Z",
+    }
+    return payload
+
+
+def write_pomdp_snapshot(payload: dict) -> None:
+    _POMDP_SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _POMDP_SNAPSHOT.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, default=str, indent=1), encoding="utf-8")
+    tmp.replace(_POMDP_SNAPSHOT)
+
+
+def _refresh_pomdp_snapshot_in_background() -> bool:
+    """Start one background computation; returns False if one is already running."""
+    if not _POMDP_BUILDING.acquire(blocking=False):
+        return False
+
+    def run():
+        try:
+            payload = compute_pomdp_payload()
+            if payload.get("enabled"):
+                write_pomdp_snapshot(payload)
+            _POMDP_CACHE["status"] = (time.time(), payload)
+        except Exception as exc:  # pragma: no cover - logged, never raised to a request
+            logger.warning(f"POMDP snapshot refresh failed: {exc}")
+        finally:
+            _POMDP_BUILDING.release()
+
+    threading.Thread(target=run, name="pomdp-snapshot", daemon=True).start()
+    return True
+
+
+def _snapshot_age_seconds(payload: dict) -> Optional[float]:
+    stamp = payload.get("computed_at")
+    if not stamp:
+        return None
+    try:
+        computed = datetime.fromisoformat(stamp.rstrip("Z"))
+    except ValueError:
+        return None
+    return (datetime.utcnow() - computed).total_seconds()
 
 
 @router.get("/scheduler/pomdp")
-def get_pomdp_status():
+def get_pomdp_status(refresh: bool = Query(False, description="Recompute in the background")):
     """Get POMDP (Active Inference) status and beliefs.
 
-    Returns the current state of the Scraping POMDP including:
-    - Whether POMDP is enabled
-    - Source beliefs (productivity estimates)
-    - Next recommended source
-    - Recommended scraping schedule
+    Served from the last computed snapshot (see computed_at). The computation
+    runs in the background when the snapshot is missing, older than a day, or
+    refresh=true is passed; the response never waits on it.
     """
-    import time as _time
-
     hit = _POMDP_CACHE.get("status")
-    if hit and _time.time() - hit[0] < _POMDP_TTL_SECONDS:
+    if hit and time.time() - hit[0] < _POMDP_TTL_SECONDS and not refresh:
         return hit[1]
-    scheduler = get_scheduler()
 
-    if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
-        return {
-            "enabled": False,
-            "reason": "Scraping POMDP not available or disabled",
-        }
+    payload: Optional[dict] = None
+    if _POMDP_SNAPSHOT.exists():
+        try:
+            payload = json.loads(_POMDP_SNAPSHOT.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            logger.warning(f"POMDP snapshot unreadable: {exc}")
 
-    try:
-        pomdp_status = scheduler.get_pomdp_status()
-        next_source = scheduler.get_next_source_pomdp()
-        schedule = scheduler.get_scraping_schedule_pomdp(budget_minutes=60)
-
-        payload = {
-            "enabled": True,
-            "status": pomdp_status,
-            "next_recommended_source": next_source,
-            "recommended_schedule": schedule,
-        }
-        _POMDP_CACHE["status"] = (_time.time(), payload)
-        return payload
-    except Exception as e:
+    if payload is None:
+        started = _refresh_pomdp_snapshot_in_background()
         return {
             "enabled": True,
-            "error": str(e),
+            "warming": True,
+            "building": started or _POMDP_BUILDING.locked(),
+            "reason": "First status computation on this instance is running in the background.",
         }
+
+    age = _snapshot_age_seconds(payload)
+    if refresh or age is None or age > _POMDP_SNAPSHOT_MAX_AGE_SECONDS:
+        _refresh_pomdp_snapshot_in_background()
+    payload["snapshot_age_seconds"] = round(age) if age is not None else None
+    _POMDP_CACHE["status"] = (time.time(), payload)
+    return payload
 
 
 @router.post("/scheduler/pomdp/recommend")
