@@ -1,0 +1,65 @@
+{
+  "blueprint_id": "5700c2df-e24f-47c5-866d-5c0de7ed602e",
+  "brand": "N\u00f3",
+  "model": "gpt-image-1.5",
+  "generated_at": "2026-09-05T23:19:23.952550",
+  "renders": [
+    {
+      "scene": "arrival",
+      "label": "Arrival & facade",
+      "file": "arrival.png",
+      "url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/arrival.jpg",
+      "prompt": "N\u00f3, a 70-key lifestyle hotel in Lisbon, Portugal: the street-level arrival and facade, dusk light, entrance legible from the street. Design direction: N\u00f3\u2019s design direction merges Alfama\u2019s raw, timeless textures with modern minimalism\u2014exposed pinkish-red terracotta brick walls paired with reclaimed Portuguese cork and light oak for warmth. Lighting is layered: warm Edison bulbs in brass fixtures for intimate corners, sheer linen drapes diffusing natural light, and biophilic elements like hanging ferns and minimalist terracotta planters to evoke nature. The scent is a subtle blend of orange blossom, sandalwood, and beeswax candles, evoking Lisbon\u2019s old-world charm. Sound is curated: soft acoustic wood panels dampen noise, while live acoustic guitar sessions (weekends only) and wind chimes create ambient rhythm. Every material\u2014handwoven\u2026 Brand feeling: Where Lisbon\u2019s soul meets your remote sanctuary\u2014design, connection, and quiet magic in Alfama\u2019s heart. Photorealistic architectural visualisation, wide-angle 24mm, natural light, high dynamic range, editorial hospitality photography quality. No people, no text, no logos, no signage, no watermarks.",
+      "model": "gpt-image-1.5",
+      "size": "1536x1024",
+      "quality": "medium",
+      "bytes": 3170582,
+      "generated_at": "2026-09-05T23:18:29.115392",
+      "display_file": "arrival.jpg",
+      "original_url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/arrival.png"
+    },
+    {
+      "scene": "lobby",
+      "label": "Lobby & social heart",
+      "file": "lobby.png",
+      "url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/lobby.jpg",
+      "prompt": "N\u00f3, a 70-key lifestyle hotel in Lisbon, Portugal: the lobby as the social heart of the property, furniture and material palette in view. Design direction: N\u00f3\u2019s design direction merges Alfama\u2019s raw, timeless textures with modern minimalism\u2014exposed pinkish-red terracotta brick walls paired with reclaimed Portuguese cork and light oak for warmth. Lighting is layered: warm Edison bulbs in brass fixtures for intimate corners, sheer linen drapes diffusing natural light, and biophilic elements like hanging ferns and minimalist terracotta planters to evoke nature. The scent is a subtle blend of orange blossom, sandalwood, and beeswax candles, evoking Lisbon\u2019s old-world charm. Sound is curated: soft acoustic wood panels dampen noise, while live acoustic guitar sessions (weekends only) and wind chimes create ambient rhythm. Every material\u2014handwoven\u2026 It hosts: A daily rooftop session where guests gather for focused work or creative sessions, paired with slow-brewed Portuguese coffee and local pastries. The space is designed with natural light, ergonomic seating, and acoustic panels to enhance\u2026 Brand feeling: Where Lisbon\u2019s soul meets your remote sanctuary\u2014design, connection, and quiet magic in Alfama\u2019s heart. Photorealistic architectural visualisation, wide-angle 24mm, natural light, high dynamic range, editorial hospitality photography quality. No people, no text, no logos, no signage, no watermarks.",
+      "model": "gpt-image-1.5",
+      "size": "1536x1024",
+      "quality": "medium",
+      "bytes": 3070153,
+      "generated_at": "2026-09-05T23:18:49.175335",
+      "display_file": "lobby.jpg",
+      "original_url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/lobby.png"
+    },
+    {
+      "scene": "room",
+      "label": "Signature guest room",
+      "file": "room.png",
+      "url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/room.jpg",
+      "prompt": "N\u00f3, a 70-key lifestyle hotel in Lisbon, Portugal: a signature guest room, bed and window composition, morning light. Design direction: N\u00f3\u2019s design direction merges Alfama\u2019s raw, timeless textures with modern minimalism\u2014exposed pinkish-red terracotta brick walls paired with reclaimed Portuguese cork and light oak for warmth. Lighting is layered: warm Edison bulbs in brass fixtures for intimate corners, sheer linen drapes diffusing natural light, and biophilic elements like hanging ferns and minimalist terracotta planters to evoke nature. The scent is a subtle blend of orange blossom, sandalwood, and beeswax candles, evoking Lisbon\u2019s old-world charm. Sound is curated: soft acoustic wood panels dampen noise, while live acoustic guitar sessions (weekends only) and wind chimes create ambient rhythm. Every material\u2014handwoven\u2026 Brand feeling: Where Lisbon\u2019s soul meets your remote sanctuary\u2014design, connection, and quiet magic in Alfama\u2019s heart. Photorealistic architectural visualisation, wide-angle 24mm, natural light, high dynamic range, editorial hospitality photography quality. No people, no text, no logos, no signage, no watermarks.",
+      "model": "gpt-image-1.5",
+      "size": "1536x1024",
+      "quality": "medium",
+      "bytes": 2875570,
+      "generated_at": "2026-09-05T23:19:05.597893",
+      "display_file": "room.jpg",
+      "original_url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/room.png"
+    },
+    {
+      "scene": "fnb",
+      "label": "Food & beverage",
+      "file": "fnb.png",
+      "url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/fnb.jpg",
+      "prompt": "N\u00f3, a 70-key lifestyle hotel in Lisbon, Portugal: the primary food-and-beverage space at golden hour, tableware and lighting in view. Design direction: N\u00f3\u2019s design direction merges Alfama\u2019s raw, timeless textures with modern minimalism\u2014exposed pinkish-red terracotta brick walls paired with reclaimed Portuguese cork and light oak for warmth. Lighting is layered: warm Edison bulbs in brass fixtures for intimate corners, sheer linen drapes diffusing natural light, and biophilic elements like hanging ferns and minimalist terracotta planters to evoke nature. The scent is a subtle blend of orange blossom, sandalwood, and beeswax candles, evoking Lisbon\u2019s old-world charm. Sound is curated: soft acoustic wood panels dampen noise, while live acoustic guitar sessions (weekends only) and wind chimes create ambient rhythm. Every material\u2014handwoven\u2026 The space is Oriente: A design-driven caf\u00e9-bar blending Lisbon\u2019s coffee culture with Scandinavian minimalism. Serves slow-brewed Portuguese coffee (including a signature cortado with cinnamon-infused syrup), artisanal pastries (like almond cake with orange zest), and local craft beers in recycled glass bottles. Also\u2026 Atmosphere: A quiet, creative hub where designers and remote workers sip hand-poured espresso at brass-topped tables, surrounded by local ceramics and vintage books. The\u2026 Brand feeling: Where Lisbon\u2019s soul meets your remote sanctuary\u2014design, connection, and quiet magic in Alfama\u2019s heart. Photorealistic architectural visualisation, wide-angle 24mm, natural light, high dynamic range, editorial hospitality photography quality. No people, no text, no logos, no signage, no watermarks.",
+      "model": "gpt-image-1.5",
+      "size": "1536x1024",
+      "quality": "medium",
+      "bytes": 2562494,
+      "generated_at": "2026-09-05T23:19:23.952550",
+      "display_file": "fnb.jpg",
+      "original_url": "/api/brand-blueprint/5700c2df-e24f-47c5-866d-5c0de7ed602e/renders/fnb.png"
+    }
+  ],
+  "failures": []
+}
