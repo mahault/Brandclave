@@ -56,7 +56,7 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/monitoring/health", response_model=HealthResponse)
-async def health_check():
+def health_check():
     """Comprehensive health check."""
     from db.database import engine
     from sqlalchemy import text
@@ -105,7 +105,7 @@ async def health_check():
 
 
 @router.get("/monitoring/metrics", response_model=SystemMetricsResponse)
-async def get_system_metrics():
+def get_system_metrics():
     """Get overall system metrics."""
     with MetricsCollector() as collector:
         metrics = collector.get_system_metrics()
@@ -126,7 +126,7 @@ async def get_system_metrics():
 
 
 @router.get("/monitoring/scrapers", response_model=list[ScraperMetricsResponse])
-async def get_scraper_metrics():
+def get_scraper_metrics():
     """Get metrics for all scrapers."""
     with MetricsCollector() as collector:
         metrics = collector.get_all_scraper_metrics()
@@ -147,7 +147,7 @@ async def get_scraper_metrics():
 
 
 @router.get("/monitoring/scrapers/{source}", response_model=ScraperMetricsResponse)
-async def get_single_scraper_metrics(source: str):
+def get_single_scraper_metrics(source: str):
     """Get metrics for a specific scraper."""
     with MetricsCollector() as collector:
         m = collector.get_scraper_metrics(source)
@@ -165,7 +165,7 @@ async def get_single_scraper_metrics(source: str):
 
 
 @router.get("/monitoring/errors")
-async def get_recent_errors(limit: int = Query(20, ge=1, le=100)):
+def get_recent_errors(limit: int = Query(20, ge=1, le=100)):
     """Get recent job errors."""
     with MetricsCollector() as collector:
         errors = collector.get_recent_errors(limit)
@@ -174,7 +174,7 @@ async def get_recent_errors(limit: int = Query(20, ge=1, le=100)):
 
 
 @router.get("/monitoring/activity")
-async def get_recent_activity(hours: int = Query(24, ge=1, le=168)):
+def get_recent_activity(hours: int = Query(24, ge=1, le=168)):
     """Get recent activity summary."""
     with MetricsCollector() as collector:
         activity = collector.get_recent_activity(hours)
@@ -183,7 +183,7 @@ async def get_recent_activity(hours: int = Query(24, ge=1, le=168)):
 
 
 @router.get("/monitoring/content")
-async def get_recent_content(limit: int = Query(20, ge=1, le=100)):
+def get_recent_content(limit: int = Query(20, ge=1, le=100)):
     """Get recent scraped content for display."""
     from db.database import SessionLocal
     from db.models import RawContentModel
@@ -221,7 +221,7 @@ async def get_recent_content(limit: int = Query(20, ge=1, le=100)):
 
 
 @router.post("/monitoring/reindex")
-async def reindex_embeddings(
+def reindex_embeddings(
     limit: int = Query(100, ge=1, le=1000, description="Maximum items to reindex"),
     force: bool = Query(False, description="Force reindex all, even if already processed"),
 ):
@@ -324,7 +324,7 @@ async def reindex_embeddings(
 
 
 @router.get("/monitoring/vector-store")
-async def get_vector_store_stats():
+def get_vector_store_stats():
     """Get vector store statistics and health."""
     from db.vector_store import get_vector_store
     from data_models.embeddings import get_embedding_provider

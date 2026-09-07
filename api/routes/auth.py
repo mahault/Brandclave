@@ -84,7 +84,7 @@ def _to_profile(user: UserModel) -> UserProfile:
 
 
 @router.post("/auth/register", response_model=AuthResponse, status_code=201)
-async def register(request: RegisterRequest, db: Session = Depends(get_db)):
+def register(request: RegisterRequest, db: Session = Depends(get_db)):
     """Create a new account and return an access token."""
     existing = db.query(UserModel).filter(UserModel.email == request.email).first()
     if existing is not None:
@@ -104,7 +104,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/auth/login", response_model=AuthResponse)
-async def login(request: LoginRequest, db: Session = Depends(get_db)):
+def login(request: LoginRequest, db: Session = Depends(get_db)):
     """Exchange email + password for an access token."""
     user = db.query(UserModel).filter(UserModel.email == request.email).first()
     if user is None or not verify_password(request.password, user.password_hash):
@@ -116,6 +116,6 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/auth/me", response_model=UserProfile)
-async def me(user: UserModel = Depends(get_current_user)):
+def me(user: UserModel = Depends(get_current_user)):
     """Return the authenticated user's profile."""
     return _to_profile(user)

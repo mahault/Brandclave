@@ -50,7 +50,7 @@ class JobActionResponse(BaseModel):
 
 
 @router.get("/scheduler/status")
-async def get_scheduler_status():
+def get_scheduler_status():
     """Get scheduler status."""
     scheduler = get_scheduler()
     return {
@@ -61,7 +61,7 @@ async def get_scheduler_status():
 
 
 @router.get("/scheduler/jobs", response_model=JobListResponse)
-async def get_scheduled_jobs():
+def get_scheduled_jobs():
     """Get all scheduled jobs."""
     scheduler = get_scheduler()
     jobs = scheduler.get_jobs()
@@ -75,7 +75,7 @@ async def get_scheduled_jobs():
 
 
 @router.get("/scheduler/jobs/{job_id}", response_model=JobResponse)
-async def get_job(job_id: str):
+def get_job(job_id: str):
     """Get a specific job by ID."""
     scheduler = get_scheduler()
 
@@ -90,7 +90,7 @@ async def get_job(job_id: str):
 
 
 @router.post("/scheduler/jobs", response_model=JobActionResponse)
-async def add_job(request: AddJobRequest):
+def add_job(request: AddJobRequest):
     """Add a new scheduled scraper job."""
     scheduler = get_scheduler()
 
@@ -121,7 +121,7 @@ async def add_job(request: AddJobRequest):
 
 
 @router.delete("/scheduler/jobs/{job_id}", response_model=JobActionResponse)
-async def remove_job(job_id: str):
+def remove_job(job_id: str):
     """Remove a scheduled job."""
     scheduler = get_scheduler()
 
@@ -139,7 +139,7 @@ async def remove_job(job_id: str):
 
 
 @router.post("/scheduler/jobs/{job_id}/pause", response_model=JobActionResponse)
-async def pause_job(job_id: str):
+def pause_job(job_id: str):
     """Pause a scheduled job."""
     scheduler = get_scheduler()
 
@@ -157,7 +157,7 @@ async def pause_job(job_id: str):
 
 
 @router.post("/scheduler/jobs/{job_id}/resume", response_model=JobActionResponse)
-async def resume_job(job_id: str):
+def resume_job(job_id: str):
     """Resume a paused job."""
     scheduler = get_scheduler()
 
@@ -175,7 +175,7 @@ async def resume_job(job_id: str):
 
 
 @router.post("/scheduler/jobs/{job_id}/run", response_model=JobActionResponse)
-async def run_job_now(job_id: str):
+def run_job_now(job_id: str):
     """Trigger immediate execution of a job."""
     scheduler = get_scheduler()
 
@@ -193,7 +193,7 @@ async def run_job_now(job_id: str):
 
 
 @router.post("/scheduler/start")
-async def start_scheduler():
+def start_scheduler():
     """Start the scheduler."""
     scheduler = get_scheduler()
 
@@ -207,7 +207,7 @@ async def start_scheduler():
 
 
 @router.post("/scheduler/stop")
-async def stop_scheduler():
+def stop_scheduler():
     """Stop the scheduler."""
     scheduler = get_scheduler()
 
@@ -218,8 +218,15 @@ async def stop_scheduler():
     return {"status": "stopped", "message": "Scheduler stopped"}
 
 
+# JAX status + schedule recommendation costs seconds of CPU on a small box and
+# blocks nothing now that the handler is sync, but it is still worth not
+# recomputing for every dashboard load.
+_POMDP_CACHE: dict[str, tuple[float, dict]] = {}
+_POMDP_TTL_SECONDS = 120.0
+
+
 @router.get("/scheduler/pomdp")
-async def get_pomdp_status():
+def get_pomdp_status():
     """Get POMDP (Active Inference) status and beliefs.
 
     Returns the current state of the Scraping POMDP including:
@@ -228,6 +235,11 @@ async def get_pomdp_status():
     - Next recommended source
     - Recommended scraping schedule
     """
+    import time as _time
+
+    hit = _POMDP_CACHE.get("status")
+    if hit and _time.time() - hit[0] < _POMDP_TTL_SECONDS:
+        return hit[1]
     scheduler = get_scheduler()
 
     if not scheduler.use_pomdp or scheduler.scraping_pomdp is None:
@@ -241,12 +253,14 @@ async def get_pomdp_status():
         next_source = scheduler.get_next_source_pomdp()
         schedule = scheduler.get_scraping_schedule_pomdp(budget_minutes=60)
 
-        return {
+        payload = {
             "enabled": True,
             "status": pomdp_status,
             "next_recommended_source": next_source,
             "recommended_schedule": schedule,
         }
+        _POMDP_CACHE["status"] = (_time.time(), payload)
+        return payload
     except Exception as e:
         return {
             "enabled": True,
@@ -255,7 +269,7 @@ async def get_pomdp_status():
 
 
 @router.post("/scheduler/pomdp/recommend")
-async def get_pomdp_recommendation():
+def get_pomdp_recommendation():
     """Get POMDP recommendation for next source to scrape.
 
     Uses Expected Free Energy minimization to balance:
@@ -274,7 +288,7 @@ async def get_pomdp_recommendation():
 
 
 @router.get("/scheduler/pomdp/beliefs")
-async def get_pomdp_beliefs():
+def get_pomdp_beliefs():
     """Get detailed POMDP beliefs about each source.
 
     Shows:
@@ -328,7 +342,7 @@ async def get_pomdp_beliefs():
 
 
 @router.post("/scheduler/scrape-all")
-async def scrape_all_sources(
+def scrape_all_sources(
     sources: Optional[list[str]] = Query(None, description="Specific sources to scrape (default: all hospitality)")
 ):
     """Run all scrapers in sequence for initial data collection.

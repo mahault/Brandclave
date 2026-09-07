@@ -66,7 +66,7 @@ def _to_response(model: SavedItemModel) -> SavedItemResponse:
 
 
 @router.get("/projects/saved", response_model=SavedItemListResponse)
-async def list_saved_items(
+def list_saved_items(
     item_type: Literal["trend", "move"] | None = Query(None, description="Filter by item type"),
     user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -81,7 +81,7 @@ async def list_saved_items(
 
 
 @router.post("/projects/saved", response_model=SavedItemResponse, status_code=201)
-async def save_item(
+def save_item(
     request: SavedItemCreate,
     user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -115,7 +115,7 @@ async def save_item(
 
 
 @router.delete("/projects/saved/{saved_item_id}")
-async def delete_saved_item(
+def delete_saved_item(
     saved_item_id: str,
     user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),

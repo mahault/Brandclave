@@ -371,13 +371,31 @@ def _companies(db: Session, limit: int = 12) -> list[dict]:
     return ranked
 
 
+# The overview aggregates a dozen queries; on a small instance that is seconds
+# of work for every visitor. One minute of staleness is invisible to a reader.
+_OVERVIEW_CACHE: dict[str, tuple[float, dict]] = {}
+_OVERVIEW_TTL_SECONDS = 60.0
+
+
 @router.get("/overview")
-async def get_overview(
+def get_overview(
     demand_metric: str = Query("wikipedia_pageviews", description="Demand metric to chart"),
     movers: int = Query(5, ge=1, le=15, description="How many movers to name each way"),
     db: Session = Depends(get_db),
 ):
     """Everything the Signal Room needs for its first paint."""
+    import time as _time
+
+    cache_key = f"{demand_metric}:{movers}"
+    hit = _OVERVIEW_CACHE.get(cache_key)
+    if hit and _time.time() - hit[0] < _OVERVIEW_TTL_SECONDS:
+        return hit[1]
+    payload = _build_overview(db, demand_metric, movers)
+    _OVERVIEW_CACHE[cache_key] = (_time.time(), payload)
+    return payload
+
+
+def _build_overview(db: Session, demand_metric: str, movers: int) -> dict:
     now = datetime.utcnow()
     top_trends = (
         db.query(TrendSignalModel).order_by(TrendSignalModel.last_updated.desc(), TrendSignalModel.strength_score.desc()).limit(6).all()
@@ -447,7 +465,7 @@ COUNTRY_TO_EUROSTAT = {
 
 
 @router.get("/overview/city/{city}")
-async def get_city_facts(city: str, db: Session = Depends(get_db)):
+def get_city_facts(city: str, db: Session = Depends(get_db)):
     """Everything the metric sources know about one city, for the Cities view."""
     name = city.strip()
     rows = (

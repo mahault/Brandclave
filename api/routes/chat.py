@@ -98,7 +98,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 
 @router.get("/chat/{conversation_id}/history", response_model=ConversationHistoryResponse)
-async def get_history(conversation_id: str) -> ConversationHistoryResponse:
+def get_history(conversation_id: str) -> ConversationHistoryResponse:
     """Get conversation history.
 
     Returns all messages and artifacts from a conversation.
@@ -116,7 +116,7 @@ async def get_history(conversation_id: str) -> ConversationHistoryResponse:
 
 
 @router.delete("/chat/{conversation_id}")
-async def delete_conversation(conversation_id: str) -> dict:
+def delete_conversation(conversation_id: str) -> dict:
     """Delete a conversation.
 
     Removes the conversation from memory.
@@ -129,7 +129,7 @@ async def delete_conversation(conversation_id: str) -> dict:
 
 
 @router.get("/chat/conversations")
-async def list_conversations() -> dict:
+def list_conversations() -> dict:
     """List active conversations.
 
     Returns IDs of all active conversations.
@@ -142,7 +142,7 @@ async def list_conversations() -> dict:
 
 # Route info for router output testing
 @router.post("/chat/route")
-async def route_message(request: ChatRequest) -> dict:
+def route_message(request: ChatRequest) -> dict:
     """Test the mode router without generating a response.
 
     Useful for debugging intent classification.

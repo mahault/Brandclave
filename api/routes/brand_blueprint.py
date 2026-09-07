@@ -108,7 +108,7 @@ async def generate_blueprint(
 
 
 @router.get("/brand-blueprint/{blueprint_id}", response_model=BrandBlueprintFull)
-async def get_blueprint(blueprint_id: str):
+def get_blueprint(blueprint_id: str):
     """Get a saved blueprint by ID."""
     repository = BlueprintRepository()
     blueprint = repository.get(blueprint_id)
@@ -120,7 +120,7 @@ async def get_blueprint(blueprint_id: str):
 
 
 @router.get("/brand-blueprint", response_model=BlueprintListResponse)
-async def list_blueprints(
+def list_blueprints(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     location: Optional[str] = Query(None, description="Filter by location"),
@@ -151,7 +151,7 @@ async def list_blueprints(
 
 
 @router.delete("/brand-blueprint/{blueprint_id}")
-async def delete_blueprint(blueprint_id: str):
+def delete_blueprint(blueprint_id: str):
     """Delete a blueprint by ID."""
     repository = BlueprintRepository()
 
@@ -212,7 +212,7 @@ class RenderRequest(BaseModel):
 
 
 @router.get("/brand-blueprint/{blueprint_id}/renders")
-async def get_renders(blueprint_id: str):
+def get_renders(blueprint_id: str):
     """Manifest of the renders that exist on disk for a blueprint."""
     manifest = concept_renders.load_manifest(blueprint_id)
     if manifest is None:
@@ -221,7 +221,7 @@ async def get_renders(blueprint_id: str):
 
 
 @router.post("/brand-blueprint/{blueprint_id}/renders")
-async def create_renders(blueprint_id: str, request: RenderRequest):
+def create_renders(blueprint_id: str, request: RenderRequest):
     """Generate (or regenerate) concept renders for a saved blueprint."""
     repository = BlueprintRepository()
     blueprint = repository.get(blueprint_id)
@@ -243,7 +243,7 @@ async def create_renders(blueprint_id: str, request: RenderRequest):
 
 
 @router.get("/brand-blueprint/{blueprint_id}/renders/{filename}")
-async def get_render_file(blueprint_id: str, filename: str):
+def get_render_file(blueprint_id: str, filename: str):
     """Serve one rendered PNG."""
     if not (filename.endswith(".png") or filename.endswith(".jpg")) or "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid file name")

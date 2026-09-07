@@ -62,7 +62,7 @@ class CityDesireResponse(BaseModel):
 
 
 @router.post("/city-desires", response_model=CityDesireResponse)
-async def analyze_city(request: CityDesireRequest):
+def analyze_city(request: CityDesireRequest):
     """Analyze what travelers want in a city but can't find.
 
     This endpoint scrapes Reddit, YouTube, and travel forums to identify:
@@ -103,7 +103,7 @@ async def analyze_city(request: CityDesireRequest):
 
 
 @router.get("/city-desires/quick")
-async def quick_city_search(
+def quick_city_search(
     city: str = Query(..., description="City name to analyze"),
     country: str = Query("", description="Country (optional)"),
 ):
@@ -127,7 +127,7 @@ async def quick_city_search(
 
 
 @router.post("/city-desires/adaptive")
-async def analyze_city_adaptive(request: CityDesireRequest):
+def analyze_city_adaptive(request: CityDesireRequest):
     """Analyze city using active inference and structure learning.
 
     This endpoint uses an adaptive approach that:
@@ -165,7 +165,7 @@ async def analyze_city_adaptive(request: CityDesireRequest):
 
 
 @router.post("/city-desires/genius")
-async def analyze_city_genius(request: CityDesireRequest):
+def analyze_city_genius(request: CityDesireRequest):
     """Analyze city using VERSES Genius Active Inference API.
 
     This endpoint uses the VERSES Genius service for proper Bayesian
@@ -207,7 +207,7 @@ async def analyze_city_genius(request: CityDesireRequest):
 
 
 @router.get("/city-desires/genius/status")
-async def get_genius_status():
+def get_genius_status():
     """Check VERSES Genius API connection status."""
     from services.active_inference.genius_client import test_genius_connection
 
@@ -225,7 +225,7 @@ async def get_genius_status():
 
 
 @router.post("/city-desires/pymdp")
-async def analyze_city_pymdp(request: CityDesireRequest):
+def analyze_city_pymdp(request: CityDesireRequest):
     """Analyze city using PyMDP active inference (JAX-based).
 
     This endpoint uses the open-source pymdp library for local
@@ -260,7 +260,7 @@ async def analyze_city_pymdp(request: CityDesireRequest):
 
 
 @router.get("/city-desires/pymdp/status")
-async def get_pymdp_status():
+def get_pymdp_status():
     """Check PyMDP availability status."""
     from services.active_inference.pymdp_learner import PYMDP_AVAILABLE
 
@@ -272,7 +272,7 @@ async def get_pymdp_status():
 
 
 @router.get("/city-desires/popular")
-async def get_popular_cities():
+def get_popular_cities():
     """Get list of popular cities for quick analysis."""
     return {
         "popular_cities": [

@@ -69,7 +69,7 @@ class ScanStatusResponse(BaseModel):
 
 
 @router.post("/demand-scan", response_model=ScanStatusResponse)
-async def scan_property(request: ScanRequest):
+def scan_property(request: ScanRequest):
     """Scan a property URL and analyze against demand trends.
 
     Scrapes the property website, extracts features, and compares
@@ -114,7 +114,7 @@ async def scan_property(request: ScanRequest):
 
 
 @router.post("/demand-scan/refresh", response_model=ScanStatusResponse)
-async def rescan_property(request: ScanRequest):
+def rescan_property(request: ScanRequest):
     """Rescan a property URL with fresh data.
 
     Forces a new scan even if the property was previously analyzed.
@@ -147,7 +147,7 @@ async def rescan_property(request: ScanRequest):
 
 
 @router.get("/demand-scan", response_model=PropertyListResponse)
-async def get_properties(
+def get_properties(
     limit: int = Query(20, ge=1, le=100, description="Maximum properties to return"),
     region: Optional[str] = Query(None, description="Filter by region"),
     property_type: Optional[str] = Query(None, description="Filter by property type"),
@@ -177,7 +177,7 @@ async def get_properties(
 
 
 @router.get("/demand-scan/property-types")
-async def get_property_types():
+def get_property_types():
     """Get list of property types."""
     return {
         "property_types": [
@@ -188,7 +188,7 @@ async def get_property_types():
 
 
 @router.get("/demand-scan/price-segments")
-async def get_price_segments():
+def get_price_segments():
     """Get list of price segments."""
     return {
         "price_segments": [
@@ -199,7 +199,7 @@ async def get_price_segments():
 
 
 @router.get("/demand-scan/{property_id}", response_model=PropertyResponse)
-async def get_property(property_id: str):
+def get_property(property_id: str):
     """Get a single property by ID."""
     service = DemandScanService()
     prop = service.get_property(property_id)

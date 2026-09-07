@@ -59,7 +59,7 @@ class GenerateResponse(BaseModel):
 # =============================================================================
 
 @router.get("/social-pulse", response_model=TrendListResponse)
-async def get_trends(
+def get_trends(
     limit: int = Query(20, ge=1, le=100, description="Maximum trends to return"),
     region: Optional[str] = Query(None, description="Filter by region"),
     audience: Optional[str] = Query(None, description="Filter by audience segment"),
@@ -89,7 +89,7 @@ async def get_trends(
 
 
 @router.get("/social-pulse/regions")
-async def get_regions():
+def get_regions():
     """Get available regions with trend counts."""
     db = SessionLocal()
     try:
@@ -115,7 +115,7 @@ async def get_regions():
 
 
 @router.get("/social-pulse/audiences")
-async def get_audiences():
+def get_audiences():
     """Get available audience segments with trend counts."""
     db = SessionLocal()
     try:
@@ -139,7 +139,7 @@ async def get_audiences():
 
 
 @router.get("/social-pulse/debug")
-async def debug_rag():
+def debug_rag():
     """Debug endpoint to check RAG components."""
     from db.models import RawContentModel
 
@@ -210,7 +210,7 @@ async def debug_rag():
 
 
 @router.get("/social-pulse/search/semantic")
-async def search_trends(
+def search_trends(
     query: str = Query(..., min_length=3, description="Search query"),
     limit: int = Query(10, ge=1, le=50, description="Maximum results"),
 ):
@@ -267,7 +267,7 @@ async def search_trends(
 
 
 @router.post("/social-pulse/generate", response_model=GenerateResponse)
-async def generate_trends(
+def generate_trends(
     days_back: int = Query(30, ge=1, le=90, description="Days of content to analyze"),
     source_types: Optional[str] = Query(None, description="Comma-separated source types"),
     save: bool = Query(True, description="Save trends to database"),
@@ -298,7 +298,7 @@ async def generate_trends(
 
 
 @router.post("/social-pulse/regenerate", response_model=GenerateResponse)
-async def regenerate_trends(
+def regenerate_trends(
     days_back: int = Query(30, ge=1, le=90, description="Days of content to analyze"),
     max_trends: int = Query(20, ge=5, le=50, description="Maximum trends to generate"),
 ):
@@ -345,7 +345,7 @@ async def regenerate_trends(
 # =============================================================================
 
 @router.get("/social-pulse/{trend_id}", response_model=TrendResponse)
-async def get_trend(trend_id: str):
+def get_trend(trend_id: str):
     """Get a single trend by ID."""
     db = SessionLocal()
     try:
@@ -378,7 +378,7 @@ async def get_trend(trend_id: str):
 
 
 @router.get("/social-pulse/{trend_id}/sources")
-async def get_trend_sources(trend_id: str, limit: int = Query(20, ge=1, le=100)):
+def get_trend_sources(trend_id: str, limit: int = Query(20, ge=1, le=100)):
     """Get the source content items that formed this trend.
 
     Returns list of content items with URLs that can be clicked.

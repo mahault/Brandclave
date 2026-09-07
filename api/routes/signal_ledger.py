@@ -63,14 +63,14 @@ def _event_dict(model) -> dict:
 
 
 @router.post("/signal-ledger/predictions")
-async def create_prediction(record: PredictionRecordCreate, db: Session = Depends(get_db)):
+def create_prediction(record: PredictionRecordCreate, db: Session = Depends(get_db)):
     """Record a new prediction. Its content is sealed with a hash and cannot be edited."""
     model = signal_ledger.create_prediction(db, record)
     return _prediction_dict(model)
 
 
 @router.get("/signal-ledger/predictions")
-async def list_predictions(
+def list_predictions(
     status: str | None = Query(None, description="Filter by status"),
     project: str | None = Query(None, description="Filter by project"),
     limit: int = Query(100, ge=1, le=500),
@@ -83,7 +83,7 @@ async def list_predictions(
 
 
 @router.get("/signal-ledger/predictions/{prediction_id}")
-async def get_prediction(prediction_id: str, db: Session = Depends(get_db)):
+def get_prediction(prediction_id: str, db: Session = Depends(get_db)):
     """Get a prediction with its full event history and hash verification."""
     model = signal_ledger.get_prediction(db, prediction_id)
     if model is None:
@@ -97,7 +97,7 @@ async def get_prediction(prediction_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/signal-ledger/predictions/{prediction_id}/events")
-async def append_event(prediction_id: str, event: LedgerEventCreate, db: Session = Depends(get_db)):
+def append_event(prediction_id: str, event: LedgerEventCreate, db: Session = Depends(get_db)):
     """Append an evidence, outcome, decision or note event to a prediction."""
     try:
         model = signal_ledger.append_event(db, prediction_id, event)
@@ -107,7 +107,7 @@ async def append_event(prediction_id: str, event: LedgerEventCreate, db: Session
 
 
 @router.post("/signal-ledger/predictions/{prediction_id}/resolve")
-async def resolve_prediction(
+def resolve_prediction(
     prediction_id: str,
     status: PredictionStatus,
     summary: str,
@@ -122,6 +122,6 @@ async def resolve_prediction(
 
 
 @router.get("/signal-ledger/metrics", response_model=LedgerMetrics)
-async def get_metrics(db: Session = Depends(get_db)):
+def get_metrics(db: Session = Depends(get_db)):
     """Prediction-accuracy KPIs: hit rate, forecast error, calibration, stage funnel."""
     return signal_ledger.compute_metrics(db)

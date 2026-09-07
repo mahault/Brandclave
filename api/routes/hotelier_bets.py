@@ -52,7 +52,7 @@ class GenerateResponse(BaseModel):
 
 
 @router.get("/hotelier-bets", response_model=MoveListResponse)
-async def get_moves(
+def get_moves(
     limit: int = Query(20, ge=1, le=100, description="Maximum moves to return"),
     company: Optional[str] = Query(None, description="Filter by company name"),
     move_type: Optional[str] = Query(None, description="Filter by move type"),
@@ -85,7 +85,7 @@ async def get_moves(
 
 
 @router.get("/hotelier-bets/companies")
-async def get_companies():
+def get_companies():
     """Get list of companies with extracted moves."""
     service = HotelierBetsService()
     companies = service.get_companies()
@@ -97,7 +97,7 @@ async def get_companies():
 
 
 @router.get("/hotelier-bets/move-types")
-async def get_move_types():
+def get_move_types():
     """Get list of move types with descriptions."""
     # Return all possible move types with descriptions
     all_types = [
@@ -116,7 +116,7 @@ async def get_move_types():
 
 
 @router.get("/hotelier-bets/markets")
-async def get_markets():
+def get_markets():
     """Get list of markets with extracted moves."""
     service = HotelierBetsService()
     markets = service.get_markets()
@@ -128,7 +128,7 @@ async def get_markets():
 
 
 @router.get("/hotelier-bets/{move_id}", response_model=MoveResponse)
-async def get_move(move_id: str):
+def get_move(move_id: str):
     """Get a single move by ID."""
     service = HotelierBetsService()
     move = service.get_move_by_id(move_id)
@@ -140,7 +140,7 @@ async def get_move(move_id: str):
 
 
 @router.post("/hotelier-bets/generate", response_model=GenerateResponse)
-async def generate_moves(
+def generate_moves(
     days_back: int = Query(30, ge=1, le=90, description="Days of content to analyze"),
     limit: int = Query(100, ge=1, le=500, description="Maximum articles to process"),
     save: bool = Query(True, description="Save moves to database"),
