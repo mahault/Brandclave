@@ -41,6 +41,16 @@ async def lifespan(app: FastAPI):
     # Error tracking (no-op unless SENTRY_DSN is set and sentry-sdk installed)
     init_sentry(settings.sentry_dsn)
 
+    # Managed Postgres: apply migrations and, on an empty database, seed it
+    # from the committed SQLite snapshot. No-op on SQLite.
+    try:
+        from db.bootstrap import bootstrap_if_postgres
+        from db.database import DATABASE_URL
+
+        bootstrap_if_postgres(DATABASE_URL)
+    except Exception as exc:
+        logger.error(f"Database bootstrap failed: {exc}")
+
     # Pre-initialize cache (fast fail if Redis unavailable)
     try:
         from cache.redis_cache import get_cache

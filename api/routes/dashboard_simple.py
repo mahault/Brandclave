@@ -5290,7 +5290,7 @@ async def build_a_brand_page():
                 if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
                 renderTiles(data);
                 if (data.failures && data.failures.length) {
-                    document.getElementById('bp-renders-note').textContent += ' · ' + data.failures.length + ' scene(s) failed: ' + data.failures.map(function (f) { return f.error; }).join('; ');
+                    document.getElementById('bp-renders-note').textContent += ' · ' + data.failures.length + ' scene(s) failed: ' + data.failures.map(function (f) { return f.error; }).filter(function (v, k, a) { return a.indexOf(v) === k; }).join(' ');
                 }
             } catch (e) {
                 document.getElementById('bp-renders-note').textContent = 'Render failed: ' + e.message;

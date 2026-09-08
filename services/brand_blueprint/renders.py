@@ -155,6 +155,19 @@ def load_manifest(blueprint_id: str) -> dict | None:
     return manifest
 
 
+def _plain_error(exc: Exception) -> str:
+    """One readable line instead of the provider's raw payload."""
+    text = str(exc)
+    low = text.lower()
+    if "no credits" in low or "insufficient_quota" in low or "billing" in low:
+        return "The OpenAI account has no image credits left. Add credits under Billing at platform.openai.com, then Redo."
+    if "rate limit" in low or "429" in text:
+        return "OpenAI is rate-limiting image requests. Wait a minute and Redo."
+    if "api key" in low or "401" in text:
+        return "The OpenAI key was rejected. Check OPENAI_API_KEY on the server."
+    return text[:160]
+
+
 def generate_renders(bp, blueprint_id: str, *, scenes: list[str] | None = None, quality: str = "medium", size: str = "1536x1024") -> dict:
     """Generate the mood board for a blueprint and write it to disk.
 
@@ -183,7 +196,7 @@ def generate_renders(bp, blueprint_id: str, *, scenes: list[str] | None = None, 
             result = client.images.generate(model=model, prompt=prompt, size=size, quality=quality, n=1)
         except Exception as exc:  # surface per-scene failures, keep the rest
             logger.warning(f"Render failed for {blueprint_id}/{scene['key']}: {exc}")
-            renders.append({"scene": scene["key"], "label": scene["label"], "error": str(exc)[:200], "prompt": prompt})
+            renders.append({"scene": scene["key"], "label": scene["label"], "error": _plain_error(exc), "prompt": prompt})
             continue
         data = result.data[0]
         image_bytes = base64.b64decode(data.b64_json)
