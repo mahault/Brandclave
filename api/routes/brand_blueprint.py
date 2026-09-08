@@ -3,6 +3,7 @@
 import logging
 from typing import Optional
 
+from services.brand_blueprint.copy_style import polish_value
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import ValidationError, BaseModel
 
@@ -26,6 +27,22 @@ from services.chat.rag import BayesianRAG
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def polished(blueprint):
+    """Serve saved copy through the house-style cleanup (dashes, markdown).
+
+    Blueprints generated before the style contract keep their meaning but lose
+    the mechanical tells; new ones pass through unchanged.
+    """
+    if blueprint is None:
+        return None
+    try:
+        data = blueprint.model_dump() if hasattr(blueprint, "model_dump") else dict(blueprint)
+        return type(blueprint).model_validate(polish_value(data))
+    except Exception as exc:  # never let cosmetics break a read
+        logger.warning(f"polish skipped: {exc}")
+        return blueprint
 
 
 def get_pipeline() -> BlueprintPipeline:
@@ -91,7 +108,7 @@ async def generate_blueprint(
         return BlueprintGenerateResponse(
             blueprint_id=blueprint_id,
             status=blueprint.status,
-            blueprint=blueprint,
+            blueprint=polished(blueprint),
             stages=stages_progress,
             warnings=blueprint.warnings,
             token_usage=blueprint.token_usage,
@@ -116,7 +133,7 @@ def get_blueprint(blueprint_id: str):
     if blueprint is None:
         raise HTTPException(status_code=404, detail="Blueprint not found")
 
-    return blueprint
+    return polished(blueprint)
 
 
 @router.get("/brand-blueprint", response_model=BlueprintListResponse)
@@ -143,7 +160,7 @@ def list_blueprints(
     )
 
     return BlueprintListResponse(
-        blueprints=blueprints,
+        blueprints=[polished(b) for b in blueprints],
         total=total,
         offset=offset,
         limit=limit,

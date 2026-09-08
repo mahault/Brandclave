@@ -3,6 +3,8 @@
 import json
 import asyncio
 import logging
+
+from services.brand_blueprint.copy_style import STYLE_CONTRACT, polish_value
 import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
@@ -228,7 +230,12 @@ class BaseStage(ABC):
             try:
                 # Embedding + vector search are synchronous network/CPU work;
                 # keep them off the event loop.
-                result = await asyncio.to_thread(self.rag.retrieve, query, top_k=3)
+                result = self.rag.retrieve(query, top_k=3)
+                if asyncio.iscoroutine(result):
+                    result = await result
+                else:
+                    # a synchronous retriever still must not block the loop
+                    result = await asyncio.to_thread(lambda r=result: r)
                 chunks = result.get("chunks", [])
                 all_chunks.extend(chunks)
             except Exception as e:
@@ -265,7 +272,7 @@ class BaseStage(ABC):
         rag_context = await self.retrieve_context(context)
 
         # Build prompts
-        system_prompt = self.get_system_prompt() + BREVITY_CONTRACT
+        system_prompt = self.get_system_prompt() + BREVITY_CONTRACT + STYLE_CONTRACT
         user_prompt = self.build_user_prompt(context, rag_context)
 
         # Try with retries
@@ -291,7 +298,7 @@ class BaseStage(ABC):
                 context.add_tokens(input_tokens, output_tokens)
 
                 # Parse response
-                output = self.parse_response(response)
+                output = polish_value(self.parse_response(response))
 
                 logger.info(f"Stage {self.name} completed successfully")
                 return output

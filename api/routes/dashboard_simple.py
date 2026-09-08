@@ -5247,7 +5247,7 @@ async def build_a_brand_page():
                     return '<div class="render-tile pending" style="animation:none">' + esc(sc.label) + '</div>';
                 }
                 var bust = r.generated_at ? '?v=' + encodeURIComponent(r.generated_at) : '';
-                return '<div class="render-tile"><img src="' + r.url + bust + '" alt="' + esc(sc.label) + '" loading="lazy">' +
+                return '<div class="render-tile"><img src="' + r.url + bust + '" alt="' + esc(sc.label) + '">' +
                     '<div class="cap"><span>' + esc(sc.label) + '</span><button onclick="generateRenders(&#39;' + sc.key + '&#39;)">Redo</button></div></div>';
             }).join('');
             var note = document.getElementById('bp-renders-note');
@@ -5300,6 +5300,30 @@ async def build_a_brand_page():
             }
         }
 
+        // Long fields arrive as one block. Break them into short paragraphs at
+        // sentence boundaries (three sentences each) so they read like a brief.
+        // (No backslash escapes here: this page is a Python string.)
+        var NL = String.fromCharCode(10);
+        function paras(text, per) {
+            if (!text) return '';
+            per = per || 3;
+            var parts = String(text).replace(new RegExp(String.fromCharCode(13), 'g'), '').split(NL + NL);
+            var out = [];
+            parts.forEach(function (block) {
+                var flat = block.split(NL).join(' ').replace(/ {2,}/g, ' ').trim();
+                var sentences = flat.match(/[^.!?]+[.!?]+(?: |$)|[^.!?]+$/g) || [flat];
+                for (var i = 0; i < sentences.length; i += per) {
+                    var chunk = sentences.slice(i, i + per).join('').trim();
+                    if (chunk) out.push('<p>' + esc(chunk) + '</p>');
+                }
+            });
+            return out.join('');
+        }
+        function setParas(id, text, per) {
+            var el = document.getElementById(id);
+            if (el) el.innerHTML = paras(text, per);
+        }
+
         function displayBlueprint(blueprint) {
             currentBlueprint = blueprint;
 
@@ -5334,18 +5358,18 @@ async def build_a_brand_page():
                 inputsSection.style.display = 'none';
             }
 
-            document.getElementById('bp-thesis').textContent = blueprint.thesis || '';
+            setParas('bp-thesis', blueprint.thesis || '');
 
             // Pillars
             var pillars = blueprint.pillars || [];
             var pillarsHtml = '';
             for (var pi = 0; pi < pillars.length; pi++) {
-                pillarsHtml += '<li>' + pillars[pi] + '</li>';
+                pillarsHtml += '<li>' + esc(pillars[pi]) + '</li>';
             }
             document.getElementById('bp-pillars').innerHTML = pillarsHtml;
 
             // Positioning
-            document.getElementById('bp-positioning').textContent = blueprint.positioning_statement || '';
+            setParas('bp-positioning', blueprint.positioning_statement || '');
 
             // Unmet desires solved
             var desires = blueprint.unmet_desires_solved || [];
@@ -5406,7 +5430,7 @@ async def build_a_brand_page():
             }
 
             // Design direction
-            document.getElementById('bp-design').textContent = blueprint.design_direction || '';
+            setParas('bp-design', blueprint.design_direction || '');
 
             // F&B concepts
             var fnb = blueprint.fnb_concepts || [];
@@ -5422,20 +5446,18 @@ async def build_a_brand_page():
             document.getElementById('bp-fnb').innerHTML = fnbHtml;
 
             // Revenue logic
-            document.getElementById('bp-revenue').textContent = blueprint.revenue_logic || '';
+            setParas('bp-revenue', blueprint.revenue_logic || '');
 
             // Investor summary
-            document.getElementById('bp-investor').textContent = blueprint.investor_summary || '';
+            setParas('bp-investor', blueprint.investor_summary || '');
 
             // Metadata
             var confidence = Math.round((blueprint.confidence || 0) * 100);
             document.getElementById('bp-confidence').textContent = 'Confidence: ' + confidence + '%';
 
-            var tokens = blueprint.token_usage || {};
-            if (tokens.total_tokens) {
-                document.getElementById('bp-tokens').textContent =
-                    'Tokens: ' + tokens.total_tokens + ' (~$' + (tokens.estimated_cost_usd || 0).toFixed(3) + ')';
-            }
+            // Token counts are an engineering detail, not something a client reads.
+            var tokensEl = document.getElementById('bp-tokens');
+            if (tokensEl) tokensEl.textContent = '';
 
             loadRenders(blueprint.id || blueprint.blueprint_id);
         }

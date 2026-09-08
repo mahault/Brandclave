@@ -14,6 +14,23 @@ from services.brand_blueprint.prompts import (
 logger = logging.getLogger(__name__)
 
 
+_WORD_SCORES = {"very high": 0.9, "high": 0.8, "strong": 0.8, "medium": 0.5, "moderate": 0.5, "low": 0.3, "weak": 0.3}
+
+
+def _score(value, default: float = 0.5) -> float:
+    """Accept 0.8, "0.8", "80%", or "high"; the model sometimes answers in words."""
+    if isinstance(value, (int, float)):
+        return max(0.0, min(1.0, float(value)))
+    text = str(value or "").strip().lower().rstrip("%")
+    if text in _WORD_SCORES:
+        return _WORD_SCORES[text]
+    try:
+        number = float(text)
+        return max(0.0, min(1.0, number / 100 if number > 1 else number))
+    except ValueError:
+        return default
+
+
 class StrategicStage(BaseStage):
     """Stage 2: Generate strategic positioning elements.
 
@@ -97,7 +114,7 @@ RESEARCH CONTEXT:
                         "desire": coerce_text(desire.get("desire", "")),
                         "how_solved": coerce_text(desire.get("how_solved", "")),
                         "linked_trend_id": desire.get("linked_trend_id"),
-                        "demand_strength": float(desire.get("demand_strength", 0.5)),
+                        "demand_strength": _score(desire.get("demand_strength", 0.5)),
                     })
 
         return {
