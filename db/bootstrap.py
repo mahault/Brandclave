@@ -51,6 +51,25 @@ def _copy_snapshot(target_engine) -> dict[str, int]:
     return copied
 
 
+def _add_missing_blueprints(target_engine) -> int:
+    """Blueprints are demo content shipped in the snapshot; a database seeded
+    from an older snapshot should still pick up the ones added since."""
+    from db.models import BrandBlueprintModel
+
+    if not SNAPSHOT.exists():
+        return 0
+    table = BrandBlueprintModel.__table__
+    source = create_engine(f"sqlite:///{SNAPSHOT.as_posix()}")
+    with source.connect() as sconn:
+        rows = [dict(r._mapping) for r in sconn.execute(select(table)).fetchall()]
+    with target_engine.begin() as tconn:
+        have = {r[0] for r in tconn.execute(select(table.c.id)).fetchall()}
+        missing = [r for r in rows if r["id"] not in have]
+        if missing:
+            tconn.execute(insert(table), missing)
+    return len(missing)
+
+
 def bootstrap_if_postgres(database_url: str) -> None:
     """Migrate, then seed from the snapshot when the database is empty."""
     if not database_url.startswith("postgresql"):
@@ -62,7 +81,10 @@ def bootstrap_if_postgres(database_url: str) -> None:
     with engine.connect() as conn:
         existing = conn.execute(select(func.count()).select_from(RawContentModel.__table__)).scalar() or 0
     if existing:
-        logger.info(f"Postgres already holds {existing} content rows; no seeding")
+        logger.info(f"Postgres already holds {existing} content rows; no full seed")
+        added = _add_missing_blueprints(engine)
+        if added:
+            logger.info(f"Added {added} blueprint(s) present in the snapshot but not in Postgres")
         return
     logger.info("Postgres is empty; seeding from the committed SQLite snapshot")
     copied = _copy_snapshot(engine)
