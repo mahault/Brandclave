@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import ValidationError, BaseModel
 
 from db.models import UserModel
 from services.auth import get_optional_user
@@ -181,16 +181,24 @@ async def generate_blueprint_simple(
 
     Converts simple form data to full request and generates blueprint.
     """
-    full_request = BlueprintGenerateRequest(
-        inputs=BlueprintInputs(
-            location=request.location,
-            segment=request.segment,
-            adr=request.adr,
-            rooms=request.rooms,
-            developer_goal=request.developer_goal,
-            source_trend_id=request.source_trend_id,
+    try:
+        full_request = BlueprintGenerateRequest(
+            inputs=BlueprintInputs(
+                location=request.location,
+                segment=request.segment,
+                adr=request.adr,
+                rooms=request.rooms,
+                developer_goal=request.developer_goal,
+                source_trend_id=request.source_trend_id,
+            )
         )
-    )
+    except ValidationError as exc:
+        # Built inside the handler, so pydantic's error would surface as a bare
+        # 500. Say what is wrong in words the form can show.
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
+        )
+        raise HTTPException(status_code=422, detail=f"Check the inputs. {problems}")
 
     return await generate_blueprint(full_request, user=user)
 

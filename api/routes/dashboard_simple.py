@@ -5094,6 +5094,18 @@ async def build_a_brand_page():
                 alert('Please fill in Location, Target ADR, and Developer Goal.');
                 return;
             }
+            if (goal.trim().length < 10) {
+                alert('Developer goal needs at least 10 characters. A sentence about who the hotel is for is enough.');
+                return;
+            }
+            if (Number(adr) < 1 || Number(adr) > 5000) {
+                alert('Target ADR must be between 1 and 5000 (USD, no currency symbol).');
+                return;
+            }
+            if (Number(rooms) < 1 || Number(rooms) > 2000) {
+                alert('Room count must be between 1 and 2000.');
+                return;
+            }
 
             btn.disabled = true;
             loadingEl.style.display = 'block';
@@ -5121,7 +5133,9 @@ async def build_a_brand_page():
                     })
                 });
 
-                var data = await res.json();
+                var data;
+                try { data = await res.json(); }
+                catch (parseErr) { throw new Error('The server answered ' + res.status + ' ' + (res.statusText || '') + ' without details. Try again in a minute.'); }
 
                 if (res.ok && data.blueprint) {
                     // Update all stage indicators to complete

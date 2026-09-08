@@ -32,7 +32,7 @@ class BlueprintInputs(BaseModel):
     location: str = Field(..., min_length=2, max_length=100, description="Target city/region")
     segment: str = Field(..., description="Hotel segment: lifestyle|luxury|boutique|wellness|eco|business|family|adventure")
     adr: float = Field(..., ge=1, le=5000, description="Target ADR in USD")
-    rooms: int = Field(..., ge=10, le=1000, description="Room count")
+    rooms: int = Field(..., ge=1, le=2000, description="Room count")
     developer_goal: str = Field(..., min_length=10, max_length=2000, description="Developer's vision/goal")
     source_trend_id: str | None = Field(None, description="Optional trend ID to build from")
     profile_data: dict[str, Any] | None = Field(None, description="Saved research profile")
