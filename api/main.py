@@ -1,6 +1,7 @@
 """FastAPI application for BrandClave Aggregator."""
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -48,8 +49,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Cache init: {e}")
 
-    # Initialize scheduler if enabled
-    if settings.scheduler_enabled:
+    # Initialize scheduler if enabled. On Render the web service was created from
+    # the dashboard, not the blueprint, so SCHEDULER_ENABLED is unset there and
+    # the default (on) had the 0.1-CPU web instance running scrapes and trend
+    # clustering next to the demo traffic. The worker owns scheduling; the web
+    # process only schedules when told to explicitly.
+    scheduler_wanted = settings.scheduler_enabled
+    if scheduler_wanted and os.environ.get("RENDER") and "SCHEDULER_ENABLED" not in os.environ:
+        scheduler_wanted = False
+        logger.info("Scheduler not started: running on Render without SCHEDULER_ENABLED set")
+    if scheduler_wanted:
         try:
             from scheduler.scheduler import init_scheduler
             scheduler = init_scheduler(auto_register=True)

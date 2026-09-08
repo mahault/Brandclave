@@ -1,6 +1,7 @@
 """Base class for pipeline stages."""
 
 import json
+import asyncio
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -225,7 +226,9 @@ class BaseStage(ABC):
         all_chunks = []
         for query in queries[:3]:  # Limit to 3 queries
             try:
-                result = self.rag.retrieve(query, top_k=3)
+                # Embedding + vector search are synchronous network/CPU work;
+                # keep them off the event loop.
+                result = await asyncio.to_thread(self.rag.retrieve, query, top_k=3)
                 chunks = result.get("chunks", [])
                 all_chunks.extend(chunks)
             except Exception as e:

@@ -1,5 +1,6 @@
 """Mistral LLM client for chat generation."""
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -77,7 +78,10 @@ class MistralLLMClient:
         for model in models:
             try:
                 extra = {"response_format": {"type": "json_object"}} if json_mode else {}
-                response = self.client.chat.complete(
+                # The SDK call is synchronous; run it off the event loop so a
+                # 30 s completion does not freeze every other request.
+                response = await asyncio.to_thread(
+                    self.client.chat.complete,
                     model=model,
                     messages=messages,
                     temperature=temperature,
