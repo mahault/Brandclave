@@ -141,9 +141,17 @@ async def health_check():
     }
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 async def root():
-    """Root endpoint."""
+    """The bare domain is what people are given; send them to the product."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/api/monitoring/dashboard-v2", status_code=307)
+
+
+@app.get("/api")
+async def api_index():
+    """API index (was the root)."""
     return {
         "name": "BrandClave Aggregator API",
         "version": "0.6.0",
