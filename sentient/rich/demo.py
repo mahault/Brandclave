@@ -114,10 +114,14 @@ class Session:
         self.history.append({
             "t": self.t,
             "p_stressed": round(b["arousal"]["stressed"], 3),
+            # expected stress level on the world's 0-1 scale: calm ~0.2, tense ~0.5, stressed ~0.82
+            "est_arousal": round(0.2 * b["arousal"]["calm"] + 0.5 * b["arousal"]["elevated"]
+                                 + 0.82 * b["arousal"]["stressed"], 3),
             "true_arousal": round(space.arousal, 3) if space.n else None,
             "p_positive": round(b["valence"]["positive"], 3),
             "true_mood": round(space.mean_valence(), 3) if space.n else None,
             "p_ac_broken": round(b["hvac"]["degraded"], 3),
+            "ac_broken": space.hvac_degraded,
             "action": rec.action if rec.action != "do_nothing" else None,
             "dismissed": overridden,
         })
@@ -228,12 +232,29 @@ class Session:
                             f"({rec.prediction.probability:.0%})",
             },
             "flags": sorted(self.agent.flagged),
+            "worlds": {k: self._world_view(k) for k in self.world},
+            "purpose": w.cfg.purpose, "gated": None if rec is None else rec.gated,
             "scores": scores,
             "forecasts": {"scored": len(outs), "hits": sum(o["hit"] for o in outs),
                           "same_as_now": sum(o["persistence_hit"] for o in outs)},
             "history": self.history,
             "ledger": tail,
             "events": self.events[-8:][::-1],
+        }
+
+    def _world_view(self, key: str) -> dict:
+        w, s = self.world[key], self.score[key].summary()
+        return {
+            "people": [{"id": id(o), "mood": round(o.valence, 2), "stress": round(o.arousal, 2),
+                        "activity": ["rest", "work", "social", "transit"][o.activity],
+                        "wearable": o.wearable, "distressed": o.mood_anchor is not None}
+                       for o in w.occupants],
+            "light": round(w.light, 2), "sound": round(w.sound_setting, 2), "temp": round(w.temp, 1),
+            "co2": round(w.co2), "cooling": w.cooling, "heating": w.heating,
+            "ventilating": w.ventilating > 0, "ac_broken": w.hvac_degraded, "mic_dead": w.cfg.stuck_db is not None,
+            "staff_here": w.comfort_timer > 0 or w.relief_timer > 0, "repair_here": w.repair_timer > 0,
+            "mood": s["mood_mean"], "energy": s["energy"], "wasted": s["dismissed"],
+            "staff_calls": s["staff_alerts"], "tickets": s["tickets"],
         }
 
     def _clock_at(self, t: int) -> str:

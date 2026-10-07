@@ -5,152 +5,181 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sentient Live</title>
 <style>
-/* Operator console: controls across the top, three working columns, timeline and record below. */
+/* Layout: the room you can see on the left, what Sentient sees, thinks and suggests on the right;
+   the same room under the rulebook and the preset below; explained charts and the audit trail last. */
 :root{
-  --bg:#0f1820; --panel:#16222c; --panel-2:#1d2b37; --line:#2a3a47;
-  --ink:#eef2f0; --ink-2:#b4c0c8; --muted:#7f8e99;
-  --model:#4a90e8; --rules:#e8743c; --preset:#8e9592; --truth:#c9d1d6;
-  --good:#3fbf6a; --bad:#e66767; --warn:#e0a63a;
+  --bg:#0e1620; --panel:#152130; --panel-2:#1c2b3c; --line:#2a3b4d;
+  --ink:#eef2f0; --ink-2:#b7c3cc; --muted:#8696a3;
+  --model:#4a90e8; --rules:#e8743c; --preset:#8e9592; --truth:#d5dbe0;
+  --good:#46c37f; --bad:#e5615a; --warn:#e3a83b;
   --font:"Segoe UI",system-ui,-apple-system,sans-serif; --mono:Consolas,"SF Mono",Menlo,monospace;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px}
-header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-header h1{font-size:18px;margin:0 16px 0 0;font-weight:650;letter-spacing:.2px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:18px;margin:0 14px 0 0;font-weight:650}
 header h1 span{color:var(--model)}
 select,input,button{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
-input[type=number]{width:70px}
-button{cursor:pointer}
-button:hover{border-color:var(--ink-2)}
-button.primary{background:var(--model);border-color:var(--model);color:#08121b;font-weight:650}
+input[type=number]{width:64px}
+button{cursor:pointer} button:hover{border-color:var(--ink-2)}
+button.primary{background:var(--model);border-color:var(--model);color:#07121c;font-weight:650}
 button.on{background:#25405a;border-color:var(--model)}
-.sep{width:1px;height:26px;background:var(--line)}
-main{display:grid;grid-template-columns:300px 1fr 360px;gap:14px;padding:14px 20px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.panel h2{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
-.big{font-size:30px;font-weight:650;line-height:1.1}
-.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-variant-numeric:tabular-nums}
-.kv div:nth-child(odd){color:var(--ink-2)}
-.kv .flag{color:var(--bad)}
-.injects{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.injects button{font-size:13px;text-align:left;padding:7px 9px}
-.rec{background:var(--panel-2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px;border-left:5px solid var(--muted)}
-.rec.act{border-left-color:var(--model)}
-.rec .action{font-size:28px;font-weight:650}
-.rec .why{color:var(--ink-2);font-size:13px;line-height:1.45}
-.rec .fc{font-family:var(--mono);font-size:13px;color:var(--ink-2)}
-.decide{display:flex;gap:10px}
-.decide button{flex:1;font-size:16px;padding:10px}
+.sep{width:1px;height:24px;background:var(--line)}
+.small{font-size:12.5px;color:var(--muted);line-height:1.45}
+.wrap{padding:14px 20px;display:flex;flex-direction:column;gap:14px}
+.row{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel h2{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0;font-weight:650}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.clock{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+canvas{width:100%;height:auto;display:block;border-radius:10px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink-2);align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.grad{display:inline-block;width:70px;height:10px;border-radius:5px;background:linear-gradient(90deg,#e5615a,#e3a83b,#46c37f);margin:0 6px;vertical-align:0}
+.injects{display:flex;flex-wrap:wrap;gap:6px}
+.injects button{font-size:13px;padding:6px 9px}
+.mind{display:flex;flex-direction:column;gap:12px}
+.step{background:var(--panel-2);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:5px}
+.step .k{font-size:11.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--model);font-weight:650}
+.step p{margin:0;line-height:1.5;color:var(--ink)}
+.step p.sub{color:var(--ink-2);font-size:14px}
+.suggest{border-left:5px solid var(--model)}
+.suggest.hold{border-left-color:var(--muted)}
+.suggest .act{font-size:26px;font-weight:650}
+.decide{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.decide button{flex:1;font-size:16px;padding:10px;min-width:120px}
 .decide .ok{background:var(--good);border-color:var(--good);color:#06150b;font-weight:650}
 .decide .no{background:var(--bad);border-color:var(--bad);color:#1a0606;font-weight:650}
-.beliefs{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;align-items:center}
-.beliefs .name{color:var(--ink-2);font-size:13px}
-.bar{display:flex;height:22px;border-radius:5px;overflow:hidden;position:relative;background:var(--panel-2)}
-.bar div{display:flex;align-items:center;justify-content:center;font-size:11px;color:#0b1520;white-space:nowrap;overflow:hidden;border-right:1px solid var(--panel)}
-.bar .truth{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--truth);border:none;border-radius:2px}
-table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);font-size:13px}
-th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-transform:uppercase}
-td.n,th.n{text-align:right}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
-.events{font-family:var(--mono);font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px}
-.bottom{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;padding:0 20px 20px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini h3{margin:0;font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px}
+.mini h3 i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{background:var(--panel-2);border-radius:8px;padding:7px 9px}
+.stat .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
+.stat .l{font-size:11.5px;color:var(--muted)}
+.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 svg{width:100%;height:auto;display:block}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.big2{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
+.big2 .v{font-size:34px;font-weight:650;font-variant-numeric:tabular-nums}
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+details summary{cursor:pointer;font-weight:650;color:var(--ink-2)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-transform:uppercase}
 .pill{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:999px;background:var(--panel-2)}
-.pill.hit{color:var(--good)} .pill.miss{color:var(--bad)} .pill.bad{background:var(--bad);color:#1a0606}
+.pill.hit{color:var(--good)} .pill.miss{color:var(--bad)}
 .mono{font-family:var(--mono);font-size:12px}
-.small{font-size:12px;color:var(--muted)}
-.hidden{display:none}
+.beliefs{display:grid;grid-template-columns:130px 1fr;gap:7px 12px;align-items:center;margin-top:10px}
+.bar{display:flex;height:20px;border-radius:5px;overflow:hidden;background:var(--panel-2)}
+.bar div{display:flex;align-items:center;justify-content:center;font-size:11px;color:#0b1520;white-space:nowrap;overflow:hidden;border-right:1px solid var(--panel)}
+.hidden{display:none!important}
 .toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
-@media (max-width:1200px){main{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}}
+@media (max-width:1150px){.row,.three,.charts{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header>
-  <h1><span>Sentient</span> · live engine</h1>
+  <h1><span>Sentient</span> · live</h1>
   <select id="scenario"></select>
   <label class="small">seed <input id="seed" type="number" value="11"></label>
   <button id="start" class="primary">Start</button>
   <div class="sep"></div>
-  <button id="run">Run</button>
-  <button id="stepBtn">Step</button>
-  <select id="speed"><option value="900">Slow</option><option value="350" selected>Normal</option><option value="60">Fast</option></select>
+  <button id="run">Play</button>
+  <button id="stepBtn">+2 min</button>
+  <select id="speed"><option value="1100">Slow</option><option value="450" selected>Normal</option><option value="80">Fast</option></select>
   <div class="sep"></div>
-  <button id="staffAuto" class="on">Simulated staff</button>
+  <button id="staffAuto" class="on">Staff simulated</button>
   <button id="staffYou">You are the staff</button>
   <div class="sep"></div>
-  <label class="small">Room is for <select id="intent"></select></label>
-  <label class="toggle"><input id="truth" type="checkbox"> Show what the model cannot see</label>
+  <label class="small">This room is for <select id="intent"></select></label>
 </header>
 
-<main>
+<div class="wrap">
+  <div class="row">
+    <section class="panel">
+      <div class="head"><h2>What is really happening in the room</h2><span class="clock" id="clock">press Start</span></div>
+      <canvas id="room" width="900" height="540"></canvas>
+      <div class="legend">
+        <span>Mood <span class="grad"></span> low to good</span>
+        <span>Shaking dot = stressed</span>
+        <span><i style="background:#ffffff;border:3px solid #e5615a"></i>Distressed</span>
+        <span><i style="background:#2f5d8a;border:2px solid #fff"></i>Staff member</span>
+        <span>Dark room = lights dimmed · grey haze = stale air</span>
+      </div>
+      <div class="small">This is the simulated world, which knows everything. Sentient only gets what the sensors (labelled on the walls) report, and has to work out the rest.</div>
+      <div class="injects">
+        <span class="small" style="align-self:center">Change the room:</span>
+        <button data-inject="stressed_guest">A distressed guest walks in</button>
+        <button data-inject="group">A group of four arrives</button>
+        <button data-inject="ac_fail">Break the air conditioner</button>
+        <button data-inject="ac_fix">Repair it</button>
+        <button data-inject="mic_dead">Kill the microphone</button>
+        <button data-inject="mic_fix">Fix it</button>
+        <button data-inject="everyone_leaves">Everyone leaves</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Inside Sentient, right now</h2>
+      <div class="mind">
+        <div class="step"><span class="k">1 · What it sees</span><p id="sees">Nothing yet. Pick a room and press Start, then Play.</p><p class="sub" id="seesSub"></p></div>
+        <div class="step"><span class="k">2 · What it thinks is going on</span><p id="thinks">–</p><p class="sub">It never sees mood or stress directly. It infers them from movement, sound, heart rate and how the room responds, and says how sure it is.</p></div>
+        <div class="step suggest hold" id="suggestBox"><span class="k">3 · What it suggests</span><div class="act" id="act">–</div><p id="why"></p><p class="sub" id="predict"></p><p class="sub" id="lastAct"></p>
+          <div class="decide hidden" id="decide"><span class="small" style="flex-basis:100%">You are the staff. Do you do it?</span><button class="ok" id="accept">Yes, do it</button><button class="no" id="dismiss">No, dismiss</button></div>
+        </div>
+        <div class="small" id="events"></div>
+      </div>
+    </section>
+  </div>
+
   <section class="panel">
-    <h2>The room</h2>
-    <div class="big" id="clock">--:--</div>
-    <div class="kv" id="room"></div>
-    <h2>What the sensors read</h2>
-    <div class="kv" id="reading"></div>
-    <h2>Change the room</h2>
-    <div class="injects">
-      <button data-inject="stressed_guest">Distressed guest walks in</button>
-      <button data-inject="group">Group of four arrives</button>
-      <button data-inject="ac_fail">Air conditioner fails</button>
-      <button data-inject="ac_fix">Repair it</button>
-      <button data-inject="mic_dead">Microphone dies</button>
-      <button data-inject="mic_fix">Fix microphone</button>
-      <button data-inject="everyone_leaves">Everyone leaves</button>
+    <div class="head"><h2>The same room, three ways, at the same moment</h2><span class="small">Same people, same faults, same clock. Only who is in charge differs.</span></div>
+    <div class="three">
+      <div class="mini"><h3><i style="background:var(--model)"></i>Sentient</h3><canvas id="mini0" width="900" height="540"></canvas><div class="stats" id="stats0"></div></div>
+      <div class="mini"><h3><i style="background:var(--rules)"></i>A rulebook on the same sensors</h3><canvas id="mini1" width="900" height="540"></canvas><div class="stats" id="stats1"></div></div>
+      <div class="mini"><h3><i style="background:var(--preset)"></i>What hotels run today</h3><canvas id="mini2" width="900" height="540"></canvas><div class="stats" id="stats2"></div></div>
     </div>
+    <div class="small">How guests feel: average mood of the people present, 0 to 1. Energy: lights, heating, cooling and fresh air, so far. Ignored calls: suggestions staff dismissed, the cost a busy team feels.</div>
   </section>
 
-  <section class="panel">
-    <h2>Recommendation</h2>
-    <div class="rec" id="rec"><div class="action">Press Start</div><div class="why">Pick a room and press Start. Run plays it; Step advances two minutes.</div></div>
-    <div class="decide hidden" id="decide"><button class="ok" id="accept">Accept</button><button class="no" id="dismiss">Dismiss</button></div>
-    <h2>What it believes, right now</h2>
-    <div class="beliefs" id="beliefs"></div>
-    <div class="small" id="truthNote"></div>
-  </section>
+  <div class="charts">
+    <section class="panel">
+      <h2>Is it reading people right?</h2>
+      <svg id="c1" viewBox="0 0 500 200" role="img" aria-label="Sentient's estimate of how stressed people are against how stressed they really are"></svg>
+      <div class="legend"><span><i style="background:var(--model)"></i>How stressed Sentient thinks people are</span><span><i style="background:var(--truth)"></i>How stressed they really are</span></div>
+      <div class="small">Sentient never sees the grey line. When the two move together, it is reading people correctly from cheap sensors.</div>
+    </section>
+    <section class="panel">
+      <h2>Does it notice broken equipment?</h2>
+      <svg id="c2" viewBox="0 0 500 200" role="img" aria-label="Sentient's belief the air conditioner is broken, with the period it really was broken shaded"></svg>
+      <div class="legend"><span><i style="background:var(--rules)"></i>Sentient's belief the air conditioner is broken</span><span><i style="background:rgba(229,97,90,.35);border-radius:2px"></i>It really is broken</span></div>
+      <div class="small">There is no sensor on the unit. Sentient works it out because the room stops cooling when it should.</div>
+    </section>
+    <section class="panel">
+      <h2>Is it honest about its predictions?</h2>
+      <div class="big2"><div><div class="v" id="fcS">–</div><div class="small">Sentient's predictions that came true</div></div><div><div class="v" id="fcP" style="color:var(--muted)">–</div><div class="small">"Nothing will change" would have been right</div></div></div>
+      <div class="small">Every suggestion carries a prediction of what a sensor will read six minutes later. It is sealed when made and scored when the time comes. "Nothing will change" is the simplest honest guess, so it is the bar to beat.</div>
+      <div class="small" id="flags"></div>
+    </section>
+  </div>
 
-  <section class="panel">
-    <h2>Same room, three ways, live</h2>
-    <table id="scores"></table>
-    <div class="small">Mood: average of the people present, 0 to 1. Energy: lighting, heating, cooling and fresh air. Wasted: suggestions staff dismissed.</div>
-    <h2>Its forecasts, scored</h2>
-    <div id="fc" class="kv"></div>
-    <h2>Sensor health</h2>
-    <div id="flags" class="small">All channels trusted.</div>
-    <h2>What happened</h2>
-    <div class="events" id="events"></div>
-  </section>
-</main>
-
-<div class="bottom">
-  <section class="panel">
-    <h2>Timeline</h2>
-    <div class="legend">
-      <span><i class="dot" style="background:var(--model)"></i>Belief someone is stressed</span>
-      <span><i class="dot" style="background:var(--rules)"></i>Belief the air conditioner is broken</span>
-      <span class="truthOnly hidden"><i class="dot" style="background:var(--truth)"></i>True stress (hidden from the model)</span>
-      <span><i class="dot" style="background:var(--good)"></i>Action taken</span>
-      <span><i class="dot" style="background:var(--bad)"></i>Dismissed</span>
-    </div>
-    <svg id="chart" viewBox="0 0 1000 230" role="img" aria-label="Timeline of beliefs and actions"></svg>
-  </section>
-  <section class="panel">
-    <h2>The sealed record</h2>
-    <div class="small">Every decision is hashed when made. Verify recomputes the hash; Tamper edits a record after the fact to show it is caught.</div>
+  <details>
+    <summary>Audit trail: every decision, sealed</summary>
+    <div class="small" style="margin:8px 0">Each decision is fingerprinted (hashed) the moment it is made. Verify recomputes the fingerprint. Tamper changes a record after the fact, and Verify then shows it was altered.</div>
     <table id="ledger"></table>
-    <div id="verifyMsg" class="mono"></div>
-  </section>
+    <div id="verifyMsg" class="mono" style="margin-top:8px"></div>
+  </details>
+
+  <details>
+    <summary>Engineer view: the raw beliefs</summary>
+    <div class="beliefs" id="beliefs"></div>
+    <div class="small mono" id="rawReason" style="margin-top:10px"></div>
+  </details>
 </div>
 
 <script>
 const NAMES={restore_pod:"Restore pod, noisy and bright",bar_9pm:"Bar at 9pm, meant to be lively",flat_bar:"Flat bar, music off",ambiguous_hr:"Calm guest, high heart rate",lobby_peak:"Lobby check-in rush",happy_group:"Happy group in a quiet lounge",stale_meeting:"Stuffy meeting room",hvac_failure:"Air conditioner fails",cold_morning:"Cold morning, work room",stressed_guest:"Distressed guest",sensor_failure:"Dead microphone"};
-const INTENTS={restore:"Rest",work:"Work",elevated:"A lively evening",service:"Service, a lobby"};
-const FACTOR={arousal:"Stress",valence:"Mood",occupancy:"People",thermal:"Temperature",air:"Air",hvac:"Air conditioner",lighting:"Lighting"};
-const STATE={degraded:"broken",ok:"working",elevated:"tense",positive:"good",negative:"low"};
-const SHADE=["#5e8fc8","#7fb0e6","#a9cdf2","#d4e7fa"];
+const INTENTS={restore:"rest",work:"work",elevated:"a lively evening",service:"service (a lobby)"};
 const $=id=>document.getElementById(id);
 let S=null, running=false;
 
@@ -158,93 +187,218 @@ async function api(path, body){
   const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
   const j=await r.json(); if(!r.ok) throw new Error(j.detail||r.status); return j;
 }
-function kv(el,rows){el.replaceChildren();rows.forEach(([k,v,cls])=>{const a=document.createElement("div");a.textContent=k;const b=document.createElement("div");b.textContent=v;if(cls)b.className=cls;el.append(a,b);});}
-function txt(tag,t,cls){const e=document.createElement(tag);e.textContent=t;if(cls)e.className=cls;return e;}
 
-function render(s){
-  S=s; const R=s.room, r=s.reading;
-  $("clock").textContent=`${s.clock}  ·  ${s.minutes} min`;
-  $("intent").value=s.intent;
-  kv($("room"),[["People in the room",R.people],["Temperature",R.temp+" °C"],["CO2",R.co2+" ppm"],["Music",R.sound],["Lights",R.light],
-    ["Climate",R.cooling?"cooling":R.heating?"heating":"off"],["Air conditioner",R.ac_broken?"BROKEN (silently)":"working",R.ac_broken?"flag":""],["Microphone",R.mic_dead?"DEAD":"working",R.mic_dead?"flag":""]]);
-  const fl=new Set(s.flags.map(f=>({sound_level:"db",temp:"temp",co2:"co2",motion:"motion",lux:"lux",hr:"hr",hrv:"hrv",count:"count"}[f])));
-  if(r) kv($("reading"),[["Radar count",r.count,fl.has("count")?"flag":""],["Sound",r.db+" dB",fl.has("db")?"flag":""],["Temperature",r.temp+" °C"],["CO2",r.co2+" ppm"],
-    ["Heart rate",r.hr==null?"no wearable":r.hr+" bpm",fl.has("hr")?"flag":""],["HRV",r.hrv==null?"–":r.hrv+" ms"],["Motion",r.motion],["Light",r.lux==null?"–":r.lux+" lux"]]);
-  // recommendation
-  const rec=$("rec"); rec.replaceChildren();
-  if(s.rec){rec.className="rec"+(s.rec.raw!=="do_nothing"?" act":"");
-    rec.append(txt("div",s.rec.action,"action"));
-    rec.append(txt("div",`Confidence ${Math.round(s.rec.confidence*100)}%`,"small"));
-    rec.append(txt("div",s.rec.reason,"why"));
-    rec.append(txt("div","Sealed forecast: "+s.rec.forecast,"fc"));}
-  $("decide").classList.toggle("hidden",!s.awaiting);
-  // beliefs
-  const B=$("beliefs"); B.replaceChildren(); const showT=$("truth").checked;
-  if(s.beliefs) Object.entries(s.beliefs).forEach(([f,dist])=>{
-    B.append(txt("div",FACTOR[f]||f,"name")); const bar=document.createElement("div"); bar.className="bar";
-    s.states[f].forEach((st,i)=>{const p=dist[st]; const d=document.createElement("div"); d.style.width=(p*100)+"%"; d.style.background=SHADE[i%4];
-      if(f==="hvac"&&st==="degraded")d.style.background="var(--rules)"; if(f==="arousal"&&st==="stressed")d.style.background="var(--model)";
-      d.textContent=p>0.12?`${STATE[st]||st} ${Math.round(p*100)}%`:""; d.title=`${STATE[st]||st}: ${Math.round(p*100)}%`; bar.append(d);});
-    if(showT&&f==="arousal"&&R.true_arousal!=null){const m=document.createElement("div");m.className="truth";m.style.left=`calc(${R.true_arousal*100}% - 1px)`;m.title="true stress";bar.append(m);}
-    if(showT&&f==="valence"&&R.true_mood!=null){const m=document.createElement("div");m.className="truth";m.style.left=`calc(${R.true_mood*100}% - 1px)`;m.title="true mood";bar.append(m);}
-    B.append(bar);});
-  $("truthNote").textContent=showT&&R.true_arousal!=null?`Hidden truth: stress ${R.true_arousal}, mood ${R.true_mood}. White ticks mark it on the bars. The model never sees these.`:"";
-  // scores
-  const T=$("scores"); T.replaceChildren();
-  const hr=document.createElement("tr"); ["","Mood","Energy","Wasted","Staff calls"].forEach((h,i)=>hr.append(txt("th",h,i?"n":""))); T.append(hr);
-  [["sentient","Sentient","var(--model)"],["rules","Rulebook","var(--rules)"],["preset","Today's preset","var(--preset)"]].forEach(([k,lab,c])=>{
-    const x=s.scores[k]; const tr=document.createElement("tr"); const td=document.createElement("td"); const d=document.createElement("i"); d.className="dot"; d.style.background=c; td.append(d,document.createTextNode(lab)); tr.append(td);
-    [x.mood==null?"–":x.mood.toFixed(2),x.energy.toFixed(0),k==="preset"?"–":x.wasted,k==="preset"?"–":x.staff_calls].forEach(v=>tr.append(txt("td",v,"n"))); T.append(tr);});
-  const F=s.forecasts; kv($("fc"),[["Forecasts scored",F.scored],["Sentient right",F.scored?`${F.hits} (${Math.round(100*F.hits/F.scored)}%)`:"–"],["\"Same as now\" right",F.scored?`${F.same_as_now} (${Math.round(100*F.same_as_now/F.scored)}%)`:"–"]]);
-  $("flags").textContent=s.flags.length?"Not trusted, no actions taken through: "+s.flags.join(", ").replaceAll("_"," "):"All channels trusted.";
-  $("flags").style.color=s.flags.length?"var(--warn)":"";
-  const E=$("events"); E.replaceChildren(); s.events.forEach(e=>E.append(txt("div",e)));
-  drawChart(s); drawLedger(s);
+/* ---------------------------------------------------------------- room drawing */
+function moodColor(m){ // 0 red, .5 amber, 1 green
+  const a=[229,97,90], b=[227,168,59], c=[70,195,127]; let x,y,t;
+  if(m<.5){x=a;y=b;t=m/.5}else{x=b;y=c;t=(m-.5)/.5}
+  return `rgb(${x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(",")})`;
+}
+function hash(n){let x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x);}
+const ZONES={rest:{x:155,y:255,w:150,h:110},work:{x:720,y:405,w:170,h:50},social:{x:450,y:320,w:120,h:120},transit:{x:470,y:470,w:600,h:30}};
+
+class Room{
+  constructor(canvas){this.c=canvas;this.g=canvas.getContext("2d");this.pos=new Map();this.w=null;this.last=0;}
+  clear(){this.pos.clear();this.w=null;}
+  set(world){const fresh=!this.w; this.w=world;
+    const seen=new Set();
+    (world?world.people:[]).forEach((p,i)=>{seen.add(p.id);const z=ZONES[p.activity]||ZONES.social;
+      const tx=z.x+(hash(p.id%9973+1)-.5)*z.w, ty=z.y+(hash(p.id%7919+2)-.5)*z.h;
+      if(!this.pos.has(p.id)) this.pos.set(p.id,fresh?{x:tx,y:ty,tx,ty,ph:hash(p.id%101)*6.28}:{x:125,y:500,tx,ty,ph:hash(p.id%101)*6.28});
+      const q=this.pos.get(p.id); q.tx=tx; q.ty=ty;});
+    for(const k of [...this.pos.keys()]) if(!seen.has(k)) this.pos.delete(k);
+  }
+  draw(time){
+    const g=this.g,w=this.w; g.clearRect(0,0,900,540);
+    const k=1-Math.exp(-Math.min(2000,time-this.last)/450); this.last=time;
+    g.fillStyle="#0b121b"; g.fillRect(0,0,900,540);
+    if(!w){g.fillStyle="#8696a3";g.font="20px Segoe UI";g.fillText("Pick a room and press Start",320,280);return;}
+    // floor, lit by the lights
+    const lit=0.25+0.75*w.light;
+    g.fillStyle=`rgb(${Math.round(60*lit+20)},${Math.round(66*lit+22)},${Math.round(74*lit+26)})`;
+    g.fillRect(30,30,840,480);
+    // window
+    g.fillStyle="#7fb2ee55"; g.fillRect(330,24,240,12);
+    // furniture
+    g.fillStyle="#3a4a5c"; roundRect(g,60,190,190,130,14); g.fill(); text(g,"sofa",155,340,"#a9b6c2",13);
+    g.beginPath(); g.arc(450,320,62,0,7); g.fillStyle="#4a3f35"; g.fill(); text(g,"table",450,400,"#a9b6c2",13);
+    g.fillStyle="#3d4a3a"; roundRect(g,630,385,190,46,8); g.fill(); text(g,"desk",725,446,"#a9b6c2",13);
+    // walls and door
+    g.strokeStyle="#c9d3db"; g.lineWidth=6; g.beginPath(); g.moveTo(80,510); g.lineTo(30,510); g.lineTo(30,30); g.lineTo(870,30); g.lineTo(870,510); g.lineTo(170,510); g.stroke();
+    // overlays: temperature tint, stale air, darkness
+    if(w.temp>24){g.fillStyle=`rgba(255,120,40,${Math.min(.22,(w.temp-24)*.07)})`;g.fillRect(30,30,840,480);}
+    if(w.temp<20.5){g.fillStyle=`rgba(80,140,255,${Math.min(.22,(20.5-w.temp)*.06)})`;g.fillRect(30,30,840,480);}
+    const haze=Math.max(0,Math.min(.4,(w.co2-750)/1300)); if(haze>0){g.fillStyle=`rgba(170,170,160,${haze})`;g.fillRect(30,30,840,480);}
+    // music waves
+    const waves=Math.round(w.sound*3);
+    for(let i=1;i<=waves;i++){g.beginPath();g.arc(835,75,14+i*16,Math.PI*.55,Math.PI*1.0);g.strokeStyle=`rgba(127,178,238,${.7-i*.15+.1*Math.sin(time/200+i)})`;g.lineWidth=3;g.stroke();}
+    // fresh air flowing in
+    if(w.ventilating){for(let i=0;i<4;i++){const y=50+((time/12+i*30)%120);g.fillStyle="rgba(180,230,255,.6)";g.fillRect(360+i*55,y,4,14);}}
+    // people
+    const staffTarget={x:200,y:470}; let worst=null;
+    w.people.forEach(p=>{const q=this.pos.get(p.id); if(!q)return;
+      q.x+=(q.tx-q.x)*k; q.y+=(q.ty-q.y)*k;
+      const amp=Math.pow(p.stress,2.2)*7, jx=amp*Math.sin(time/45+q.ph), jy=amp*Math.cos(time/38+q.ph*1.3);
+      const x=q.x+jx, y=q.y+jy;
+      if(p.distressed){g.beginPath();g.arc(x,y,23+2*Math.sin(time/150),0,7);g.strokeStyle="#e5615a";g.lineWidth=4;g.setLineDash([5,4]);g.stroke();g.setLineDash([]);}
+      g.beginPath(); g.arc(x,y,15,0,7); g.fillStyle=moodColor(p.mood); g.fill();
+      g.lineWidth=2; g.strokeStyle="rgba(10,15,25,.6)"; g.stroke();
+      if(p.wearable){g.beginPath();g.arc(x+11,y-11,4,0,7);g.fillStyle="#fff";g.fill();}
+      if(!worst||p.stress-p.mood>worst.s) worst={x:q.x,y:q.y,s:p.stress-p.mood};});
+    if(w.staff_here){const t=worst||staffTarget; drawPerson(g,t.x+30,t.y+8,"#2f5d8a","S");}
+    // devices on the walls
+    device(g,140,44,"Air conditioner",w.ac_broken?"#e5615a":(w.cooling?"#7fb2ee":w.heating?"#e3a83b":"#6b7a88"),
+      w.ac_broken?"BROKEN":(w.cooling?"cooling":w.heating?"heating":"off"),120);
+    if(w.repair_here) drawPerson(g,140,90,"#6b5a2a","T");
+    device(g,640,44,"Radar",  "#46c37f","",50);
+    device(g,835,75,"Speaker","#7fb2ee","",0,true);
+    device(g,820,270,"Air monitor","#46c37f","",0,true);
+    device(g,600,170,"Microphone",w.mic_dead?"#e5615a":"#46c37f",w.mic_dead?"DEAD":"",0,true);
+    device(g,180,510,"Door sensor","#46c37f","",0,true);
+    // darkness last, so dimming reads as dimming
+    g.fillStyle=`rgba(4,8,16,${(1-w.light)*0.5})`; g.fillRect(30,30,840,480);
+    text(g,`${w.temp.toFixed(1)} °C   ·   CO2 ${w.co2} ppm   ·   ${w.people.length} ${w.people.length===1?"person":"people"}`,450,532,"#c9d3db",14);
+  }
+}
+function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+function text(g,s,x,y,c,size){g.fillStyle=c;g.font=`${size}px Segoe UI, sans-serif`;g.textAlign="center";g.fillText(s,x,y);}
+function device(g,x,y,label,color,status,width,small){
+  if(width){g.fillStyle="#1d2b3c";roundRect(g,x-width/2,y-12,width,24,5);g.fill();g.strokeStyle=color;g.lineWidth=3;g.stroke();if(status)text(g,status,x,y+5,color,13);}
+  else{g.beginPath();g.arc(x,y,8,0,7);g.fillStyle=color;g.fill();g.strokeStyle="#0b121b";g.lineWidth=2;g.stroke();if(status)text(g,status,x,y-14,color,12);}
+  text(g,label,x,y+(width?30:24),"#dfe6ec",12);
+}
+function drawPerson(g,x,y,color,letter){g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=color;g.fill();g.strokeStyle="#fff";g.lineWidth=2;g.stroke();text(g,letter,x,y+5,"#fff",13);}
+
+const main=new Room($("room")), minis=[new Room($("mini0")),new Room($("mini1")),new Room($("mini2"))];
+function frame(t){main.draw(t);minis.forEach(m=>m.draw(t));requestAnimationFrame(frame);} requestAnimationFrame(frame);
+
+/* ---------------------------------------------------------------- plain words */
+function topState(dist){let k=null,v=-1;for(const [s,p] of Object.entries(dist)) if(p>v){k=s;v=p;} return [k,v];}
+const pct=p=>Math.round(p*100)+"%";
+function sees(r,s){
+  if(!r) return ["Nothing yet.",""];
+  const loud=r.db<45?"quiet":r.db<58?"some noise":"loud";
+  const parts=[`${r.count} ${r.count===1?"person":"people"} on the radar`, `${loud} (${r.db} dB)`, `${r.temp} °C`, `CO2 ${r.co2} ppm`, r.hr==null?"no wearable connected":`heart rate ${r.hr}`];
+  const sub=s.flags.includes("sound_level")?"It has stopped trusting the microphone: the reading has not moved at all, which real sensors never do.":
+            s.flags.length?`Watching these channels closely: ${s.flags.join(", ").replaceAll("_"," ")}.`:"";
+  return [parts.join(" · ")+".", sub];
+}
+function thinks(b){
+  if(!b) return "–";
+  const out=[]; const [occ,po]=topState(b.occupancy);
+  if(occ==="empty"){out.push(`The room looks empty (${pct(po)} sure).`);}
+  else{
+    const [ar,pa]=topState(b.arousal), [va,pv]=topState(b.valence);
+    out.push(`People seem ${ {calm:"calm",elevated:"a bit tense",stressed:"stressed"}[ar]} (${pct(pa)} sure), mood ${ {negative:"low",neutral:"neutral",positive:"good"}[va]} (${pct(pv)}).`);
+  }
+  const [th,pt]=topState(b.thermal); if(th!=="comfortable") out.push(`The room feels ${th} (${pct(pt)}).`);
+  if(b.air.stale>0.5) out.push(`The air is getting stale (${pct(b.air.stale)}).`);
+  if(b.hvac.degraded>0.3) out.push(`The air conditioner may be broken (${pct(b.hvac.degraded)} sure).`);
+  return out.join(" ");
+}
+const ACT={do_nothing:"Hold, change nothing",dim_lights:"Dim the lights",raise_lights:"Raise the lights",lower_sound:"Lower the music",raise_sound:"Raise the music",cool_air:"Cool the room",warm_air:"Warm the room",ventilate:"Bring in fresh air",staff_alert:"Send a person",maintenance_ticket:"Call maintenance",setback:"Power down the empty room"};
+function why(s){
+  const a=s.rec.raw, w=s.worlds.sentient, b=s.beliefs, it=INTENTS[s.intent];
+  switch(a){
+    case "do_nothing":{
+      if(b.hvac.degraded>0.5) return "It has already called maintenance. Cooling will not work until the unit is fixed, so it waits rather than sending more commands.";
+      if(s.gated) return "Something might help, but it is not sure enough yet, so it holds. Doing nothing is its default.";
+      const [th]=topState(b.thermal); if(th!=="comfortable"||b.air.stale>0.5) return "The room is not ideal, but what would fix it is already running or already at its limit, so it holds.";
+      return `The room matches what it is for (${it}). Nothing to change.`;}
+    case "dim_lights": return `This room is for ${it} and it is bright. Dimming should help people settle.`;
+    case "raise_lights": return `This room is for ${it} and it is too dark for that.`;
+    case "lower_sound": return `It is louder than a room for ${it} should be.`;
+    case "raise_sound": return `The evening is meant to be lively and the room has gone flat.`;
+    case "cool_air": return `The room is warm (${w.temp.toFixed(1)} °C).`;
+    case "warm_air": return `The room is cold (${w.temp.toFixed(1)} °C).`;
+    case "ventilate": return `The air is going stale (CO2 ${w.co2} ppm).`;
+    case "staff_alert": return s.intent==="service"?"A queue is building. Another person at the desk will thin it.":"Someone looks stressed and unhappy, and nothing in the room would fix that. A person would.";
+    case "maintenance_ticket": return `It turned the cooling on, but the room did not cool. It concludes the unit is broken (${pct(b.hvac.degraded)} sure) and calls a technician instead of trying again.`;
+    case "setback": return "Nobody has been here for a while, by the radar and the door sensor. Lights and climate can go down.";
+  }
+  return "";
 }
 
-function drawChart(s){
-  const svg=$("chart"); svg.replaceChildren(); const NS="http://www.w3.org/2000/svg";
-  const W=1000,H=230,L=40,Rr=10,T=12,Bt=40,pw=W-L-Rr,ph=H-T-Bt, h=s.history, n=Math.max(h.length,30);
+/* ---------------------------------------------------------------- render */
+function render(s){
+  S=s; $("intent").value=s.intent;
+  $("clock").textContent=`${s.clock} · ${s.minutes} minutes in`;
+  main.set(s.worlds.sentient); ["sentient","rules","preset"].forEach((k,i)=>{minis[i].set(s.worlds[k]);
+    const w=s.worlds[k], st=$("stats"+i); st.replaceChildren();
+    [[w.mood==null?"–":w.mood.toFixed(2),"how guests feel"],[w.energy.toFixed(0),"energy so far"],[k==="preset"?"–":w.wasted,"ignored calls"]].forEach(([v,l])=>{
+      const d=document.createElement("div");d.className="stat";d.innerHTML=`<div class="v"></div><div class="l"></div>`;d.children[0].textContent=v;d.children[1].textContent=l;st.append(d);});});
+  const [a,b]=sees(s.reading,s); $("sees").textContent=a; $("seesSub").textContent=b;
+  $("thinks").textContent=thinks(s.beliefs);
+  if(s.rec){
+    $("act").textContent=ACT[s.rec.raw]||s.rec.action; $("why").textContent=why(s);
+    $("predict").textContent=s.rec.raw==="do_nothing"?`It predicts ${s.rec.forecast}, and will check.`:`It predicts ${s.rec.forecast}. That prediction is now sealed and will be scored.`;
+    $("suggestBox").classList.toggle("hold",s.rec.raw==="do_nothing");
+    $("rawReason").textContent=s.rec.reason;
+  }
+  $("decide").classList.toggle("hidden",!s.awaiting);
+  const last=s.events.find(e=>e.includes("Sentient:"));
+  $("lastAct").textContent=(s.rec&&s.rec.raw==="do_nothing"&&last)?"Last thing it did: "+last.replace("Sentient: ",""):"";
+  $("events").textContent=s.events.slice(0,4).join("   ·   ");
+  const F=s.forecasts; $("fcS").textContent=F.scored?pct(F.hits/F.scored):"–"; $("fcP").textContent=F.scored?pct(F.same_as_now/F.scored):"–";
+  $("flags").textContent=F.scored?`${F.scored} predictions scored so far.`:"";
+  lineChart($("c1"),s.history,[["true_arousal","#d5dbe0","5 4"],["est_arousal","#4a90e8",""]],false);
+  lineChart($("c2"),s.history,[["p_ac_broken","#e8743c",""]],true);
+  ledger(s); beliefs(s);
+}
+
+function lineChart(svg,h,series,shadeBroken){
+  svg.replaceChildren(); const NS="http://www.w3.org/2000/svg";
+  const W=500,H=200,L=34,R=8,T=10,B=26,pw=W-L-R,ph=H-T-B,n=Math.max(h.length,30);
   const x=i=>L+pw*i/(n-1), y=v=>T+ph*(1-v);
   const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);svg.append(e);return e;};
-  [0,.5,1].forEach(v=>{el("line",{x1:L,x2:W-Rr,y1:y(v),y2:y(v),stroke:"#2a3a47"});const t=el("text",{x:L-8,y:y(v)+4,"text-anchor":"end","font-size":11,fill:"#7f8e99"});t.textContent=v;});
-  const path=(key,color,dash)=>{let d="",pen=false;h.forEach((p,i)=>{const v=p[key];if(v==null){pen=false;return;}d+=(pen?" L":" M")+x(i)+","+y(v);pen=true;});if(d)el("path",{d,fill:"none",stroke:color,"stroke-width":2.2,"stroke-dasharray":dash||"","stroke-linejoin":"round"});};
-  if($("truth").checked) path("true_arousal","#c9d1d6","5 4");
-  path("p_stressed","#4a90e8"); path("p_ac_broken","#e8743c");
-  h.forEach((p,i)=>{if(p.action){el("circle",{cx:x(i),cy:H-Bt+16,r:5,fill:p.dismissed?"#e66767":"#3fbf6a"});}});
-  const lab=el("text",{x:L,y:H-4,"font-size":11,fill:"#7f8e99"}); lab.textContent=h.length?`last ${h.length*2} minutes`:"";
+  if(shadeBroken) h.forEach((p,i)=>{if(p.ac_broken) el("rect",{x:x(i)-pw/(n-1)/2,y:T,width:pw/(n-1)+.5,height:ph,fill:"rgba(229,97,90,.28)"});});
+  [0,.5,1].forEach(v=>{el("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"#2a3b4d"});const t=el("text",{x:L-6,y:y(v)+4,"text-anchor":"end","font-size":11,fill:"#8696a3"});t.textContent=v===1?"100%":v===0?"0":"50%";});
+  series.forEach(([k,c,dash])=>{let d="",pen=false;h.forEach((p,i)=>{const v=p[k];if(v==null){pen=false;return;}d+=(pen?" L":" M")+x(i).toFixed(1)+","+y(v).toFixed(1);pen=true;});
+    if(d) el("path",{d,fill:"none",stroke:c,"stroke-width":2.4,"stroke-dasharray":dash,"stroke-linejoin":"round"});});
+  const t=el("text",{x:L,y:H-6,"font-size":11,fill:"#8696a3"}); t.textContent=h.length?`last ${h.length*2} minutes →`:"";
 }
 
-function drawLedger(s){
+function ledger(s){
   const T=$("ledger"); T.replaceChildren(); const hr=document.createElement("tr");
-  ["Time","Decision","Forecast","Result","Hash",""].forEach(h=>hr.append(txt("th",h))); T.append(hr);
+  ["Time","Decision","Prediction","Came true?","Fingerprint",""].forEach(h=>{const th=document.createElement("th");th.textContent=h;hr.append(th);}); T.append(hr);
   s.ledger.forEach(e=>{const tr=document.createElement("tr");
-    tr.append(txt("td",e.time,"mono"),txt("td",e.action+(e.applied?"":" (dismissed)")),txt("td",e.forecast));
-    const res=document.createElement("td"); res.append(e.result?txt("span",e.result,"pill "+e.result):txt("span","pending","pill")); tr.append(res);
-    tr.append(txt("td",e.hash,"mono"));
-    const act=document.createElement("td"); const v=txt("button","Verify"); v.onclick=()=>doVerify(e.id); const tp=txt("button","Tamper"); tp.onclick=()=>doTamper(e.id);
-    v.style.fontSize=tp.style.fontSize="12px"; v.style.padding=tp.style.padding="3px 7px"; act.append(v,document.createTextNode(" "),tp); tr.append(act);
-    if(e.tampered) tr.style.background="rgba(230,103,103,.15)"; T.append(tr);});
+    [e.time,e.action+(e.applied?"":" (dismissed)"),e.forecast].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td);});
+    const r=document.createElement("td");const sp=document.createElement("span");sp.className="pill "+(e.result||"");sp.textContent=e.result?(e.result==="hit"?"yes":"no"):"not yet";r.append(sp);tr.append(r);
+    const hd=document.createElement("td");hd.className="mono";hd.textContent=e.hash;tr.append(hd);
+    const act=document.createElement("td");const v=document.createElement("button");v.textContent="Verify";v.onclick=()=>verify(e.id);
+    const tp=document.createElement("button");tp.textContent="Tamper";tp.onclick=()=>tamper(e.id);
+    [v,tp].forEach(x=>{x.style.fontSize="12px";x.style.padding="3px 7px";x.style.marginRight="4px";act.append(x);});tr.append(act);
+    if(e.tampered) tr.style.background="rgba(229,97,90,.15)"; T.append(tr);});
 }
-async function doVerify(id){const r=await api("/api/verify/"+id);const m=$("verifyMsg");m.textContent=r.intact?`${id}: hash matches, record untouched.`:`${id}: HASH MISMATCH, this record was changed after it was sealed.`;m.style.color=r.intact?"var(--good)":"var(--bad)";}
-async function doTamper(id){await api("/api/tamper/"+id,{});const m=$("verifyMsg");m.textContent=`${id}: confidence edited after sealing. Now press Verify.`;m.style.color="var(--warn)";render(await api("/api/state"));}
+async function verify(id){const r=await api("/api/verify/"+id);const m=$("verifyMsg");m.textContent=r.intact?`${id}: fingerprint matches. Untouched since it was sealed.`:`${id}: FINGERPRINT MISMATCH. This record was changed after it was sealed.`;m.style.color=r.intact?"var(--good)":"var(--bad)";}
+async function tamper(id){await api("/api/tamper/"+id,{});const m=$("verifyMsg");m.textContent=`${id}: edited after sealing (confidence raised). Now press Verify on it.`;m.style.color="var(--warn)";render(await api("/api/state"));}
 
+function beliefs(s){
+  const B=$("beliefs"); B.replaceChildren(); if(!s.beliefs) return;
+  const NAME={arousal:"Stress",valence:"Mood",occupancy:"People",thermal:"Temperature",air:"Air",hvac:"Air conditioner",lighting:"Lighting"};
+  const SH=["#5e8fc8","#7fb0e6","#a9cdf2","#d4e7fa"];
+  Object.entries(s.beliefs).forEach(([f,dist])=>{const n=document.createElement("div");n.className="small";n.textContent=NAME[f]||f;B.append(n);
+    const bar=document.createElement("div");bar.className="bar";
+    s.states[f].forEach((st,i)=>{const p=dist[st];const d=document.createElement("div");d.style.width=(p*100)+"%";d.style.background=SH[i%4];d.textContent=p>.12?`${st} ${pct(p)}`:"";d.title=`${st}: ${pct(p)}`;bar.append(d);});
+    B.append(bar);});
+}
+
+/* ---------------------------------------------------------------- controls */
 async function loop(){
   while(running){
     try{const s=await api("/api/step",{n:1});render(s);if(s.awaiting){setRunning(false);break;}}
-    catch(e){setRunning(false);alertBox(e.message);break;}
+    catch(e){setRunning(false);$("verifyMsg").textContent=e.message;break;}
     await new Promise(r=>setTimeout(r,+$("speed").value));
   }
 }
-function setRunning(v){running=v;$("run").textContent=v?"Pause":"Run";$("run").classList.toggle("on",v);if(v)loop();}
-function alertBox(m){$("verifyMsg").textContent=m;$("verifyMsg").style.color="var(--bad)";}
+function setRunning(v){running=v;$("run").textContent=v?"Pause":"Play";$("run").classList.toggle("on",v);if(v)loop();}
 
 async function init(){
-  const d=await api("/api/scenarios");
-  d.scenarios.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=NAMES[k]||k;$("scenario").append(o);});
-  d.intents.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=INTENTS[k]||k;$("intent").append(o);});
-  $("start").onclick=async()=>{setRunning(false);$("start").textContent="Starting…";const st=$("staffYou").classList.contains("on")?"you":"auto";
-    render(await api("/api/reset",{scenario:$("scenario").value,seed:+$("seed").value,staff:st}));$("start").textContent="Restart";};
+  // wire the controls first, so a click that lands before the scenario list arrives still works
+  Object.entries(NAMES).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;$("scenario").append(o);});
+  Object.entries(INTENTS).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;$("intent").append(o);});
+  $("start").onclick=async()=>{setRunning(false);[main,...minis].forEach(r=>r.clear());$("start").textContent="Starting…";const st=$("staffYou").classList.contains("on")?"you":"auto";
+    try{render(await api("/api/reset",{scenario:$("scenario").value,seed:+$("seed").value,staff:st}));}finally{$("start").textContent="Restart";}};
   $("run").onclick=()=>{if(!S)return;setRunning(!running);};
   $("stepBtn").onclick=async()=>{if(!S||S.awaiting)return;render(await api("/api/step",{n:1}));};
   $("accept").onclick=async()=>{render(await api("/api/step",{decision:"accept"}));};
@@ -253,7 +407,6 @@ async function init(){
   $("intent").onchange=async()=>{if(!S)return;render(await api("/api/intent/"+$("intent").value,{}));};
   const staff=async m=>{$("staffAuto").classList.toggle("on",m==="auto");$("staffYou").classList.toggle("on",m==="you");if(S)render(await api("/api/staff/"+m,{}));};
   $("staffAuto").onclick=()=>staff("auto"); $("staffYou").onclick=()=>staff("you");
-  $("truth").onchange=()=>{document.querySelectorAll(".truthOnly").forEach(e=>e.classList.toggle("hidden",!$("truth").checked));if(S)render(S);};
 }
 init();
 </script>
