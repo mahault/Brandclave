@@ -172,7 +172,8 @@ class Session:
         self.history: list[dict] = []
         self.events: list[str] = []
         self.tampered: set[str] = set()
-        self.traces: dict[str, dict] = {}   # one complete example per decision, for the "follow one decision" panel
+        self.traces: dict[str, dict] = {}
+        self.ac_failed_at: int | None = None   # one complete example per decision, for the "follow one decision" panel
 
     # ------------------------------------------------------------------ stepping
     def step(self, decision: str | None) -> None:
@@ -249,6 +250,8 @@ class Session:
         pw.step()
         self.score["preset"].after_step(pw)
 
+        if space.hvac_degraded and self.ac_failed_at is None:
+            self.ac_failed_at = self.t
         b = rec.beliefs
         self.history.append({
             "t": self.t,
@@ -262,6 +265,8 @@ class Session:
             "p_ac_broken": round(b["hvac"]["degraded"], 3),
             "ac_broken": space.hvac_degraded,
             "queues": {k: (len(w.queue()) if hasattr(w, "queue") else None) for k, w in self.world.items()},
+            "moods": {k: (round(w.mean_valence(), 3) if w.n else None) for k, w in self.world.items()},
+            "energy": {k: round(o.energy, 1) for k, o in self.score.items()},
             "action": rec.action if rec.action != "do_nothing" else None,
             "dismissed": overridden,
         })
@@ -458,6 +463,7 @@ class Session:
                             f"({rec.prediction.probability:.0%})",
             },
             "flags": sorted(self.agent.flagged),
+            "ac_failed_at": self.ac_failed_at,
             "queue_forecast": None if self.agent.queue_forecast is None else round(self.agent.queue_forecast, 1),
             "worlds": {k: self._world_view(k) for k in self.world},
             "purpose": w.cfg.purpose, "layout": "lobby" if self.scenario == "hotel_lobby" else "lounge", "gated": None if rec is None else rec.gated,
@@ -489,6 +495,7 @@ class Session:
             "mood": s["mood_mean"], "energy": s["energy"], "wasted": s["dismissed"],
             "staff_calls": s["staff_alerts"], "tickets": s["tickets"],
             "desk2": getattr(w, "desk2", 0) > 0,
+            "ticket_step": s["ticket_step"],
             "queue": len(w.queue()) if hasattr(w, "queue") else None,
         }
 

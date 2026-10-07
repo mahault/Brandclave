@@ -34,7 +34,7 @@ button.on{border-color:var(--gold);color:var(--gold)}
 .lbl.gold{color:var(--gold)}
 .spacer{flex:1}
 main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(380px,1fr);grid-template-rows:minmax(0,1fr) minmax(0,.58fr);gap:10px;padding:10px 14px;min-height:0}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:0}
 .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .clock{font-family:var(--font-display);font-weight:700;font-size:17px;font-variant-numeric:tabular-nums}
 .canvas{flex:1;min-height:0;display:flex;justify-content:center;align-items:center}
@@ -45,17 +45,23 @@ main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(380px,1fr);grid-t
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .grad{display:inline-block;width:54px;height:8px;border-radius:4px;background:linear-gradient(90deg,#c25a78,#e2a047,#3aa88d);margin:0 5px;vertical-align:0}
 .mind{overflow:auto}
-.block{background:var(--surface-2);border-radius:10px;padding:7px 10px;display:flex;flex-direction:column;gap:2px}
+.block{background:var(--surface-2);border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;gap:1px}
 .block p{line-height:1.42;color:var(--ink)}
 .block .sub{color:var(--ink-2);font-size:12px}
 .suggest{border-left:3px solid var(--gold)} .suggest.hold{border-left-color:var(--ink-3)}
-.act{font-family:var(--font-display);font-weight:700;font-size:19px}
+.act{font-family:var(--font-display);font-weight:700;font-size:17px}
 .decide{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
 .decide button{flex:1;font-weight:600;padding:7px}
 .decide .ok{background:var(--teal);border-color:var(--teal);color:#08140f}
 .decide .no{background:var(--rose);border-color:var(--rose);color:#1a0810}
+.impact{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.imp{background:var(--surface-2);border-radius:9px;padding:7px 9px;border-top:3px solid var(--ink-3);min-width:0}
+.imp.good{border-top-color:var(--teal)} .imp.bad{border-top-color:var(--rose)} .imp.lvl{border-top-color:var(--ink-3)}
+.imp .v{font-family:var(--font-display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.15}
+.imp .t{font-size:11px;color:var(--ink-2);line-height:1.3}
+.imp .k{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
 .trace{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
-.tc{background:var(--surface-2);border-radius:8px;padding:6px 7px;font-size:11.5px;line-height:1.4;color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
+.tc{background:var(--surface-2);border-radius:8px;padding:5px 6px;font-size:11px;line-height:1.32;color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
 .tc b{color:var(--ink);font-weight:600}
 .tc .lbl{display:block;margin-bottom:2px;font-size:9.5px}
 .ok-t{color:var(--teal)!important} .no-t{color:var(--rose)!important}
@@ -118,10 +124,11 @@ th{font-family:var(--font-mono);color:var(--ink-3);font-weight:400;font-size:10p
   </section>
 
   <section class="card mind">
-    <div class="head"><span class="lbl gold">Inside Sentient, now</span><span class="lbl" id="who"></span></div>
-    <div class="block"><span class="lbl">1 · Sensors report</span><p id="sees">Pick a room and press Start.</p><p class="sub" id="seesSub"></p></div>
-    <div class="block"><span class="lbl">2 · It infers, with how sure it is</span><p id="thinks">–</p></div>
-    <div class="block suggest hold" id="suggestBox"><span class="lbl">3 · It recommends to staff</span><div class="act" id="act">–</div><p class="sub" id="why"></p><p class="sub" id="predict"></p><p class="sub" id="lastAct"></p>
+    <div class="head"><span class="lbl gold">Impact so far, same guests, same moment</span><span class="lbl" id="who"></span></div>
+    <div class="impact" id="impact"><div class="imp lvl" style="grid-column:1/-1"><div class="t">Press Start. This compares Sentient with today's preset and with a rulebook, room for room.</div></div></div>
+    <div class="head"><span class="lbl gold">Inside Sentient, now</span></div>
+    <div class="block"><span class="lbl">Sensors report → it infers, with how sure it is</span><p class="sub" id="sees">Pick a room and press Start.</p><p class="sub" id="seesSub"></p><p id="thinks">–</p></div>
+    <div class="block suggest hold" id="suggestBox"><span class="lbl">It recommends to staff</span><div class="act" id="act">–</div><p class="sub" id="why"></p><p class="sub" id="predict"></p><p class="sub" id="lastAct"></p>
       <div class="decide hidden" id="decide"><span class="lbl" style="flex-basis:100%">You are the staff. Do it?</span><button class="ok" id="accept">Yes, do it</button><button class="no" id="dismiss">No, dismiss</button></div>
     </div>
     <div class="head" style="margin-top:2px"><span class="lbl gold">Follow one decision, end to end</span><span class="lbl" id="traceId"></span></div>
@@ -133,7 +140,7 @@ th{font-family:var(--font-mono);color:var(--ink-3);font-weight:400;font-size:10p
     <section class="card mini"><h3><i style="background:var(--rules)"></i>Rulebook, same sensors</h3><div class="canvas"><canvas id="mini1" width="900" height="540"></canvas></div><div class="stats" id="stats1"></div></section>
     <section class="card mini"><h3><i style="background:var(--preset)"></i>Today's fixed preset</h3><div class="canvas"><canvas id="mini2" width="900" height="540"></canvas></div><div class="stats" id="stats2"></div></section>
     <section class="card">
-      <div class="tabs" id="tabs"><button data-tab="people" class="on">Reading people</button><button data-tab="equip">Equipment</button><button data-tab="pred">Predictions</button><button data-tab="queue">Queue</button></div>
+      <div class="tabs" id="tabs"><button data-tab="impact" class="on">Impact over time</button><button data-tab="people">Reading people</button><button data-tab="equip">Equipment</button><button data-tab="pred">Predictions</button><button data-tab="queue">Queue</button></div>
       <div class="chart" id="chartBox"><svg id="chart" viewBox="0 0 520 170" preserveAspectRatio="none" role="img" aria-label="Chart"></svg><div class="legend" id="chartLegend"></div><div class="note" id="chartNote"></div></div>
     </section>
   </div>
@@ -154,7 +161,7 @@ const NAMES={lounge_afternoon:"Hotel lounge, one afternoon (start here)",hotel_l
 const INTENTS={restore:"rest",work:"work",elevated:"a lively evening",service:"service (a lobby)"};
 const INTENT_SHORT={restore:"rest",work:"work",elevated:"a lively evening",service:"a lobby"};
 const $=id=>document.getElementById(id);
-let S=null, running=false, tab="people";
+let S=null, running=false, tab="impact";
 
 async function api(path, body){
   const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
@@ -194,6 +201,42 @@ const LAYOUTS={
     devices:{ac:[400,44],radar:[580,44],speaker:[858,450],air:[48,420],mic:[380,200],door:[195,510]}},
 };
 const DOOR=[[125,528],[125,585]], LIFTS=[[770,62],[770,0]], SPEED=0.12;
+// Walking routes: a 15 px grid over the floor, furniture and walls blocked, shortest path around them,
+// then smoothed so people walk in straight lines where they can.
+const NAV={G:15,cols:60,rows:36,blocked:{},
+  rects:{lounge:[[388,258,124,124],[622,377,206,62],[762,142,94,196]],
+         lobby:[[62,62,246,52],[782,187,76,196],[505,222,40,40]]}};
+function navGrid(layout){
+  if(NAV.blocked[layout])return NAV.blocked[layout];
+  const b=new Uint8Array(NAV.cols*NAV.rows);
+  for(let j=0;j<NAV.rows;j++)for(let i=0;i<NAV.cols;i++){const x=(i+.5)*NAV.G,y=(j+.5)*NAV.G;
+    let bad=x<40||x>860||y<40||(y>500&&!(x>82&&x<168));
+    for(const [rx,ry,rw,rh] of NAV.rects[layout]||[])if(x>rx&&x<rx+rw&&y>ry&&y<ry+rh)bad=true;
+    b[j*NAV.cols+i]=bad?1:0;}
+  return NAV.blocked[layout]=b;
+}
+function cellOf(p){return [Math.max(0,Math.min(NAV.cols-1,Math.floor(p[0]/NAV.G))),Math.max(0,Math.min(NAV.rows-1,Math.floor(p[1]/NAV.G)))];}
+function nearestFree(b,c){if(!b[c[1]*NAV.cols+c[0]])return c;
+  for(let r=1;r<8;r++)for(let dj=-r;dj<=r;dj++)for(let di=-r;di<=r;di++){const i=c[0]+di,j=c[1]+dj;
+    if(i>=0&&j>=0&&i<NAV.cols&&j<NAV.rows&&!b[j*NAV.cols+i])return [i,j];}
+  return c;}
+function clear(b,p,q){const n=Math.ceil(Math.hypot(q[0]-p[0],q[1]-p[1])/5);
+  for(let k=1;k<n;k++){const c=cellOf([p[0]+(q[0]-p[0])*k/n,p[1]+(q[1]-p[1])*k/n]);if(b[c[1]*NAV.cols+c[0]])return false;}return true;}
+function findPath(layout,from,to){
+  const b=navGrid(layout);if(clear(b,from,to))return [to];
+  const s=nearestFree(b,cellOf(from)),g=nearestFree(b,cellOf(to)),C=NAV.cols,N=C*NAV.rows,key=c=>c[1]*C+c[0];
+  const gs=new Float32Array(N).fill(1e9),came=new Int32Array(N).fill(-1),open=[key(s)],closed=new Uint8Array(N);gs[key(s)]=0;
+  const h=k=>Math.hypot(k%C-g[0],Math.floor(k/C)-g[1]);
+  while(open.length){let bi=0;for(let i=1;i<open.length;i++)if(gs[open[i]]+h(open[i])<gs[open[bi]]+h(open[bi]))bi=i;
+    const cur=open.splice(bi,1)[0];if(cur===key(g))break;closed[cur]=1;const ci=cur%C,cj=Math.floor(cur/C);
+    for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const i=ci+di,j=cj+dj;if(i<0||j<0||i>=C||j>=NAV.rows)continue;
+      const k=j*C+i;if(b[k]||closed[k])continue;if(di&&dj&&(b[cj*C+i]||b[j*C+ci]))continue;
+      const ng=gs[cur]+(di&&dj?1.414:1);if(ng<gs[k]){gs[k]=ng;came[k]=cur;if(!open.includes(k))open.push(k);}}}
+  const cells=[];for(let k=key(g);k!==-1&&k!==key(s);k=came[k])cells.unshift([(k%C+.5)*NAV.G,(Math.floor(k/C)+.5)*NAV.G]);
+  const pts=[...cells,to],out=[];let at=from;      // smooth: skip waypoints the walker can see past
+  for(let i=0;i<pts.length;i++){if(i===pts.length-1||!clear(b,at,pts[i+1])){out.push(pts[i]);at=pts[i];}}
+  return out.length?out:[to];
+}
 
 class Room{
   constructor(canvas){this.c=canvas;this.g=canvas.getContext("2d");this.clear();}
@@ -220,7 +263,14 @@ class Room{
     for(const [k,q] of this.pos) if(!seen.has(k)&&!q.leaving){const r=q.p&&q.p.role,lifts=this.layout==="lobby"&&(r==="checkin"||r==="pass");
       q.route=lifts?LIFTS:DOOR;q.leaving=1;q.back=0;this.release(q);q.tx=q.route[0][0];q.ty=q.route[0][1];}
   }
-  step(q,dt){const dx=q.tx-q.x,dy=q.ty-q.y,d=Math.hypot(dx,dy);if(d<1){q.x=q.tx;q.y=q.ty;return true;}const s=Math.min(d,SPEED*dt);q.x+=dx/d*s;q.y+=dy/d*s;return false;}
+  step(q,dt){
+    const key=Math.round(q.tx)+","+Math.round(q.ty);
+    if(q.pkey!==key){q.pkey=key;q.path=findPath(this.layout,[q.x,q.y],[q.tx,q.ty]);}
+    let budget=SPEED*dt;
+    while(q.path&&q.path.length&&budget>0){const [px,py]=q.path[0],dx=px-q.x,dy=py-q.y,d=Math.hypot(dx,dy);
+      if(d<=budget){q.x=px;q.y=py;budget-=d;q.path.shift();}else{q.x+=dx/d*budget;q.y+=dy/d*budget;budget=0;}}
+    return !q.path||!q.path.length;
+  }
   life(q,time){
     if(q.leaving||this.layout!=="lounge"||!q.seat) return; const L=LAYOUTS.lounge.seats;
     if(q.back&&time>q.back){q.tx=q.seat.xy[0];q.ty=q.seat.xy[1];q.back=0;q.next=time+18000+hash(q.ph*1e3)*22000;return;}
@@ -343,7 +393,27 @@ function render(s){
     $("suggestBox").classList.toggle("hold",s.rec.raw==="do_nothing");$("rawReason").textContent=s.rec.reason;}
   $("decide").classList.toggle("hidden",!s.awaiting);
   const last=s.events.find(e=>e.includes("Sentient:"));$("lastAct").textContent=(s.rec&&s.rec.raw==="do_nothing"&&last)?"Last: "+last.replace("Sentient: ",""):"";
-  renderTrace(s.trace,s.intent);drawChart();ledger(s);beliefs(s);
+  renderImpact(s);renderTrace(s.trace,s.intent);drawChart();ledger(s);beliefs(s);
+}
+function imp(k,v,txt,cls){const d=document.createElement("div");d.className="imp "+cls;
+  const a=document.createElement("div");a.className="k";a.textContent=k;const b=document.createElement("div");b.className="v";b.textContent=v;
+  const c=document.createElement("div");c.className="t";c.textContent=txt;d.append(a,b,c);return d;}
+function renderImpact(s){
+  const W=s.worlds,Sn=W.sentient,R=W.rules,P=W.preset,box=$("impact");if(!s.history.length)return;box.replaceChildren();
+  const sign=x=>(x>0?"+":"")+x.toFixed(2);
+  if(Sn.mood!=null&&P.mood!=null){const d=Sn.mood-P.mood,dr=R.mood-P.mood;
+    box.append(imp("Guest mood vs today",Math.abs(d)<0.015?"level":sign(d),`rulebook ${Math.abs(dr)<0.015?"level":sign(dr)}. Modelled, 0–1 scale.`,Math.abs(d)<0.015?"lvl":d>0?"good":"bad"));}
+  if(P.energy>0){const e=(Sn.energy/P.energy-1)*100,er=(R.energy/P.energy-1)*100;
+    box.append(imp("Energy vs today",(e>0?"+":"")+e.toFixed(0)+"%",`rulebook ${(er>0?"+":"")+er.toFixed(0)}%`,Math.abs(e)<2?"lvl":e<0?"good":"bad"));}
+  const ws=Sn.wasted,wr=R.wasted;
+  box.append(imp("Staff time",`${Sn.staff_calls} · ${ws}`,`visits · ignored calls. Rulebook ${R.staff_calls} · ${wr}`,ws<wr?"good":ws>wr?"bad":"lvl"));
+  if(s.ac_failed_at!=null){const m=x=>x==null?null:(x-s.ac_failed_at)*2;const ms=m(Sn.ticket_step),mr=m(R.ticket_step);
+    box.append(imp("A/C fault caught",ms==null?"not yet":ms+" min",`after it broke. Rulebook ${mr==null?"not yet":mr+" min"}, preset never`,ms!=null&&(mr==null||ms<mr)?"good":ms!=null&&mr!=null&&ms>mr?"bad":"lvl"));}
+  else if(s.layout==="lobby"){const avg=k=>{const v=s.history.map(p=>p.queues&&p.queues[k]).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
+    const qs=avg("sentient"),qr=avg("rules"),qp=avg("preset");
+    box.append(imp("Check-in queue",qs.toFixed(1),`average waiting. Rulebook ${qr.toFixed(1)}, today ${qp.toFixed(1)}`,qs<qr-0.2?"good":qs>qr+0.2?"bad":"lvl"));}
+  else{const F=s.forecasts;if(F.scored){const a=F.hits/F.scored,b=F.same_as_now/F.scored;
+    box.append(imp("Its predictions",pct(a),`came true. "Nothing changes": ${pct(b)}`,a>b+0.02?"good":a<b-0.02?"bad":"lvl"));}}
 }
 function cell(label,html){const d=document.createElement("div");d.className="tc";const l=document.createElement("span");l.className="lbl";l.textContent=label;d.append(l);const c=document.createElement("div");c.innerHTML=html;d.append(c);return d;}
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -371,7 +441,10 @@ function drawChart(){
   const lines=(series,ymax)=>{const y=v=>T+ph*(1-v/ymax);
     [0,.5,1].forEach(f=>{el("line",{x1:L,x2:W-R,y1:y(f*ymax),y2:y(f*ymax),stroke:"rgba(226,160,71,.12)"});const t=el("text",{x:L-4,y:y(f*ymax)+4,"text-anchor":"end","font-size":10,fill:"#857a68","font-family":"JetBrains Mono, monospace"});t.textContent=ymax===1?(f*100)+"%":Math.round(f*ymax);});
     series.forEach(([get,c,dash])=>{let d="",pen=false;h.forEach((p,i)=>{const v=get(p);if(v==null){pen=false;return;}d+=(pen?" L":" M")+x(i).toFixed(1)+","+y(v).toFixed(1);pen=true;});if(d)el("path",{d,fill:"none",stroke:c,"stroke-width":2.2,"stroke-dasharray":dash||"","vector-effect":"non-scaling-stroke"});});};
-  if(tab==="people"){lines([[p=>p.true_arousal,"#b9ae9c","5 4"],[p=>p.est_arousal,"#e2a047"]],1);
+  if(tab==="impact"){lines([[p=>p.moods&&p.moods.preset,"#857a68"],[p=>p.moods&&p.moods.rules,"#4a8bc2"],[p=>p.moods&&p.moods.sentient,"#e2a047"]],1);
+    legend.innerHTML='<span><i style="background:#e2a047"></i>Sentient</span><span><i style="background:#4a8bc2"></i>rulebook</span><span><i style="background:#857a68"></i>today&#39;s preset</span>';
+    note.textContent="Modelled guest mood in the three rooms at the same moment: same guests, same faults, different management. A gap means the decisions mattered; overlapping lines mean they did not.";}
+  else if(tab==="people"){lines([[p=>p.true_arousal,"#b9ae9c","5 4"],[p=>p.est_arousal,"#e2a047"]],1);
     legend.innerHTML='<span><i style="background:#e2a047"></i>Sentient\'s estimate of stress</span><span><i style="background:#b9ae9c"></i>modelled true stress (hidden from it)</span>';
     note.textContent="A test of inference in simulation, not a measurement of real feelings. The simulator's stress model was written by us.";}
   else if(tab==="equip"){h.forEach((p,i)=>{if(p.ac_broken)el("rect",{x:x(i)-pw/(n-1)/2,y:T,width:pw/(n-1)+.5,height:ph,fill:"rgba(194,90,120,.28)"});});
