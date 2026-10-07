@@ -150,3 +150,14 @@ scheduler as a separate worker process, managed Postgres.
   dashboard at `/api/monitoring/dashboard-v2`.
 - **Run tests like CI**: `python -m pytest tests/ingestion tests/api -q` and
   `ruff check . --select E9,F63,F7,F82`.
+
+## Sentient
+
+Separate from the Brandclave pipeline but in the same repository: `sentient/` is the Sentient
+prototype, an active-inference model of a physical space (pymdp) that infers occupancy, arousal,
+mood, activity, thermal comfort, air quality, equipment health and the room's own music level from
+ten sensor channels, recommends one action to a person, and seals and scores a forecast for every
+channel. `sentient/rich/` is the current model; `sentient/` at the top level is the first two-factor
+prototype plus the shared ledger and sensor-feed interface. It reuses the platform's sealed-ledger
+rule and, later, the demand engine as an outside-in input. Full description, scenarios, results and
+how to run: `docs/SENTIENT_PROTOTYPE.md`.

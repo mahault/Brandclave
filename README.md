@@ -338,6 +338,9 @@ brandclave/
 │       ├── move_extraction_pomdp.py
 │       ├── coordinator_pomdp.py
 │       └── pymdp_learner.py
+├── sentient/               # Sentient prototype: a space that infers what people need
+│   ├── rich/               #   current model (9 factors, 11 channels, 10 actions), evaluation, live demo
+│   └── ...                 #   first two-factor prototype, ledger, sensor feeds
 ├── ingestion/              # Scrapers (news, social, reviews)
 ├── processing/             # NLP pipeline (embeddings, clustering)
 ├── services/               # Business logic (trends, moves)
@@ -391,8 +394,22 @@ python -m pytest tests/ingestion -q
 python scripts/test_api_endpoints.py
 
 # Test PyMDP integration
-python test_pymdp.py
+python tests/test_pymdp.py
+
+# Sentient simulation (current model and the first prototype)
+python -m pytest tests/test_sentient_rich.py tests/test_sentient_sim.py -q
+
+# Sentient live demo (then open http://127.0.0.1:8765)
+python -m sentient.rich.demo
 ```
+
+### Sentient
+
+`sentient/` holds the Sentient prototype: an active-inference model of a physical space that
+infers the state of the people in it (and of the building's own equipment) from cheap sensors,
+recommends one action to a person, and scores its own forecasts. It is validated in a simulation
+richer than the model. See `docs/SENTIENT_PROTOTYPE.md` for the model, the scenarios, the results
+and how to run it.
 
 ### Adding a New Source
 
