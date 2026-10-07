@@ -195,75 +195,106 @@ function moodColor(m){ // 0 red, .5 amber, 1 green
   return `rgb(${x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(",")})`;
 }
 function hash(n){let x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x);}
-const ZONES={rest:{x:155,y:255,w:150,h:110},work:{x:720,y:405,w:170,h:50},social:{x:450,y:320,w:120,h:120},transit:{x:470,y:470,w:600,h:30}};
+// Floor plan with real seats, a bar and a window. Positions are for the viewer only: the model gets a
+// people count and a movement level from the radar, not where anyone sits.
+const SEATS={
+  rest:[[95,232],[150,232],[205,232],[95,288],[150,288],[205,288]],
+  social:[...Array(8)].map((_,i)=>[450+88*Math.cos(i*Math.PI/4+.39),320+88*Math.sin(i*Math.PI/4+.39)]),
+  work:[[665,368],[725,368],[785,368]],
+  transit:[[300,470],[400,470],[500,470],[600,470]],
+};
+const BAR=[[742,175],[742,215],[742,255],[742,295]];
+const WINDOW=[[390,70],[450,70],[510,70]];
+const DOOR_IN=[125,528], DOOR_OUT=[125,585];
+const SPEED=0.12;   // pixels per millisecond: an unhurried walk across the room in about seven seconds
 
 class Room{
-  constructor(canvas){this.c=canvas;this.g=canvas.getContext("2d");this.pos=new Map();this.w=null;this.last=0;}
-  clear(){this.pos.clear();this.w=null;}
-  set(world){const fresh=!this.w; this.w=world;
-    const seen=new Set();
-    (world?world.people:[]).forEach((p,i)=>{seen.add(p.id);const z=ZONES[p.activity]||ZONES.social;
-      const tx=z.x+(hash(p.id%9973+1)-.5)*z.w, ty=z.y+(hash(p.id%7919+2)-.5)*z.h;
-      if(!this.pos.has(p.id)) this.pos.set(p.id,fresh?{x:tx,y:ty,tx,ty,ph:hash(p.id%101)*6.28}:{x:125,y:500,tx,ty,ph:hash(p.id%101)*6.28});
-      const q=this.pos.get(p.id); q.tx=tx; q.ty=ty;});
-    for(const [k,q] of this.pos) if(!seen.has(k)&&!q.leaving){q.leaving=true;q.tx=125;q.ty=525;}
+  constructor(canvas){this.c=canvas;this.g=canvas.getContext("2d");this.clear();}
+  clear(){this.pos=new Map();this.taken=new Set();this.w=null;this.last=0;this.staff=null;this.tech=null;}
+  seatFor(p){
+    const list=SEATS[p.activity]||SEATS.social, start=Math.floor(hash(p.id%9973+1)*list.length);
+    for(let j=0;j<list.length;j++){const i=(start+j)%list.length,key=p.activity+i;
+      if(!this.taken.has(key)){this.taken.add(key);return {key,xy:list[i]};}}
+    const [x,y]=list[start]; return {key:null,xy:[x+(hash(p.id%31)-.5)*44,y+(hash(p.id%37)-.5)*44]};
+  }
+  set(world){
+    const fresh=!this.w, now=performance.now(), seen=new Set(); this.w=world;
+    world.people.forEach(p=>{seen.add(p.id); let q=this.pos.get(p.id);
+      if(!q){const seat=this.seatFor(p);
+        q={x:fresh?seat.xy[0]:DOOR_IN[0],y:fresh?seat.xy[1]:DOOR_IN[1],tx:seat.xy[0],ty:seat.xy[1],seat,
+           ph:hash(p.id%101)*6.28,next:now+5000+hash(p.id%53)*15000,back:0};
+        this.pos.set(p.id,q);}
+      q.p=p;});
+    for(const [k,q] of this.pos) if(!seen.has(k)&&!q.leaving){
+      q.leaving=1; q.back=0; if(q.seat.key) this.taken.delete(q.seat.key); q.tx=DOOR_IN[0]; q.ty=DOOR_IN[1];}
+  }
+  step(q,dt){const dx=q.tx-q.x,dy=q.ty-q.y,d=Math.hypot(dx,dy); if(d<1){q.x=q.tx;q.y=q.ty;return true;}
+    const s=Math.min(d,SPEED*dt); q.x+=dx/d*s; q.y+=dy/d*s; return false;}
+  life(q,time){   // small comings and goings while people are here
+    if(q.leaving) return;
+    if(q.back && time>q.back){q.tx=q.seat.xy[0];q.ty=q.seat.xy[1];q.back=0;q.next=time+18000+hash(q.ph*1e3)*22000;return;}
+    if(!q.back && time>q.next){
+      const a=q.p.activity;
+      if(a==="social"&&hash(q.ph+time%97)<.7){const s=BAR[Math.floor(hash(q.ph*7+time%13)*BAR.length)];q.tx=s[0];q.ty=s[1];q.back=time+9000;}
+      else if(a==="rest"&&hash(q.ph+time%89)<.3){const s=WINDOW[Math.floor(hash(q.ph*5)*WINDOW.length)];q.tx=s[0];q.ty=s[1]+12;q.back=time+7000;}
+      else q.next=time+15000+hash(q.ph*3+time%7)*20000;
+    }
+  }
+  helper(kind,here,target,time,dt){   // staff member or technician walks in, stays, walks out
+    let h=this[kind];
+    if(here){ if(!h){h=this[kind]={x:DOOR_IN[0],y:DOOR_IN[1],tx:0,ty:0,out:false};} h.out=false; h.tx=target[0]; h.ty=target[1];}
+    else if(h){ h.out=true; if(Math.hypot(h.x-DOOR_IN[0],h.y-DOOR_IN[1])<4){h.tx=DOOR_OUT[0];h.ty=DOOR_OUT[1];} else {h.tx=DOOR_IN[0];h.ty=DOOR_IN[1];}}
+    if(!h) return; this.step(h,dt);
+    if(h.out&&h.y>DOOR_OUT[1]-3){this[kind]=null;return;}
+    drawPerson(this.g,h.x,h.y,kind==="staff"?"#2f5d8a":"#6b5a2a",kind==="staff"?"S":"T");
   }
   draw(time){
-    const g=this.g,w=this.w; g.clearRect(0,0,900,540);
-    const k=1-Math.exp(-Math.min(2000,time-this.last)/450); this.last=time;
-    g.fillStyle="#0b121b"; g.fillRect(0,0,900,540);
-    if(!w){g.fillStyle="#8696a3";g.font="20px Segoe UI";g.fillText("Pick a room and press Start",320,280);return;}
-    // floor, lit by the lights
+    const g=this.g,w=this.w; g.clearRect(0,0,900,540); g.fillStyle="#0b121b"; g.fillRect(0,0,900,540);
+    if(!w){g.fillStyle="#8696a3";g.font="20px Segoe UI";g.textAlign="center";g.fillText("Pick a room and press Start",450,280);return;}
+    const dt=Math.min(1000,time-(this.last||time)); this.last=time;
     const lit=0.25+0.75*w.light;
-    g.fillStyle=`rgb(${Math.round(60*lit+20)},${Math.round(66*lit+22)},${Math.round(74*lit+26)})`;
-    g.fillRect(30,30,840,480);
-    // window
-    g.fillStyle="#7fb2ee55"; g.fillRect(330,24,240,12);
+    g.fillStyle=`rgb(${Math.round(60*lit+20)},${Math.round(66*lit+22)},${Math.round(74*lit+26)})`; g.fillRect(30,30,840,480);
+    g.fillStyle="#7fb2ee55"; g.fillRect(330,24,240,12); text(g,"window",450,52,"#a9b6c2",12);
     // furniture
-    g.fillStyle="#3a4a5c"; roundRect(g,60,190,190,130,14); g.fill(); text(g,"sofa",155,340,"#a9b6c2",13);
-    g.beginPath(); g.arc(450,320,62,0,7); g.fillStyle="#4a3f35"; g.fill(); text(g,"table",450,400,"#a9b6c2",13);
+    g.fillStyle="#3a4a5c"; roundRect(g,60,195,190,130,14); g.fill(); text(g,"sofa",155,342,"#a9b6c2",13);
+    g.beginPath(); g.arc(450,320,58,0,7); g.fillStyle="#4a3f35"; g.fill(); text(g,"table",450,325,"#a9b6c2",13);
     g.fillStyle="#3d4a3a"; roundRect(g,630,385,190,46,8); g.fill(); text(g,"desk",725,446,"#a9b6c2",13);
-    // walls and door
+    g.fillStyle="#5a4632"; roundRect(g,770,150,78,180,8); g.fill(); text(g,"bar",809,348,"#a9b6c2",13);
+    // walls and door gap
     g.strokeStyle="#c9d3db"; g.lineWidth=6; g.beginPath(); g.moveTo(80,510); g.lineTo(30,510); g.lineTo(30,30); g.lineTo(870,30); g.lineTo(870,510); g.lineTo(170,510); g.stroke();
-    // overlays: temperature tint, stale air, darkness
+    text(g,"door",125,500,"#a9b6c2",12);
     if(w.temp>24){g.fillStyle=`rgba(255,120,40,${Math.min(.22,(w.temp-24)*.07)})`;g.fillRect(30,30,840,480);}
     if(w.temp<20.5){g.fillStyle=`rgba(80,140,255,${Math.min(.22,(20.5-w.temp)*.06)})`;g.fillRect(30,30,840,480);}
     const haze=Math.max(0,Math.min(.4,(w.co2-750)/1300)); if(haze>0){g.fillStyle=`rgba(170,170,160,${haze})`;g.fillRect(30,30,840,480);}
-    // music waves
     const waves=Math.round(w.sound*3);
     for(let i=1;i<=waves;i++){g.beginPath();g.arc(835,75,14+i*16,Math.PI*.55,Math.PI*1.0);g.strokeStyle=`rgba(127,178,238,${.7-i*.15+.1*Math.sin(time/200+i)})`;g.lineWidth=3;g.stroke();}
-    // fresh air flowing in
     if(w.ventilating){for(let i=0;i<4;i++){const y=50+((time/12+i*30)%120);g.fillStyle="rgba(180,230,255,.6)";g.fillRect(360+i*55,y,4,14);}}
     // people
-    const staffTarget={x:200,y:470}; let worst=null;
-    w.people.forEach(p=>{const q=this.pos.get(p.id); if(!q)return;
-      q.x+=(q.tx-q.x)*k; q.y+=(q.ty-q.y)*k;
-      const amp=Math.pow(p.stress,2.2)*7, jx=amp*Math.sin(time/45+q.ph), jy=amp*Math.cos(time/38+q.ph*1.3);
-      const drift=p.activity==="social"?16:p.activity==="work"?4:7;   // gentle movement around their spot
-      const x=q.x+jx+drift*Math.sin(time/1900+q.ph*3), y=q.y+jy+drift*0.6*Math.cos(time/2300+q.ph*2);
-      q.color=moodColor(p.mood);
+    let worst=null;
+    for(const [k,q] of this.pos){
+      this.life(q,time); const arrived=this.step(q,dt);
+      if(q.leaving){ if(arrived){ if(q.leaving===1){q.leaving=2;q.tx=DOOR_OUT[0];q.ty=DOOR_OUT[1];} else {this.pos.delete(k);continue;} } }
+      const p=q.p, seated=arrived&&!q.leaving;
+      const amp=seated?Math.pow(p.stress,2.2)*7:0, x=q.x+amp*Math.sin(time/45+q.ph), y=q.y+amp*Math.cos(time/38+q.ph*1.3);
+      if(q.leaving===2) g.globalAlpha=Math.max(0,(DOOR_OUT[1]-q.y)/(DOOR_OUT[1]-DOOR_IN[1]));
       if(p.distressed){g.beginPath();g.arc(x,y,23+2*Math.sin(time/150),0,7);g.strokeStyle="#e5615a";g.lineWidth=4;g.setLineDash([5,4]);g.stroke();g.setLineDash([]);}
-      g.beginPath(); g.arc(x,y,15,0,7); g.fillStyle=moodColor(p.mood); g.fill();
-      g.lineWidth=2; g.strokeStyle="rgba(10,15,25,.6)"; g.stroke();
+      g.beginPath(); g.arc(x,y,15,0,7); g.fillStyle=moodColor(p.mood); g.fill(); g.lineWidth=2; g.strokeStyle="rgba(10,15,25,.6)"; g.stroke();
       if(p.wearable){g.beginPath();g.arc(x+11,y-11,4,0,7);g.fillStyle="#fff";g.fill();}
-      if(!worst||p.stress-p.mood>worst.s) worst={x:q.x,y:q.y,s:p.stress-p.mood};});
-    for(const [k,q] of this.pos){ if(!q.leaving) continue;      // people on their way out
-      q.x+=(q.tx-q.x)*k; q.y+=(q.ty-q.y)*k;
-      if(Math.hypot(q.tx-q.x,q.ty-q.y)<8){this.pos.delete(k);continue;}
-      g.globalAlpha=.55; g.beginPath(); g.arc(q.x,q.y,15,0,7); g.fillStyle=q.color||"#888"; g.fill(); g.globalAlpha=1;}
-    if(w.staff_here){const t=worst||staffTarget; drawPerson(g,t.x+30,t.y+8,"#2f5d8a","S");}
+      g.globalAlpha=1;
+      if(!q.leaving&&(!worst||p.stress-p.mood>worst.s)) worst={x:q.seat.xy[0],y:q.seat.xy[1],s:p.stress-p.mood};
+    }
+    this.helper("staff",w.staff_here,worst?[worst.x+30,worst.y+10]:[300,450],time,dt);
+    this.helper("tech",w.repair_here,[140,90],time,dt);
     // devices on the walls
     device(g,140,44,"Air conditioner",w.ac_broken?"#e5615a":(w.cooling?"#7fb2ee":w.heating?"#e3a83b":"#6b7a88"),
       w.ac_broken?"BROKEN":(w.cooling?"cooling":w.heating?"heating":"off"),120);
-    if(w.repair_here) drawPerson(g,140,90,"#6b5a2a","T");
-    device(g,640,44,"Radar",  "#46c37f","",50);
-    device(g,835,75,"Speaker","#7fb2ee","",0,true);
-    device(g,820,270,"Air monitor","#46c37f","",0,true);
-    device(g,600,170,"Microphone",w.mic_dead?"#e5615a":"#46c37f",w.mic_dead?"DEAD":"",0,true);
-    device(g,180,510,"Door sensor","#46c37f","",0,true);
-    // darkness last, so dimming reads as dimming
+    device(g,640,44,"Radar","#46c37f","",50);
+    device(g,835,75,"Speaker","#7fb2ee","",0);
+    device(g,280,60,"Air monitor","#46c37f","",0);
+    device(g,600,170,"Microphone",w.mic_dead?"#e5615a":"#46c37f",w.mic_dead?"DEAD":"",0);
+    device(g,195,510,"Door sensor","#46c37f","",0);
     g.fillStyle=`rgba(4,8,16,${(1-w.light)*0.5})`; g.fillRect(30,30,840,480);
-    text(g,`${w.temp.toFixed(1)} °C   ·   CO2 ${w.co2} ppm   ·   ${w.people.length} ${w.people.length===1?"person":"people"}`,450,532,"#c9d3db",14);
+    text(g,`${w.temp.toFixed(1)} °C   ·   CO2 ${w.co2} ppm   ·   ${w.people.length} ${w.people.length===1?"person":"people"}`,520,532,"#c9d3db",14);
   }
 }
 function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
@@ -277,6 +308,8 @@ function drawPerson(g,x,y,color,letter){g.beginPath();g.arc(x,y,14,0,7);g.fillSt
 
 const main=new Room($("room")), minis=[new Room($("mini0")),new Room($("mini1")),new Room($("mini2"))];
 function frame(t){main.draw(t);minis.forEach(m=>m.draw(t));requestAnimationFrame(frame);} requestAnimationFrame(frame);
+// browsers pause animation frames in background tabs; keep the room moving there at a slower rate
+setInterval(()=>{if(document.hidden){const t=performance.now();main.draw(t);minis.forEach(m=>m.draw(t));}},250);
 
 /* ---------------------------------------------------------------- plain words */
 function topState(dist){let k=null,v=-1;for(const [s,p] of Object.entries(dist)) if(p>v){k=s;v=p;} return [k,v];}

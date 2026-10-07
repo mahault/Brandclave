@@ -67,7 +67,7 @@ DEMO_SCENARIOS = {"lounge_afternoon": lounge_afternoon}
 SCRIPTS = {"lounge_afternoon": {10: "ac_fail", 26: "group"}}
 # walk-in visitors: (groups per step, mean stay in steps). Drawn once and copied into all three
 # rooms, so the same people come and go whoever is in charge.
-VISITORS = {"lounge_afternoon": (0.12, 18)}
+VISITORS = {"lounge_afternoon": (0.14, 18)}
 SHOWN_BELIEFS = ("arousal", "valence", "occupancy", "thermal", "air", "hvac", "lighting")
 HISTORY = 90
 
@@ -184,7 +184,8 @@ class Session:
             return
         rate, stay = self.visitors
         rng = self._maker.rng
-        for _ in range(rng.poisson(rate)):
+        busier = 0.35 + 0.9 * min(1.0, self.t / 40)   # quiet at four, filling up toward the evening
+        for _ in range(rng.poisson(rate * busier)):
             size = int(rng.choice([1, 2, 3], p=[0.5, 0.35, 0.15]))
             leave = self.t + max(4, int(rng.normal(stay, stay * 0.4)))
             group = [self._person("social", leave_at=leave) for _ in range(size)]
