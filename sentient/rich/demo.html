@@ -53,7 +53,7 @@ canvas{width:100%;height:auto;display:block;border-radius:10px}
 .three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .mini h3{margin:0;font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px}
 .mini h3 i{width:11px;height:11px;border-radius:50%;display:inline-block}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .stat{background:var(--panel-2);border-radius:8px;padding:7px 9px}
 .stat .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
 .stat .l{font-size:11.5px;color:var(--muted)}
@@ -81,7 +81,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-tr
 <header>
   <h1><span>Sentient</span> · live</h1>
   <select id="scenario"></select>
-  <label class="small">seed <input id="seed" type="number" value="11"></label>
+  <label class="small">seed <input id="seed" type="number" value="12"></label>
   <button id="start" class="primary">Start</button>
   <div class="sep"></div>
   <button id="run">Play</button>
@@ -122,7 +122,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-tr
     <section class="panel">
       <h2>Inside Sentient, right now</h2>
       <div class="mind">
-        <div class="step"><span class="k">1 · What it sees</span><p id="sees">Nothing yet. Pick a room and press Start, then Play.</p><p class="sub" id="seesSub"></p></div>
+        <div class="step"><span class="k">1 · What it sees</span><p id="sees">Nothing yet. Pick a room and press Start.</p><p class="sub" id="seesSub"></p></div>
         <div class="step"><span class="k">2 · What it thinks is going on</span><p id="thinks">–</p><p class="sub">It never sees mood or stress directly. It infers them from movement, sound, heart rate and how the room responds, and says how sure it is.</p></div>
         <div class="step suggest hold" id="suggestBox"><span class="k">3 · What it suggests</span><div class="act" id="act">–</div><p id="why"></p><p class="sub" id="predict"></p><p class="sub" id="lastAct"></p>
           <div class="decide hidden" id="decide"><span class="small" style="flex-basis:100%">You are the staff. Do you do it?</span><button class="ok" id="accept">Yes, do it</button><button class="no" id="dismiss">No, dismiss</button></div>
@@ -139,7 +139,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-tr
       <div class="mini"><h3><i style="background:var(--rules)"></i>A rulebook on the same sensors</h3><canvas id="mini1" width="900" height="540"></canvas><div class="stats" id="stats1"></div></div>
       <div class="mini"><h3><i style="background:var(--preset)"></i>What hotels run today</h3><canvas id="mini2" width="900" height="540"></canvas><div class="stats" id="stats2"></div></div>
     </div>
-    <div class="small">How guests feel: average mood of the people present, 0 to 1. Energy: lights, heating, cooling and fresh air, so far. Ignored calls: suggestions staff dismissed, the cost a busy team feels.</div>
+    <div class="small">How guests feel: average mood of the people present, 0 to 1. Energy: lights, heating, cooling and fresh air, so far. Staff visits: times someone was sent over. Ignored calls: suggestions staff dismissed. Both cost a busy team time.</div>
   </section>
 
   <div class="charts">
@@ -178,7 +178,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-tr
 </div>
 
 <script>
-const NAMES={restore_pod:"Restore pod, noisy and bright",bar_9pm:"Bar at 9pm, meant to be lively",flat_bar:"Flat bar, music off",ambiguous_hr:"Calm guest, high heart rate",lobby_peak:"Lobby check-in rush",happy_group:"Happy group in a quiet lounge",stale_meeting:"Stuffy meeting room",hvac_failure:"Air conditioner fails",cold_morning:"Cold morning, work room",stressed_guest:"Distressed guest",sensor_failure:"Dead microphone"};
+const NAMES={lounge_afternoon:"Hotel lounge, one afternoon (start here)",restore_pod:"Restore pod, noisy and bright",bar_9pm:"Bar at 9pm, meant to be lively",flat_bar:"Flat bar, music off",ambiguous_hr:"Calm guest, high heart rate",lobby_peak:"Lobby check-in rush",happy_group:"Happy group in a quiet lounge",stale_meeting:"Stuffy meeting room",hvac_failure:"Air conditioner fails",cold_morning:"Cold morning, work room",stressed_guest:"Distressed guest",sensor_failure:"Dead microphone"};
 const INTENTS={restore:"rest",work:"work",elevated:"a lively evening",service:"service (a lobby)"};
 const $=id=>document.getElementById(id);
 let S=null, running=false;
@@ -206,7 +206,7 @@ class Room{
       const tx=z.x+(hash(p.id%9973+1)-.5)*z.w, ty=z.y+(hash(p.id%7919+2)-.5)*z.h;
       if(!this.pos.has(p.id)) this.pos.set(p.id,fresh?{x:tx,y:ty,tx,ty,ph:hash(p.id%101)*6.28}:{x:125,y:500,tx,ty,ph:hash(p.id%101)*6.28});
       const q=this.pos.get(p.id); q.tx=tx; q.ty=ty;});
-    for(const k of [...this.pos.keys()]) if(!seen.has(k)) this.pos.delete(k);
+    for(const [k,q] of this.pos) if(!seen.has(k)&&!q.leaving){q.leaving=true;q.tx=125;q.ty=525;}
   }
   draw(time){
     const g=this.g,w=this.w; g.clearRect(0,0,900,540);
@@ -239,12 +239,18 @@ class Room{
     w.people.forEach(p=>{const q=this.pos.get(p.id); if(!q)return;
       q.x+=(q.tx-q.x)*k; q.y+=(q.ty-q.y)*k;
       const amp=Math.pow(p.stress,2.2)*7, jx=amp*Math.sin(time/45+q.ph), jy=amp*Math.cos(time/38+q.ph*1.3);
-      const x=q.x+jx, y=q.y+jy;
+      const drift=p.activity==="social"?16:p.activity==="work"?4:7;   // gentle movement around their spot
+      const x=q.x+jx+drift*Math.sin(time/1900+q.ph*3), y=q.y+jy+drift*0.6*Math.cos(time/2300+q.ph*2);
+      q.color=moodColor(p.mood);
       if(p.distressed){g.beginPath();g.arc(x,y,23+2*Math.sin(time/150),0,7);g.strokeStyle="#e5615a";g.lineWidth=4;g.setLineDash([5,4]);g.stroke();g.setLineDash([]);}
       g.beginPath(); g.arc(x,y,15,0,7); g.fillStyle=moodColor(p.mood); g.fill();
       g.lineWidth=2; g.strokeStyle="rgba(10,15,25,.6)"; g.stroke();
       if(p.wearable){g.beginPath();g.arc(x+11,y-11,4,0,7);g.fillStyle="#fff";g.fill();}
       if(!worst||p.stress-p.mood>worst.s) worst={x:q.x,y:q.y,s:p.stress-p.mood};});
+    for(const [k,q] of this.pos){ if(!q.leaving) continue;      // people on their way out
+      q.x+=(q.tx-q.x)*k; q.y+=(q.ty-q.y)*k;
+      if(Math.hypot(q.tx-q.x,q.ty-q.y)<8){this.pos.delete(k);continue;}
+      g.globalAlpha=.55; g.beginPath(); g.arc(q.x,q.y,15,0,7); g.fillStyle=q.color||"#888"; g.fill(); g.globalAlpha=1;}
     if(w.staff_here){const t=worst||staffTarget; drawPerson(g,t.x+30,t.y+8,"#2f5d8a","S");}
     // devices on the walls
     device(g,140,44,"Air conditioner",w.ac_broken?"#e5615a":(w.cooling?"#7fb2ee":w.heating?"#e3a83b":"#6b7a88"),
@@ -325,7 +331,7 @@ function render(s){
   $("clock").textContent=`${s.clock} · ${s.minutes} minutes in`;
   main.set(s.worlds.sentient); ["sentient","rules","preset"].forEach((k,i)=>{minis[i].set(s.worlds[k]);
     const w=s.worlds[k], st=$("stats"+i); st.replaceChildren();
-    [[w.mood==null?"–":w.mood.toFixed(2),"how guests feel"],[w.energy.toFixed(0),"energy so far"],[k==="preset"?"–":w.wasted,"ignored calls"]].forEach(([v,l])=>{
+    [[w.mood==null?"–":w.mood.toFixed(2),"how guests feel"],[w.energy.toFixed(0),"energy so far"],[k==="preset"?"–":w.staff_calls,"staff visits"],[k==="preset"?"–":w.wasted,"ignored calls"]].forEach(([v,l])=>{
       const d=document.createElement("div");d.className="stat";d.innerHTML=`<div class="v"></div><div class="l"></div>`;d.children[0].textContent=v;d.children[1].textContent=l;st.append(d);});});
   const [a,b]=sees(s.reading,s); $("sees").textContent=a; $("seesSub").textContent=b;
   $("thinks").textContent=thinks(s.beliefs);
@@ -398,7 +404,7 @@ async function init(){
   Object.entries(NAMES).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;$("scenario").append(o);});
   Object.entries(INTENTS).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;$("intent").append(o);});
   $("start").onclick=async()=>{setRunning(false);[main,...minis].forEach(r=>r.clear());$("start").textContent="Starting…";const st=$("staffYou").classList.contains("on")?"you":"auto";
-    try{render(await api("/api/reset",{scenario:$("scenario").value,seed:+$("seed").value,staff:st}));}finally{$("start").textContent="Restart";}};
+    try{render(await api("/api/reset",{scenario:$("scenario").value,seed:+$("seed").value,staff:st}));setRunning(true);}finally{$("start").textContent="Restart";}};
   $("run").onclick=()=>{if(!S)return;setRunning(!running);};
   $("stepBtn").onclick=async()=>{if(!S||S.awaiting)return;render(await api("/api/step",{n:1}));};
   $("accept").onclick=async()=>{render(await api("/api/step",{decision:"accept"}));};

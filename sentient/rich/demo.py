@@ -10,6 +10,7 @@ staff stay simulated. Runs locally: nothing about the model leaves this machine.
 """
 
 import argparse
+import copy
 import logging
 from pathlib import Path
 
@@ -25,22 +26,64 @@ from .agent import RichAgent
 from .rules import RuleController
 from .run import Outcomes
 from .scenarios import SCENARIOS, simulated_override
-from .space import STEP_MINUTES
+from .space import STEP_MINUTES, Space, SpaceConfig
 from .spec import FACTORS, INTENTS, MODALITIES, discretize
 
 logging.getLogger("jax").setLevel(logging.ERROR)
 
 PAGE = Path(__file__).with_name("demo.html")
+
+
+class LoungeSpace(Space):
+    """A lounge, not a queue: a staff call means someone comes over to help, never that guests
+    are moved on. (In the base world a staff call to a busy room thins it, which models a desk.)"""
+
+    def apply(self, action: str) -> None:
+        if action == "staff_alert":
+            self.alert_cooldown = 8
+            self.comfort_timer = int(self.rng.integers(4, 8))
+            return
+        super().apply(action)
+
+
+def lounge_afternoon(seed: int = 0) -> Space:
+    """A hotel lounge from four in the afternoon: two guests resting, one working, small groups
+    coming and going. The script below adds a distressed guest, a failing air conditioner and a
+    group of four at set times, identically in all three rooms. Demo only: not in the evaluated set."""
+    space = LoungeSpace(SpaceConfig(
+        name="lounge_afternoon", intent="restore", purpose="social", n_occupants=0, capacity=12,
+        arrival_rate=None, dwell_steps=1e6, wearable_rate=0.4, light=0.85, sound_setting=0.55,
+        cooling=True, outdoor_temp=31.0, start_hour=16.0, seed=seed,
+    ))
+    for purpose in ("restore", "restore", "work"):
+        o = space._new_occupant(purpose)
+        o.dwell_steps = 1e6
+        space.occupants.append(o)
+    return space
+
+
+DEMO_SCENARIOS = {"lounge_afternoon": lounge_afternoon}
+# step -> injection, applied to all three rooms at the same moment
+SCRIPTS = {"lounge_afternoon": {10: "ac_fail", 26: "group"}}
+# walk-in visitors: (groups per step, mean stay in steps). Drawn once and copied into all three
+# rooms, so the same people come and go whoever is in charge.
+VISITORS = {"lounge_afternoon": (0.12, 18)}
 SHOWN_BELIEFS = ("arousal", "valence", "occupancy", "thermal", "air", "hvac", "lighting")
 HISTORY = 90
 
 
 class Session:
     def __init__(self, scenario: str, seed: int, staff: str):
-        if scenario not in SCENARIOS:
+        build = DEMO_SCENARIOS.get(scenario) or SCENARIOS.get(scenario)
+        if build is None:
             raise HTTPException(400, f"unknown scenario {scenario}")
         self.scenario, self.seed, self.staff = scenario, seed, staff
-        self.world = {k: SCENARIOS[scenario](seed) for k in ("sentient", "rules", "preset")}
+        self.script = dict(SCRIPTS.get(scenario, {}))
+        self.visitors = VISITORS.get(scenario)
+        # people are created once, from their own stream, and copied into every room
+        self._maker = build(seed)
+        self._maker.rng = np.random.default_rng(seed + 777)
+        self.world = {k: build(seed) for k in ("sentient", "rules", "preset")}
         FixedPresetController().install(self.world["preset"])
         intent = self.world["sentient"].cfg.intent
         self.agent = RichAgent(intent=intent)
@@ -64,6 +107,9 @@ class Session:
                 raise HTTPException(400, "a recommendation is waiting: accept or dismiss it")
             self._finish(overridden=(decision == "dismiss"))
             return
+        self._comings_and_goings()
+        if self.t in self.script:
+            self.inject(self.script.pop(self.t), scripted=True)
         space = self.world["sentient"]
         self.reading = space.read()
         obs = discretize(self.reading)
@@ -128,8 +174,41 @@ class Session:
         self.history = self.history[-HISTORY:]
         self.t += 1
 
+    def _comings_and_goings(self) -> None:
+        for w in self.world.values():
+            leaving = [o for o in w.occupants if getattr(o, "leave_at", 1e9) <= self.t]
+            if leaving:
+                w.occupants = [o for o in w.occupants if o not in leaving]
+                w.departures_total += len(leaving)
+        if not self.visitors:
+            return
+        rate, stay = self.visitors
+        rng = self._maker.rng
+        for _ in range(rng.poisson(rate)):
+            size = int(rng.choice([1, 2, 3], p=[0.5, 0.35, 0.15]))
+            leave = self.t + max(4, int(rng.normal(stay, stay * 0.4)))
+            group = [self._person("social", leave_at=leave) for _ in range(size)]
+            self._arrive_everywhere(group)
+
+    def _person(self, purpose: str, leave_at: float = 1e9, **kw):
+        self._maker.t = self.t
+        o = self._maker._new_occupant(purpose, **kw)
+        o.leave_at = leave_at
+        return o
+
+    def _arrive_everywhere(self, people) -> None:
+        for w in self.world.values():
+            self._arrive(w, [copy.deepcopy(o) for o in people])
+
     # ---------------------------------------------------------------- injections
-    def inject(self, kind: str) -> None:
+    def inject(self, kind: str, scripted: bool = False) -> None:
+        if kind == "stressed_guest":
+            o = self._person("restore", arousal=0.9, valence=0.15)
+            o.baseline, o.mood_anchor, o.wearable, o.motion_scale = 0.8, 0.15, True, 0.7
+            self._arrive_everywhere([o])
+        elif kind == "group":
+            leave = self.t + 20
+            self._arrive_everywhere([self._person("social", leave_at=leave, valence=0.8) for _ in range(4)])
         for w in self.world.values():
             if kind == "ac_fail":
                 w.hvac_degraded = True
@@ -139,19 +218,14 @@ class Session:
                 w.cfg.stuck_db = 41.0
             elif kind == "mic_fix":
                 w.cfg.stuck_db = None
-            elif kind == "stressed_guest":
-                o = w._new_occupant("restore", arousal=0.9, valence=0.15)
-                o.baseline, o.mood_anchor, o.wearable = 0.8, 0.15, True
-                o.motion_scale = 0.7
-                self._arrive(w, [o])
-            elif kind == "group":
-                self._arrive(w, [w._new_occupant("social", valence=0.8) for _ in range(4)])
+            elif kind in ("stressed_guest", "group"):
+                pass
             elif kind == "everyone_leaves":
                 w.departures_total += w.n
                 w.occupants = []
             else:
                 raise HTTPException(400, f"unknown injection {kind}")
-        self.events.append(f"{self._clock()}  You: {INJECT_LABEL[kind]}")
+        self.events.append(f"{self._clock()}  {'Meanwhile' if scripted else 'You'}: {INJECT_LABEL[kind]}")
 
     @staticmethod
     def _arrive(w, people) -> None:
@@ -310,7 +384,7 @@ def page() -> str:
 
 @app.get("/api/scenarios")
 def scenarios() -> dict:
-    return {"scenarios": list(SCENARIOS), "intents": INTENTS}
+    return {"scenarios": list(DEMO_SCENARIOS) + list(SCENARIOS), "intents": INTENTS}
 
 
 @app.post("/api/reset")
