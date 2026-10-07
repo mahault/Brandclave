@@ -103,4 +103,7 @@
 - Tests: 15 rich (cold-morning test rewritten to "ends comfortable"; live dead-mic flag; no false flags on healthy rooms) and 16 first-prototype, all green; ruff clean.
 
 ## 2026-10-07
+- **Dashboard restyled and fitted to one screen** in the Brandclave/Sentient look (dark, amber, Montserrat/Inter/JetBrains Mono); "follow one decision" trace (inputs, beliefs, sealed prediction with time and hash, staff decision, scored outcome); charts in tabs; audit trail in a drawer.
+- **Model and demo:** ticket back-off after dismissal; optional queue-zone input with queue anticipation (rulebook gets the same input); lounge staff attend one guest; lobby with check-in queue and second desk. Held-out re-run and a no-wearable test, details in `docs/SENTIENT_PROTOTYPE.md` section 9c. 31 tests green, ruff clean.
+- **Proof deck rewritten** against Sarah's review and the data room: $781K full round (not $181K), gates control spending rather than tranches, pricing as indicative with assumed costs, status breakdown, metric definitions, mood claim corrected to 8 of 11 higher and 3 level.
 - **Live demo** (`sentient/rich/demo.py`, `demo.html`): FastAPI app running the real engine on a simulated room in the browser, Sentient, rulebook and preset side by side, fault and arrival injection, intent switching, viewer-as-staff mode, hidden-truth toggle, sealed record with Verify and Tamper. For the McPike demo and the investor call.

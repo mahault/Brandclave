@@ -345,7 +345,27 @@ the cooling unit, kill the microphone, add a distressed guest or a group, empty 
 the room's intent; a mode where the viewer plays the staff and accepts or dismisses; a toggle that
 shows the hidden truth; and the sealed record with Verify and Tamper. Runs locally only.
 
-## 10. History: the first prototype (2026-09-08)
+## 9c. 7 October 2026: queue zone, ticket back-off, demo rooms, re-run
+
+- **Ticket back-off.** The maintenance rule ignored dismissals and re-asked every step when a crowd
+  warmed a room despite working cooling. A dismissed ticket now waits 30 steps, as a raised one does.
+- **Queue zone (optional input).** `Reading.queue` carries a radar queue-zone count where one exists.
+  In a service space with that input, the agent calls a second desk on the queue it expects in six
+  minutes (current queue plus estimated inflow minus service rate); the rulebook gets the same input
+  with a fixed threshold (4). None of the 11 evaluated scenarios has a queue zone.
+- **Held-out re-run** (`data/sentient_eval_heldout_v2/`): only `bar_9pm` changed (dismissed calls 1.0
+  to 0.2). Against the rulebook still 8 ahead, 23 level, 2 behind. Forecasts at or above persistence
+  in 85 of 110 runs: 74 strictly ahead, 11 tied. Versus the fixed preset, modelled mood is higher in
+  8 of 11 scenarios and level in 3 (same noise rule), not "10 of 11" as stated earlier.
+- **Without a wearable** (seeds 10-19): the distressed guest got a staff call in 4 of 10 runs (9 of 10
+  with it); the calm high-heart-rate guest in 0 of 10 either way. Movement (0.57 vs 0.16) and HRV
+  (33 vs 49) separate the two; sound barely does.
+- **Demo-only rooms** (`sentient/rich/demo.py`): a hotel lounge (staff attend the guest worst off,
+  not the whole room) and a hotel lobby (check-in queue served one guest per two steps; a staff call
+  opens a second desk). Over five seeds: lounge, Sentient ahead of the rulebook on modelled mood in 5
+  of 5; lobby, level with the rulebook, both far shorter queues than the preset.
+
+
 
 `sentient/` is the two-factor version built the evening after the Driftwood call and kept as a
 reference. Hidden state: occupancy (empty, some, crowded) and arousal (calm, elevated,

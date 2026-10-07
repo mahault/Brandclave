@@ -12,6 +12,7 @@ staff stay simulated. Runs locally: nothing about the model leaves this machine.
 import argparse
 import copy
 import logging
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -35,15 +36,32 @@ PAGE = Path(__file__).with_name("demo.html")
 
 
 class LoungeSpace(Space):
-    """A lounge, not a queue: a staff call means someone comes over to help, never that guests
-    are moved on. (In the base world a staff call to a busy room thins it, which models a desk.)"""
+    """A lounge, not a queue. A staff call sends someone to the guest who looks worst off, and that
+    guest is the one helped. (In the base world a visit lifts everyone in the room at once, which is
+    right for one guest alone and too generous for a lounge of ten; and a call to a busy room thins
+    it, which models a desk.)"""
+
+    attending: object = None
+    attend_timer: int = 0
 
     def apply(self, action: str) -> None:
         if action == "staff_alert":
             self.alert_cooldown = 8
-            self.comfort_timer = int(self.rng.integers(4, 8))
+            if self.occupants:
+                self.attending = max(self.occupants, key=lambda o: o.arousal - o.valence)
+                self.attend_timer = int(self.rng.integers(4, 8))
             return
         super().apply(action)
+
+    def step(self) -> None:
+        super().step()
+        o = self.attending
+        if self.attend_timer > 0 and o in self.occupants:
+            o.mood_anchor = None                                  # they were helped
+            o.valence = float(min(1.0, o.valence + 0.15 * 0.25))  # the same lift a visit gives, to them
+            if o.arousal > 0.6:
+                o.arousal += 0.25 * (0.35 - o.arousal)
+            self.attend_timer -= 1
 
 
 def lounge_afternoon(seed: int = 0) -> Space:
@@ -75,6 +93,12 @@ class LobbySpace(Space):
             self.desk2 = 8
             return
         super().apply(action)
+
+    def read(self):
+        r = super().read()
+        seen = [o for o in self.queue() if self._lux_rng.random() > self.cfg.radar_miss]
+        r.queue = len(seen)          # the radar's queue zone (own random stream: the world is unchanged)
+        return r
 
     def queue(self) -> list:
         q = [o for o in self.occupants if getattr(o, "role", "") == "checkin" and not getattr(o, "served", False)]
@@ -148,6 +172,7 @@ class Session:
         self.history: list[dict] = []
         self.events: list[str] = []
         self.tampered: set[str] = set()
+        self.traces: dict[str, dict] = {}   # one complete example per decision, for the "follow one decision" panel
 
     # ------------------------------------------------------------------ stepping
     def step(self, decision: str | None) -> None:
@@ -181,6 +206,25 @@ class Session:
         self.awaiting = False
         applied = "do_nothing" if overridden else rec.action
         rid = self.ledger.record(self.t, rec, applied, overridden)
+        if rec.action != "do_nothing":
+            r, b = self.reading, rec.beliefs
+            def top(f):
+                return max(b[f].items(), key=lambda kv: kv[1])
+            self.traces[rid] = {
+                "id": rid, "time": self._clock(), "sealed_at": datetime.now().astimezone().strftime("%H:%M:%S"),
+                "hash": self.ledger._records[rid]["hash"][:16],
+                "inputs": {"radar count": r.count, "door entries": r.entries, "movement": round(r.motion_level, 2),
+                           "sound": f"{r.db:.0f} dB", "temperature": f"{r.temp_c:.1f} C", "CO2": f"{r.co2_ppm:.0f} ppm",
+                           "heart rate": "no wearable" if r.hr is None else f"{r.hr:.0f}",
+                           **({"queue zone": r.queue} if r.queue is not None else {})},
+                "beliefs": {f: [top(f)[0], round(top(f)[1], 2)] for f in ("occupancy", "arousal", "valence", "thermal", "hvac")},
+                "action": rec.action, "reason": rec.reason,
+                "forecast": {"channel": rec.prediction.modality, "predicted": MODALITIES[rec.prediction.modality][rec.prediction.predicted],
+                             "probability": round(rec.prediction.probability, 2), "due": self._clock_at(self.t + rec.prediction.horizon)},
+                "also_sealed": {m: MODALITIES[m][rec.forecasts[m][0]] for m in ("hr", "motion", "sound_level") if m in rec.forecasts},
+                "decision": "dismissed" if overridden else "accepted",
+                "decided_by": "you" if self.staff == "you" else "simulated staff",
+            }
         self.pending.append((rid, self.t + rec.prediction.horizon, dict(self._obs)))
         self.score["sentient"].record(space, self.t, rec.action, overridden)
         if rec.action != "do_nothing":
@@ -217,6 +261,7 @@ class Session:
             "true_mood": round(space.mean_valence(), 3) if space.n else None,
             "p_ac_broken": round(b["hvac"]["degraded"], 3),
             "ac_broken": space.hvac_degraded,
+            "queues": {k: (len(w.queue()) if hasattr(w, "queue") else None) for k, w in self.world.items()},
             "action": rec.action if rec.action != "do_nothing" else None,
             "dismissed": overridden,
         })
@@ -363,6 +408,22 @@ class Session:
                 "result": None if out is None else ("hit" if out["hit"] else "miss"),
                 "tampered": e["id"] in self.tampered,
             })
+        trace = None
+        for rid in sorted(self.traces, reverse=True):
+            tr = dict(self.traces[rid])
+            out = next((o for o in outs if o["id"] == rid), None)
+            if out is not None or trace is None:
+                mod = tr["forecast"]["channel"]
+                tr["outcome"] = None if out is None else {
+                    "actual": MODALITIES[mod][out["actual"]], "hit": out["hit"],
+                    "same_as_now": MODALITIES[mod][out["persistence_predicted"]], "same_as_now_hit": out["persistence_hit"],
+                    "scored": out.get("scored", True),
+                    "also": {o["modality"]: [MODALITIES[o["modality"]][o["actual"]], o["hit"]]
+                             for o in self.ledger.events if o["type"] == "channel_outcome" and o["id"] == rid
+                             and o["modality"] in ("hr", "motion", "sound_level")}}
+                trace = tr
+            if out is not None:
+                break
         scores = {}
         for k, o in self.score.items():
             s = o.summary()
@@ -397,6 +458,7 @@ class Session:
                             f"({rec.prediction.probability:.0%})",
             },
             "flags": sorted(self.agent.flagged),
+            "queue_forecast": None if self.agent.queue_forecast is None else round(self.agent.queue_forecast, 1),
             "worlds": {k: self._world_view(k) for k in self.world},
             "purpose": w.cfg.purpose, "layout": "lobby" if self.scenario == "hotel_lobby" else "lounge", "gated": None if rec is None else rec.gated,
             "scores": scores,
@@ -404,6 +466,7 @@ class Session:
                           "same_as_now": sum(o["persistence_hit"] for o in outs)},
             "history": self.history,
             "ledger": tail,
+            "trace": trace,
             "events": self.events[-8:][::-1],
         }
 
@@ -421,7 +484,8 @@ class Session:
             "light": round(w.light, 2), "sound": round(w.sound_setting, 2), "temp": round(w.temp, 1),
             "co2": round(w.co2), "cooling": w.cooling, "heating": w.heating,
             "ventilating": w.ventilating > 0, "ac_broken": w.hvac_degraded, "mic_dead": w.cfg.stuck_db is not None,
-            "staff_here": w.comfort_timer > 0 or w.relief_timer > 0, "repair_here": w.repair_timer > 0,
+            "staff_here": w.comfort_timer > 0 or w.relief_timer > 0 or getattr(w, "attend_timer", 0) > 0,
+            "repair_here": w.repair_timer > 0,
             "mood": s["mood_mean"], "energy": s["energy"], "wasted": s["dismissed"],
             "staff_calls": s["staff_alerts"], "tickets": s["tickets"],
             "desk2": getattr(w, "desk2", 0) > 0,

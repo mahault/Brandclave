@@ -113,6 +113,7 @@ class Reading:
     hrv: float | None = None
     mean_dwell_min: float = 0.0
     lux: float | None = None     # ambient light level; None when no light sensor reports
+    queue: int | None = None     # people in a queue zone, where the radar reports zones; None otherwise
 
 
 def discretize(r: Reading) -> dict[str, int]:

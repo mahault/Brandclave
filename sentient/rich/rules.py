@@ -25,7 +25,8 @@ class RuleController:
             return "maintenance_ticket"
         if r.hr is not None and r.hr > 90 and levers["staff_alert"]:
             return "staff_alert"
-        if self.intent == "service" and r.count >= 8 and levers["staff_alert"]:
+        if self.intent == "service" and levers["staff_alert"] and (
+                (r.queue is not None and r.queue >= 4) or (r.queue is None and r.count >= 8)):
             return "staff_alert"
         if r.co2_ppm > 1000 and levers["ventilate"]:
             return "ventilate"

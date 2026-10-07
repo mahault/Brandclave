@@ -101,6 +101,12 @@ class RichAgent:
         self.flagged: set[str] = set()
         self._last_beliefs: list[np.ndarray] | None = None
         self._raw_prev: dict[str, float] = {}
+        # queue anticipation, used only where a queue-zone count is reported (service spaces)
+        self._q_prev: int | None = None
+        self._inflow = 0.0
+        self._desk_called_at = -100
+        self.queue_forecast: float | None = None
+        self._ticket_dismissed_at = -100
         self._raw_same: dict[str, int] = {}
         self.last: Recommendation | None = None
         self.hvac_belief_trace: list[float] = []
@@ -137,6 +143,9 @@ class RichAgent:
         state = self._state_summary(beliefs)
         if rule == "setback":
             return f"{state}; space confidently empty, set lights and HVAC back"
+        if rule == "queue":
+            return (f"{state}; {self._q_prev} in the queue, about {self.queue_forecast:.0f} expected in "
+                    f"{self.horizon * 2} min at the current inflow; open a second desk")
         if rule == "maintenance":
             return f"{state}; cooling commanded but temperature not responding, HVAC likely degraded, ticket instead of another command"
         if action == "do_nothing":
@@ -219,9 +228,26 @@ class RichAgent:
         action = ACTIONS[chosen]
         rule = None
 
-        # In a service space a staff call is for a queue that is there, not one that might form.
         occ = beliefs[FACTOR_NAMES.index("occupancy")]
-        if self.intent == "service" and action == "staff_alert" and occ[2] + occ[3] < 0.6:
+        if self.intent == "service" and reading.queue is not None:
+            # Rule 3: with a queue zone, call a second desk for the queue it expects in six minutes,
+            # from the queue now and the inflow it has been seeing. One desk serves about one guest
+            # every two steps; a second desk, once called, doubles that for eight steps.
+            qlen = reading.queue
+            desk_open = (self._t - self._desk_called_at) < 8
+            served = 0.5 + (0.5 if desk_open else 0.0)
+            if self._q_prev is not None:
+                self._inflow = 0.5 * self._inflow + 0.5 * max(0.0, qlen - self._q_prev + served)
+            self._q_prev = qlen
+            self.queue_forecast = max(0.0, qlen + self.horizon * (self._inflow - served))
+            wants_desk = not desk_open and (self.queue_forecast >= 4 or qlen >= 4)
+            if wants_desk and (not levers or levers.get("staff_alert", True)):
+                action, chosen, rule = "staff_alert", ACT["staff_alert"], "queue"
+                self._desk_called_at = self._t
+            elif action == "staff_alert":
+                action, chosen = "do_nothing", DO_NOTHING
+        elif self.intent == "service" and action == "staff_alert" and occ[2] + occ[3] < 0.6:
+            # without a queue zone, a staff call is for a crowd that is there, not one that might form
             action, chosen = "do_nothing", DO_NOTHING
 
         # Rule 1: confidently and persistently empty -> setback.
@@ -234,8 +260,10 @@ class RichAgent:
         # Rule 2: HVAC believed degraded while the room is uncomfortable -> maintenance ticket,
         # instead of commanding a unit the model believes is not responding.
         thermal = beliefs[FACTOR_NAMES.index("thermal")]
+        # A dismissed ticket waits as long as a raised one would (30 steps) before it is asked again.
         if (p_degraded > self.hvac_threshold and int(np.argmax(thermal)) != 1
-                and action != "setback" and (not levers or levers.get("maintenance_ticket", True))):
+                and action != "setback" and (self._t - self._ticket_dismissed_at) >= 30
+                and (not levers or levers.get("maintenance_ticket", True))):
             action, chosen, rule = "maintenance_ticket", ACT["maintenance_ticket"], "maintenance"
 
         target = self._target_modality(action if action != "setback" else "do_nothing", reading)
@@ -306,6 +334,10 @@ class RichAgent:
     def feedback(self, rec: Recommendation, accepted: bool) -> None:
         if not accepted and self._pending:
             self._pending[-1]["scored"] = False   # its forecast assumed an action that never happened
+        if rec.action == "maintenance_ticket" and not accepted:
+            self._ticket_dismissed_at = self._t - 1
+        if rec.action == "staff_alert" and not accepted:
+            self._desk_called_at = -100              # the second desk was not opened
         if rec.action == "setback":
             if not accepted:
                 # someone pressed dismiss: the space is not empty

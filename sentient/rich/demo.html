@@ -4,491 +4,421 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sentient Live</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Montserrat:wght@300;400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: the room you can see on the left, what Sentient sees, thinks and suggests on the right;
-   the same room under the rulebook and the preset below; explained charts and the audit trail last. */
+/* One screen, no page scroll. Top: the room (left) and inside Sentient (right). Bottom: the same moment
+   in three rooms, and the charts in tabs. Audit trail and raw beliefs slide in from the right.
+   Tokens follow the Brandclave dashboard; Sentient is gold, the rulebook blue, today's preset grey. */
 :root{
-  --bg:#0e1620; --panel:#152130; --panel-2:#1c2b3c; --line:#2a3b4d;
-  --ink:#eef2f0; --ink-2:#b7c3cc; --muted:#8696a3;
-  --model:#4a90e8; --rules:#e8743c; --preset:#8e9592; --truth:#d5dbe0;
-  --good:#46c37f; --bad:#e5615a; --warn:#e3a83b;
-  --font:"Segoe UI",system-ui,-apple-system,sans-serif; --mono:Consolas,"SF Mono",Menlo,monospace;
+  --bg:#0d0b08; --surface:#17140f; --surface-2:#201a12; --surface-3:#2a2318;
+  --ink:#f2ecdf; --ink-2:#b9ae9c; --ink-3:#857a68;
+  --line:rgba(226,160,71,0.15); --line-strong:rgba(226,160,71,0.34);
+  --gold:#e2a047; --gold-ink:#141008; --teal:#3aa88d; --rose:#c25a78; --blue:#4a8bc2; --violet:#8b7ce0;
+  --sentient:#e2a047; --rules:#4a8bc2; --preset:#857a68;
+  --font-display:'Archivo','Segoe UI',sans-serif; --font-body:'Inter',-apple-system,'Segoe UI',sans-serif; --font-mono:'JetBrains Mono',Consolas,monospace;
+  color-scheme:dark;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px}
-header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-header h1{font-size:18px;margin:0 14px 0 0;font-weight:650}
-header h1 span{color:var(--model)}
-select,input,button{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
-input[type=number]{width:64px}
-button{cursor:pointer} button:hover{border-color:var(--ink-2)}
-button.primary{background:var(--model);border-color:var(--model);color:#07121c;font-weight:650}
-button.on{background:#25405a;border-color:var(--model)}
-.sep{width:1px;height:24px;background:var(--line)}
-.small{font-size:12.5px;color:var(--muted);line-height:1.45}
-.wrap{padding:14px 20px;display:flex;flex-direction:column;gap:14px}
-.row{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.panel h2{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0;font-weight:650}
-.head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
-.clock{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
-canvas{width:100%;height:auto;display:block;border-radius:10px}
-.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink-2);align-items:center}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
-.grad{display:inline-block;width:70px;height:10px;border-radius:5px;background:linear-gradient(90deg,#e5615a,#e3a83b,#46c37f);margin:0 6px;vertical-align:0}
-.injects{display:flex;flex-wrap:wrap;gap:6px}
-.injects button{font-size:13px;padding:6px 9px}
-.mind{display:flex;flex-direction:column;gap:12px}
-.step{background:var(--panel-2);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:5px}
-.step .k{font-size:11.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--model);font-weight:650}
-.step p{margin:0;line-height:1.5;color:var(--ink)}
-.step p.sub{color:var(--ink-2);font-size:14px}
-.suggest{border-left:5px solid var(--model)}
-.suggest.hold{border-left-color:var(--muted)}
-.suggest .act{font-size:26px;font-weight:650}
-.decide{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.decide button{flex:1;font-size:16px;padding:10px;min-width:120px}
-.decide .ok{background:var(--good);border-color:var(--good);color:#06150b;font-weight:650}
-.decide .no{background:var(--bad);border-color:var(--bad);color:#1a0606;font-weight:650}
-.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.mini h3{margin:0;font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px}
-.mini h3 i{width:11px;height:11px;border-radius:50%;display:inline-block}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.stat{background:var(--panel-2);border-radius:8px;padding:7px 9px}
-.stat .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
-.stat .l{font-size:11.5px;color:var(--muted)}
-.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-svg{width:100%;height:auto;display:block}
-.big2{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
-.big2 .v{font-size:34px;font-weight:650;font-variant-numeric:tabular-nums}
-details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
-details summary{cursor:pointer;font-weight:650;color:var(--ink-2)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:13.5px;display:grid;grid-template-rows:auto minmax(0,1fr)}
+header{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+.brand{font-family:'Montserrat',var(--font-display);font-weight:300;letter-spacing:.42em;text-transform:uppercase;font-size:15px;margin-right:10px;color:var(--ink)}
+.brand span{color:var(--gold);font-weight:400;letter-spacing:.24em;font-size:11px}
+select,input,button{font:inherit;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:5px 9px}
+input[type=number]{width:56px}
+button{cursor:pointer} button:hover{border-color:var(--line-strong)}
+button.primary{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);font-weight:600}
+button.on{border-color:var(--gold);color:var(--gold)}
+.sep{width:1px;height:22px;background:var(--line)}
+.lbl{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+.lbl.gold{color:var(--gold)}
+.spacer{flex:1}
+main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(380px,1fr);grid-template-rows:minmax(0,1fr) minmax(0,.58fr);gap:10px;padding:10px 14px;min-height:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.clock{font-family:var(--font-display);font-weight:700;font-size:17px;font-variant-numeric:tabular-nums}
+.canvas{flex:1;min-height:0;display:flex;justify-content:center;align-items:center}
+.canvas canvas{height:100%;max-width:100%;aspect-ratio:900/540;border-radius:10px;display:block}
+.chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.chips button{font-size:12px;padding:3px 8px;border-radius:999px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--ink-2);align-items:center}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.grad{display:inline-block;width:54px;height:8px;border-radius:4px;background:linear-gradient(90deg,#c25a78,#e2a047,#3aa88d);margin:0 5px;vertical-align:0}
+.mind{overflow:auto}
+.block{background:var(--surface-2);border-radius:10px;padding:7px 10px;display:flex;flex-direction:column;gap:2px}
+.block p{line-height:1.42;color:var(--ink)}
+.block .sub{color:var(--ink-2);font-size:12px}
+.suggest{border-left:3px solid var(--gold)} .suggest.hold{border-left-color:var(--ink-3)}
+.act{font-family:var(--font-display);font-weight:700;font-size:19px}
+.decide{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.decide button{flex:1;font-weight:600;padding:7px}
+.decide .ok{background:var(--teal);border-color:var(--teal);color:#08140f}
+.decide .no{background:var(--rose);border-color:var(--rose);color:#1a0810}
+.trace{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.tc{background:var(--surface-2);border-radius:8px;padding:6px 7px;font-size:11.5px;line-height:1.4;color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
+.tc b{color:var(--ink);font-weight:600}
+.tc .lbl{display:block;margin-bottom:2px;font-size:9.5px}
+.ok-t{color:var(--teal)!important} .no-t{color:var(--rose)!important}
+.bottom{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.15fr);gap:10px;min-height:0}
+.mini h3{font-family:var(--font-display);font-size:13px;font-weight:600;display:flex;gap:7px;align-items:center}
+.mini h3 i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.stat{background:var(--surface-2);border-radius:7px;padding:3px 6px}
+.stat .v{font-family:var(--font-display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.stat .l{font-size:10px;color:var(--ink-3);line-height:1.2}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{font-size:11.5px;padding:3px 8px;border-radius:999px}
+.chart{flex:1;min-height:0;display:flex;flex-direction:column;gap:4px}
+.chart svg{flex:1;min-height:0;width:100%}
+.big2{display:flex;gap:18px;align-items:baseline}
+.big2 .v{font-family:var(--font-display);font-weight:800;font-size:28px;font-variant-numeric:tabular-nums}
+.note{font-size:11.5px;color:var(--ink-3);line-height:1.4}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,92vw);background:var(--surface);border-left:1px solid var(--line-strong);padding:14px 16px;display:flex;flex-direction:column;gap:10px;transform:translateX(100%);transition:transform .2s;z-index:5;overflow:auto}
+.drawer.open{transform:none}
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:6px;border-bottom:1px solid var(--line);font-size:13px}
-th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-transform:uppercase}
-.pill{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:999px;background:var(--panel-2)}
-.pill.hit{color:var(--good)} .pill.miss{color:var(--bad)}
-.mono{font-family:var(--mono);font-size:12px}
-.beliefs{display:grid;grid-template-columns:130px 1fr;gap:7px 12px;align-items:center;margin-top:10px}
-.bar{display:flex;height:20px;border-radius:5px;overflow:hidden;background:var(--panel-2)}
-.bar div{display:flex;align-items:center;justify-content:center;font-size:11px;color:#0b1520;white-space:nowrap;overflow:hidden;border-right:1px solid var(--panel)}
+th,td{text-align:left;padding:5px;border-bottom:1px solid var(--line);font-size:12px}
+th{font-family:var(--font-mono);color:var(--ink-3);font-weight:400;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.mono{font-family:var(--font-mono);font-size:11.5px}
+.pill{font-family:var(--font-mono);font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--surface-2)}
+.beliefs{display:grid;grid-template-columns:110px 1fr;gap:5px 10px;align-items:center}
+.bar{display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--surface-2)}
+.bar div{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--gold-ink);white-space:nowrap;overflow:hidden;border-right:1px solid var(--surface)}
 .hidden{display:none!important}
-.toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
-@media (max-width:1150px){.row,.three,.charts{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.drawer{transition:none}}
 </style>
 </head>
 <body>
 <header>
-  <h1><span>Sentient</span> · live</h1>
-  <select id="scenario"></select>
-  <label class="small">seed <input id="seed" type="number" value="12"></label>
+  <div class="brand">Sentient <span>live · simulated</span></div>
+  <select id="scenario" aria-label="Room"></select>
+  <label class="lbl">seed <input id="seed" type="number" value="12"></label>
   <button id="start" class="primary">Start</button>
-  <div class="sep"></div>
   <button id="run">Play</button>
   <button id="stepBtn">+2 min</button>
-  <select id="speed"><option value="1100">Slow</option><option value="450" selected>Normal</option><option value="80">Fast</option></select>
+  <select id="speed" aria-label="Speed"><option value="1100">Slow</option><option value="450" selected>Normal</option><option value="80">Fast</option></select>
   <div class="sep"></div>
   <button id="staffAuto" class="on">Staff simulated</button>
   <button id="staffYou">You are the staff</button>
   <div class="sep"></div>
-  <label class="small">This room is for <select id="intent"></select></label>
+  <label class="lbl">For <select id="intent"></select></label>
+  <div class="spacer"></div>
+  <button id="openDrawer">Audit trail</button>
 </header>
 
-<div class="wrap">
-  <div class="row">
-    <section class="panel">
-      <div class="head"><h2>What is really happening in the room</h2><span class="clock" id="clock">press Start</span></div>
-      <canvas id="room" width="900" height="540"></canvas>
-      <div class="legend">
-        <span>Mood <span class="grad"></span> low to good</span>
-        <span>Shaking dot = stressed</span>
-        <span><i style="background:#ffffff;border:3px solid #e5615a"></i>Distressed</span>
-        <span><i style="background:#2f5d8a;border:2px solid #fff"></i>Staff member</span>
-        <span>Dark room = lights dimmed · grey haze = stale air</span>
-      </div>
-      <div class="small">This is the simulated world, which knows everything. Sentient only gets what the sensors (labelled on the walls) report, and has to work out the rest.</div>
-      <div class="injects">
-        <span class="small" style="align-self:center">Change the room:</span>
-        <button data-inject="stressed_guest">A distressed guest walks in</button>
-        <button data-inject="group">A group of four arrives</button>
-        <button data-inject="ac_fail">Break the air conditioner</button>
-        <button data-inject="ac_fix">Repair it</button>
-        <button data-inject="mic_dead">Kill the microphone</button>
-        <button data-inject="mic_fix">Fix it</button>
-        <button data-inject="everyone_leaves">Everyone leaves</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Inside Sentient, right now</h2>
-      <div class="mind">
-        <div class="step"><span class="k">1 · What it sees</span><p id="sees">Nothing yet. Pick a room and press Start.</p><p class="sub" id="seesSub"></p></div>
-        <div class="step"><span class="k">2 · What it thinks is going on</span><p id="thinks">–</p><p class="sub">It never sees mood or stress directly. It infers them from movement, sound, heart rate and how the room responds, and says how sure it is.</p></div>
-        <div class="step suggest hold" id="suggestBox"><span class="k">3 · What it suggests</span><div class="act" id="act">–</div><p id="why"></p><p class="sub" id="predict"></p><p class="sub" id="lastAct"></p>
-          <div class="decide hidden" id="decide"><span class="small" style="flex-basis:100%">You are the staff. Do you do it?</span><button class="ok" id="accept">Yes, do it</button><button class="no" id="dismiss">No, dismiss</button></div>
-        </div>
-        <div class="small" id="events"></div>
-      </div>
-    </section>
-  </div>
-
-  <section class="panel">
-    <div class="head"><h2>The same room, three ways, at the same moment</h2><span class="small">Same people, same faults, same clock. Only who is in charge differs.</span></div>
-    <div class="three">
-      <div class="mini"><h3><i style="background:var(--model)"></i>Sentient</h3><canvas id="mini0" width="900" height="540"></canvas><div class="stats" id="stats0"></div></div>
-      <div class="mini"><h3><i style="background:var(--rules)"></i>A rulebook on the same sensors</h3><canvas id="mini1" width="900" height="540"></canvas><div class="stats" id="stats1"></div></div>
-      <div class="mini"><h3><i style="background:var(--preset)"></i>What hotels run today</h3><canvas id="mini2" width="900" height="540"></canvas><div class="stats" id="stats2"></div></div>
-    </div>
-    <div class="small">How guests feel: average mood of the people present, 0 to 1. Energy: lights, heating, cooling and fresh air, so far. Staff visits: times someone was sent over. Ignored calls: suggestions staff dismissed. Both cost a busy team time.</div>
+<main>
+  <section class="card">
+    <div class="head"><span class="lbl gold">The room · simulated world, everything visible</span><span class="clock" id="clock">press Start</span></div>
+    <div class="canvas"><canvas id="room" width="900" height="540"></canvas></div>
+    <div class="chips"><span class="lbl">Change the room</span>
+      <button data-inject="stressed_guest">Distressed guest</button><button data-inject="group">Group of four</button>
+      <button data-inject="ac_fail">Break the A/C</button><button data-inject="ac_fix">Repair it</button>
+      <button data-inject="mic_dead">Kill the sound sensor</button><button data-inject="mic_fix">Fix it</button>
+      <button data-inject="everyone_leaves">Everyone leaves</button></div>
+    <div class="legend"><span>Modelled mood <span class="grad"></span>low → good</span><span>Shaking = stressed</span><span><i style="border:2px dashed #c25a78"></i>distressed</span><span><i style="background:#4a8bc2"></i>staff</span><span><i style="background:#8b7ce0"></i>technician</span><span>Sentient gets only the sensors on the walls, not what you see here.</span></div>
   </section>
 
-  <div class="charts">
-    <section class="panel">
-      <h2>Is it reading people right?</h2>
-      <svg id="c1" viewBox="0 0 500 200" role="img" aria-label="Sentient's estimate of how stressed people are against how stressed they really are"></svg>
-      <div class="legend"><span><i style="background:var(--model)"></i>How stressed Sentient thinks people are</span><span><i style="background:var(--truth)"></i>How stressed they really are</span></div>
-      <div class="small">Sentient never sees the grey line. When the two move together, it is reading people correctly from cheap sensors.</div>
-    </section>
-    <section class="panel">
-      <h2>Does it notice broken equipment?</h2>
-      <svg id="c2" viewBox="0 0 500 200" role="img" aria-label="Sentient's belief the air conditioner is broken, with the period it really was broken shaded"></svg>
-      <div class="legend"><span><i style="background:var(--rules)"></i>Sentient's belief the air conditioner is broken</span><span><i style="background:rgba(229,97,90,.35);border-radius:2px"></i>It really is broken</span></div>
-      <div class="small">There is no sensor on the unit. Sentient works it out because the room stops cooling when it should.</div>
-    </section>
-    <section class="panel">
-      <h2>Is it honest about its predictions?</h2>
-      <div class="big2"><div><div class="v" id="fcS">–</div><div class="small">Sentient's predictions that came true</div></div><div><div class="v" id="fcP" style="color:var(--muted)">–</div><div class="small">"Nothing will change" would have been right</div></div></div>
-      <div class="small">Every suggestion carries a prediction of what a sensor will read six minutes later. It is sealed when made and scored when the time comes. "Nothing will change" is the simplest honest guess, so it is the bar to beat.</div>
-      <div class="small" id="flags"></div>
+  <section class="card mind">
+    <div class="head"><span class="lbl gold">Inside Sentient, now</span><span class="lbl" id="who"></span></div>
+    <div class="block"><span class="lbl">1 · Sensors report</span><p id="sees">Pick a room and press Start.</p><p class="sub" id="seesSub"></p></div>
+    <div class="block"><span class="lbl">2 · It infers, with how sure it is</span><p id="thinks">–</p></div>
+    <div class="block suggest hold" id="suggestBox"><span class="lbl">3 · It recommends to staff</span><div class="act" id="act">–</div><p class="sub" id="why"></p><p class="sub" id="predict"></p><p class="sub" id="lastAct"></p>
+      <div class="decide hidden" id="decide"><span class="lbl" style="flex-basis:100%">You are the staff. Do it?</span><button class="ok" id="accept">Yes, do it</button><button class="no" id="dismiss">No, dismiss</button></div>
+    </div>
+    <div class="head" style="margin-top:2px"><span class="lbl gold">Follow one decision, end to end</span><span class="lbl" id="traceId"></span></div>
+    <div class="trace" id="trace"><div class="tc" style="grid-column:1/-1">The latest recommendation will appear here: what the sensors said, what it inferred, what it predicted (sealed), what staff decided, and whether the prediction came true.</div></div>
+  </section>
+
+  <div class="bottom">
+    <section class="card mini"><h3><i style="background:var(--sentient)"></i>Sentient</h3><div class="canvas"><canvas id="mini0" width="900" height="540"></canvas></div><div class="stats" id="stats0"></div></section>
+    <section class="card mini"><h3><i style="background:var(--rules)"></i>Rulebook, same sensors</h3><div class="canvas"><canvas id="mini1" width="900" height="540"></canvas></div><div class="stats" id="stats1"></div></section>
+    <section class="card mini"><h3><i style="background:var(--preset)"></i>Today's fixed preset</h3><div class="canvas"><canvas id="mini2" width="900" height="540"></canvas></div><div class="stats" id="stats2"></div></section>
+    <section class="card">
+      <div class="tabs" id="tabs"><button data-tab="people" class="on">Reading people</button><button data-tab="equip">Equipment</button><button data-tab="pred">Predictions</button><button data-tab="queue">Queue</button></div>
+      <div class="chart" id="chartBox"><svg id="chart" viewBox="0 0 520 170" preserveAspectRatio="none" role="img" aria-label="Chart"></svg><div class="legend" id="chartLegend"></div><div class="note" id="chartNote"></div></div>
     </section>
   </div>
+</main>
 
-  <details>
-    <summary>Audit trail: every decision, sealed</summary>
-    <div class="small" style="margin:8px 0">Each decision is fingerprinted (hashed) the moment it is made. Verify recomputes the fingerprint. Tamper changes a record after the fact, and Verify then shows it was altered.</div>
-    <table id="ledger"></table>
-    <div id="verifyMsg" class="mono" style="margin-top:8px"></div>
-  </details>
-
-  <details>
-    <summary>Engineer view: the raw beliefs</summary>
-    <div class="beliefs" id="beliefs"></div>
-    <div class="small mono" id="rawReason" style="margin-top:10px"></div>
-  </details>
-</div>
+<aside class="drawer" id="drawer" aria-label="Audit trail and details">
+  <div class="head"><span class="lbl gold">Audit trail · every decision sealed</span><button id="closeDrawer">Close</button></div>
+  <p class="note">Each recommendation is hashed (SHA-256) when it is made, and its forecast is scored when due. Verify recomputes the hash; Tamper edits a stored record to show the mismatch is caught. In this prototype the log is append-only in memory and on disk. It is not yet anchored to an outside timestamp service, so a hash alone does not stop someone with full access from rewriting the whole log.</p>
+  <table id="ledger"></table>
+  <div id="verifyMsg" class="mono"></div>
+  <span class="lbl gold" style="margin-top:8px">Raw beliefs (engineer view)</span>
+  <div class="beliefs" id="beliefs"></div>
+  <div class="mono note" id="rawReason"></div>
+</aside>
 
 <script>
-const NAMES={lounge_afternoon:"Hotel lounge, one afternoon (start here)",hotel_lobby:"Hotel lobby, check-in rush",restore_pod:"Restore pod, noisy and bright",bar_9pm:"Bar at 9pm, meant to be lively",flat_bar:"Flat bar, music off",ambiguous_hr:"Calm guest, high heart rate",lobby_peak:"Lobby check-in rush",happy_group:"Happy group in a quiet lounge",stale_meeting:"Stuffy meeting room",hvac_failure:"Air conditioner fails",cold_morning:"Cold morning, work room",stressed_guest:"Distressed guest",sensor_failure:"Dead microphone"};
+const NAMES={lounge_afternoon:"Hotel lounge, one afternoon (start here)",hotel_lobby:"Hotel lobby, check-in rush",restore_pod:"Restore pod, noisy and bright",bar_9pm:"Bar at 9pm, meant to be lively",flat_bar:"Flat bar, music off",ambiguous_hr:"Calm guest, high heart rate",lobby_peak:"Lobby check-in (test room)",happy_group:"Happy group in a quiet lounge",stale_meeting:"Stuffy meeting room",hvac_failure:"Air conditioner fails",cold_morning:"Cold morning, work room",stressed_guest:"Distressed guest",sensor_failure:"Dead sound sensor"};
 const INTENTS={restore:"rest",work:"work",elevated:"a lively evening",service:"service (a lobby)"};
+const INTENT_SHORT={restore:"rest",work:"work",elevated:"a lively evening",service:"a lobby"};
 const $=id=>document.getElementById(id);
-let S=null, running=false;
+let S=null, running=false, tab="people";
 
 async function api(path, body){
   const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
   const j=await r.json(); if(!r.ok) throw new Error(j.detail||r.status); return j;
 }
 
-/* ---------------------------------------------------------------- room drawing */
-function moodColor(m){ // 0 red, .5 amber, 1 green
-  const a=[229,97,90], b=[227,168,59], c=[70,195,127]; let x,y,t;
-  if(m<.5){x=a;y=b;t=m/.5}else{x=b;y=c;t=(m-.5)/.5}
-  return `rgb(${x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(",")})`;
-}
+/* ------------------------------------------------------------------ floor plans */
+function moodColor(m){const a=[194,90,120],b=[226,160,71],c=[58,168,141];let x,y,t;if(m<.5){x=a;y=b;t=m/.5}else{x=b;y=c;t=(m-.5)/.5}return `rgb(${x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(",")})`;}
 function hash(n){let x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x);}
-// Floor plans. Positions are for the viewer only: the model gets a people count and a movement level
-// from the radar, not where anyone is or why they are there.
+const C={wall:"#b9ae9c",label:"#857a68",labelHi:"#d8cfbf",furn:"#2e271d",furn2:"#3a3022",bar:"#4a3622",desk:"#2c3326",ok:"#3aa88d",bad:"#c25a78",cool:"#4a8bc2",heat:"#e2a047",off:"#6b6252"};
 const LAYOUTS={
   lounge:{
-    seats:{
-      rest:[[95,232],[150,232],[205,232],[95,288],[150,288],[205,288]],
+    seats:{rest:[[95,232],[150,232],[205,232],[95,288],[150,288],[205,288]],
       social:[...Array(8)].map((_,i)=>[450+88*Math.cos(i*Math.PI/4+.39),320+88*Math.sin(i*Math.PI/4+.39)]),
-      work:[[665,368],[725,368],[785,368]],
-      transit:[[300,470],[400,470],[500,470],[600,470]],
-      bar:[[742,175],[742,215],[742,255],[742,295]],
-      window:[[390,82],[450,82],[510,82]],
-    },
+      work:[[665,368],[725,368],[785,368]],transit:[[300,470],[400,470],[500,470],[600,470]],
+      bar:[[742,175],[742,215],[742,255],[742,295]],window:[[390,82],[450,82],[510,82]]},
     furniture(g){
-      g.fillStyle="#7fb2ee55"; g.fillRect(330,24,240,12); text(g,"window",450,52,"#a9b6c2",12);
-      g.fillStyle="#3a4a5c"; roundRect(g,60,195,190,130,14); g.fill(); text(g,"sofa",155,342,"#a9b6c2",13);
-      g.beginPath(); g.arc(450,320,58,0,7); g.fillStyle="#4a3f35"; g.fill(); text(g,"table",450,325,"#a9b6c2",13);
-      g.fillStyle="#3d4a3a"; roundRect(g,630,385,190,46,8); g.fill(); text(g,"desk",725,446,"#a9b6c2",13);
-      g.fillStyle="#5a4632"; roundRect(g,770,150,78,180,8); g.fill(); text(g,"bar",809,348,"#a9b6c2",13);
-    },
-    devices:{ac:[140,44],radar:[640,44],speaker:[835,75],air:[280,62],mic:[600,170],door:[195,510],speakerArc:true},
-  },
+      g.fillStyle="rgba(226,160,71,.25)"; g.fillRect(330,24,240,12); text(g,"window",450,52,C.label,12);
+      g.fillStyle=C.furn2; roundRect(g,60,195,190,130,14); g.fill(); text(g,"sofa",155,342,C.label,13);
+      g.beginPath(); g.arc(450,320,58,0,7); g.fillStyle=C.bar; g.fill(); text(g,"table",450,325,C.label,13);
+      g.fillStyle=C.desk; roundRect(g,630,385,190,46,8); g.fill(); text(g,"desk",725,446,C.label,13);
+      g.fillStyle=C.bar; roundRect(g,770,150,78,180,8); g.fill(); text(g,"bar",809,348,C.label,13);},
+    devices:{ac:[140,44],radar:[640,44],speaker:[835,75],air:[280,62],mic:[600,170],door:[195,510]}},
   lobby:{
-    seats:{
-      queue:[[185,140],[185,178],[185,216],[185,254],[185,292],[185,330],[225,330],[265,330],[305,330],[345,330],[385,330],[425,330],[465,330],[505,330]],
+    seats:{queue:[[185,140],[185,178],[185,216],[185,254],[185,292],[185,330],[225,330],[265,330],[305,330],[345,330],[385,330],[425,330],[465,330],[505,330]],
       waiting:[[440,445],[490,445],[540,445],[590,445],[640,445],[440,482],[490,482],[540,482],[590,482],[640,482]],
       bar:[[762,215],[762,250],[762,285],[762,320],[762,355],[725,235],[725,300]],
-      meet:[[505,222],[545,222],[505,262],[545,262]],
-      barstand:[[700,200],[700,260],[700,320],[665,230],[665,290]],
-    },
+      meet:[[505,222],[545,222],[505,262],[545,262]],barstand:[[700,200],[700,260],[700,320],[665,230],[665,290]]},
     furniture(g){
-      g.fillStyle="#4a5a6c"; roundRect(g,70,70,230,36,6); g.fill(); text(g,"check-in desk",185,94,"#dfe6ec",13);
-      g.fillStyle="#6b7a88"; g.fillRect(690,24,160,14); text(g,"lifts",770,58,"#dfe6ec",13);
-      g.fillStyle="#3a4a5c"; roundRect(g,420,430,240,70,8); g.fill(); text(g,"waiting",540,424,"#a9b6c2",12);
-      g.beginPath(); g.arc(525,242,12,0,7); g.fillStyle="#3f6b47"; g.fill(); text(g,"meeting point",525,205,"#a9b6c2",12);
-      g.fillStyle="#5a4632"; roundRect(g,790,195,60,180,8); g.fill(); text(g,"bar",820,392,"#a9b6c2",13);
-      g.strokeStyle="rgba(201,211,219,.25)"; g.lineWidth=2; g.setLineDash([6,6]); g.beginPath(); g.moveTo(160,118); g.lineTo(160,350); g.lineTo(530,350); g.stroke(); g.setLineDash([]);
-      text(g,"queue",230,365,"#a9b6c2",12);
-    },
-    devices:{ac:[400,44],radar:[580,44],speaker:[858,450],air:[48,420],mic:[380,200],door:[195,510]},
-  },
+      g.fillStyle=C.furn2; roundRect(g,70,70,230,36,6); g.fill(); text(g,"check-in desk",185,94,C.labelHi,13);
+      g.fillStyle="#5b5244"; g.fillRect(690,24,160,14); text(g,"lifts",770,58,C.labelHi,13);
+      g.fillStyle=C.furn; roundRect(g,420,430,240,70,8); g.fill(); text(g,"waiting",540,424,C.label,12);
+      g.beginPath(); g.arc(525,242,12,0,7); g.fillStyle="#3a5a44"; g.fill(); text(g,"meeting point",525,205,C.label,12);
+      g.fillStyle=C.bar; roundRect(g,790,195,60,180,8); g.fill(); text(g,"bar",820,392,C.label,13);
+      g.strokeStyle="rgba(185,174,156,.25)"; g.lineWidth=2; g.setLineDash([6,6]); g.beginPath(); g.moveTo(160,118); g.lineTo(160,350); g.lineTo(530,350); g.stroke(); g.setLineDash([]);
+      text(g,"queue",230,365,C.label,12);},
+    devices:{ac:[400,44],radar:[580,44],speaker:[858,450],air:[48,420],mic:[380,200],door:[195,510]}},
 };
-const DOOR=[[125,528],[125,585]], LIFTS=[[770,62],[770,0]];
-const SPEED=0.12;   // pixels per millisecond: an unhurried walk across the room in about seven seconds
+const DOOR=[[125,528],[125,585]], LIFTS=[[770,62],[770,0]], SPEED=0.12;
 
 class Room{
   constructor(canvas){this.c=canvas;this.g=canvas.getContext("2d");this.clear();}
   clear(){this.pos=new Map();this.taken=new Set();this.w=null;this.layout="lounge";this.last=0;this.staff=null;this.tech=null;this.clerk=null;}
-  take(list,id){
-    const seats=LAYOUTS[this.layout].seats[list]||LAYOUTS.lounge.seats.social, start=Math.floor(hash(id%9973+1)*seats.length);
-    for(let j=0;j<seats.length;j++){const i=(start+j)%seats.length,key=list+i;
-      if(!this.taken.has(key)){this.taken.add(key);return {key,list,xy:seats[i]};}}
-    const [x,y]=seats[start]; return {key:null,list,xy:[x+(hash(id%31)-.5)*40,y+(hash(id%37)-.5)*40]};
-  }
-  release(q){if(q.seat&&q.seat.key) this.taken.delete(q.seat.key); q.seat=null;}
-  want(p,people){   // where this person should be, given what they came to do
+  take(list,id){const seats=LAYOUTS[this.layout].seats[list]||LAYOUTS.lounge.seats.social,start=Math.floor(hash(id%9973+1)*seats.length);
+    for(let j=0;j<seats.length;j++){const i=(start+j)%seats.length,key=list+i;if(!this.taken.has(key)){this.taken.add(key);return {key,list,xy:seats[i]};}}
+    const [x,y]=seats[start];return {key:null,list,xy:[x+(hash(id%31)-.5)*40,y+(hash(id%37)-.5)*40]};}
+  release(q){if(q.seat&&q.seat.key)this.taken.delete(q.seat.key);q.seat=null;}
+  want(p,people){
     if(this.layout!=="lobby") return {list:p.activity};
     if(p.role==="checkin"&&!p.served&&p.queue!=null){const Q=LAYOUTS.lobby.seats.queue;return {xy:Q[Math.min(p.queue,Q.length-1)]};}
     if(p.role==="checkin"||p.role==="pass") return {xy:LIFTS[0]};
     if(p.role==="meetup") return {list:people.some(o=>o!==p&&o.meet===p.meet)?"barstand":"meet"};
-    return {list:p.role==="waiting"?"waiting":"bar"};
-  }
+    return {list:p.role==="waiting"?"waiting":"bar"};}
   set(world,layout){
     const fresh=!this.w; if(layout&&layout!==this.layout){this.pos.clear();this.taken.clear();this.layout=layout;}
-    this.w=world; const now=performance.now(), seen=new Set();
-    world.people.forEach(p=>{seen.add(p.id); let q=this.pos.get(p.id); const want=this.want(p,world.people);
-      if(!q){q={ph:hash(p.id%101)*6.28,next:now+5000+hash(p.id%53)*15000,back:0,seat:null};
-        this.pos.set(p.id,q); const start=fresh?null:DOOR[0]; q.x=start?start[0]:0; q.y=start?start[1]:0; q.fresh=!start;}
+    this.w=world; const now=performance.now(),seen=new Set();
+    world.people.forEach(p=>{seen.add(p.id);let q=this.pos.get(p.id);const want=this.want(p,world.people);
+      if(!q){q={ph:hash(p.id%101)*6.28,next:now+5000+hash(p.id%53)*15000,back:0,seat:null,fresh};this.pos.set(p.id,q);q.x=DOOR[0][0];q.y=DOOR[0][1];}
       q.p=p;
-      if(want.xy){this.release(q); q.tx=want.xy[0]; q.ty=want.xy[1];}
-      else if(!q.seat||q.seat.list!==want.list){this.release(q); q.seat=this.take(want.list,p.id); if(!q.back){q.tx=q.seat.xy[0]; q.ty=q.seat.xy[1];}}
-      if(q.fresh){q.x=q.tx;q.y=q.ty;q.fresh=false;}
-    });
-    for(const [k,q] of this.pos) if(!seen.has(k)&&!q.leaving){
-      const r=q.p&&q.p.role, viaLifts=this.layout==="lobby"&&(r==="checkin"||r==="pass");
-      q.route=viaLifts?LIFTS:DOOR; q.leaving=1; q.back=0; this.release(q); q.tx=q.route[0][0]; q.ty=q.route[0][1];}
+      if(want.xy){this.release(q);q.tx=want.xy[0];q.ty=want.xy[1];}
+      else if(!q.seat||q.seat.list!==want.list){this.release(q);q.seat=this.take(want.list,p.id);if(!q.back){q.tx=q.seat.xy[0];q.ty=q.seat.xy[1];}}
+      if(q.fresh){q.x=q.tx;q.y=q.ty;q.fresh=false;}});
+    for(const [k,q] of this.pos) if(!seen.has(k)&&!q.leaving){const r=q.p&&q.p.role,lifts=this.layout==="lobby"&&(r==="checkin"||r==="pass");
+      q.route=lifts?LIFTS:DOOR;q.leaving=1;q.back=0;this.release(q);q.tx=q.route[0][0];q.ty=q.route[0][1];}
   }
-  step(q,dt){const dx=q.tx-q.x,dy=q.ty-q.y,d=Math.hypot(dx,dy); if(d<1){q.x=q.tx;q.y=q.ty;return true;}
-    const s=Math.min(d,SPEED*dt); q.x+=dx/d*s; q.y+=dy/d*s; return false;}
-  life(q,time){   // small comings and goings in the lounge
-    if(q.leaving||this.layout!=="lounge"||!q.seat) return;
-    const S=LAYOUTS.lounge.seats;
-    if(q.back && time>q.back){q.tx=q.seat.xy[0];q.ty=q.seat.xy[1];q.back=0;q.next=time+18000+hash(q.ph*1e3)*22000;return;}
-    if(!q.back && time>q.next){
-      const a=q.p.activity;
-      if(a==="social"&&hash(q.ph+time%97)<.7){const s=S.bar[Math.floor(hash(q.ph*7+time%13)*S.bar.length)];q.tx=s[0];q.ty=s[1];q.back=time+9000;}
-      else if(a==="rest"&&hash(q.ph+time%89)<.3){const s=S.window[Math.floor(hash(q.ph*5)*S.window.length)];q.tx=s[0];q.ty=s[1];q.back=time+7000;}
-      else q.next=time+15000+hash(q.ph*3+time%7)*20000;
-    }
+  step(q,dt){const dx=q.tx-q.x,dy=q.ty-q.y,d=Math.hypot(dx,dy);if(d<1){q.x=q.tx;q.y=q.ty;return true;}const s=Math.min(d,SPEED*dt);q.x+=dx/d*s;q.y+=dy/d*s;return false;}
+  life(q,time){
+    if(q.leaving||this.layout!=="lounge"||!q.seat) return; const L=LAYOUTS.lounge.seats;
+    if(q.back&&time>q.back){q.tx=q.seat.xy[0];q.ty=q.seat.xy[1];q.back=0;q.next=time+18000+hash(q.ph*1e3)*22000;return;}
+    if(!q.back&&time>q.next){const a=q.p.activity;
+      if(a==="social"&&hash(q.ph+time%97)<.7){const s=L.bar[Math.floor(hash(q.ph*7+time%13)*L.bar.length)];q.tx=s[0];q.ty=s[1];q.back=time+9000;}
+      else if(a==="rest"&&hash(q.ph+time%89)<.3){const s=L.window[Math.floor(hash(q.ph*5)*L.window.length)];q.tx=s[0];q.ty=s[1];q.back=time+7000;}
+      else q.next=time+15000+hash(q.ph*3+time%7)*20000;}
   }
-  helper(kind,here,target,time,dt,letter,color){   // staff, clerk or technician walks in, stays, walks out
+  helper(kind,here,target,dt,letter,color){
     let h=this[kind];
-    if(here){ if(!h){h=this[kind]={x:DOOR[0][0],y:DOOR[0][1],tx:0,ty:0,out:false};} h.out=false; h.tx=target[0]; h.ty=target[1];}
-    else if(h){ h.out=true; if(Math.hypot(h.x-DOOR[0][0],h.y-DOOR[0][1])<4){h.tx=DOOR[1][0];h.ty=DOOR[1][1];} else {h.tx=DOOR[0][0];h.ty=DOOR[0][1];}}
-    if(!h) return; this.step(h,dt);
-    if(h.out&&h.y>DOOR[1][1]-3){this[kind]=null;return;}
-    drawPerson(this.g,h.x,h.y,color,letter);
+    if(here){if(!h)h=this[kind]={x:DOOR[0][0],y:DOOR[0][1],tx:0,ty:0,out:false};h.out=false;h.tx=target[0];h.ty=target[1];}
+    else if(h){h.out=true;if(Math.hypot(h.x-DOOR[0][0],h.y-DOOR[0][1])<4){h.tx=DOOR[1][0];h.ty=DOOR[1][1];}else{h.tx=DOOR[0][0];h.ty=DOOR[0][1];}}
+    if(!h)return;this.step(h,dt);if(h.out&&h.y>DOOR[1][1]-3){this[kind]=null;return;}drawPerson(this.g,h.x,h.y,color,letter);
   }
   draw(time){
-    const g=this.g,w=this.w; g.clearRect(0,0,900,540); g.fillStyle="#0b121b"; g.fillRect(0,0,900,540);
-    if(!w){g.fillStyle="#8696a3";g.font="20px Segoe UI";g.textAlign="center";g.fillText("Pick a room and press Start",450,280);return;}
-    const L=LAYOUTS[this.layout], D=L.devices;
-    const dt=Math.min(1000,time-(this.last||time)); this.last=time;
-    const lit=0.25+0.75*w.light;
-    g.fillStyle=`rgb(${Math.round(60*lit+20)},${Math.round(66*lit+22)},${Math.round(74*lit+26)})`; g.fillRect(30,30,840,480);
+    const g=this.g,w=this.w;g.clearRect(0,0,900,540);g.fillStyle="#0d0b08";g.fillRect(0,0,900,540);
+    if(!w){text(g,"Pick a room and press Start",450,280,"#857a68",22);return;}
+    const L=LAYOUTS[this.layout],D=L.devices,dt=Math.min(1000,time-(this.last||time));this.last=time;
+    const lit=0.35+0.65*w.light;g.fillStyle=`rgb(${Math.round(46+58*lit)},${Math.round(40+50*lit)},${Math.round(32+38*lit)})`;g.fillRect(30,30,840,480);
     L.furniture(g);
-    g.strokeStyle="#c9d3db"; g.lineWidth=6; g.beginPath(); g.moveTo(80,510); g.lineTo(30,510); g.lineTo(30,30); g.lineTo(870,30); g.lineTo(870,510); g.lineTo(170,510); g.stroke();
-    text(g,this.layout==="lobby"?"front door":"door",125,500,"#a9b6c2",12);
-    if(w.temp>24){g.fillStyle=`rgba(255,120,40,${Math.min(.22,(w.temp-24)*.07)})`;g.fillRect(30,30,840,480);}
-    if(w.temp<20.5){g.fillStyle=`rgba(80,140,255,${Math.min(.22,(20.5-w.temp)*.06)})`;g.fillRect(30,30,840,480);}
-    const haze=Math.max(0,Math.min(.4,(w.co2-750)/1300)); if(haze>0){g.fillStyle=`rgba(170,170,160,${haze})`;g.fillRect(30,30,840,480);}
-    const waves=Math.round(w.sound*3), [sx,sy]=D.speaker;
-    for(let i=1;i<=waves;i++){g.beginPath();g.arc(sx,sy,14+i*16,Math.PI*.55,Math.PI*1.0);g.strokeStyle=`rgba(127,178,238,${.7-i*.15+.1*Math.sin(time/200+i)})`;g.lineWidth=3;g.stroke();}
-    if(w.ventilating){for(let i=0;i<4;i++){const y=50+((time/12+i*30)%120);g.fillStyle="rgba(180,230,255,.6)";g.fillRect(360+i*55,y,4,14);}}
-    if(this.layout==="lobby"){   // the desk clerk is always there; a second desk opens when staff are called
-      drawPerson(g,130,52,"#2f5d8a","S");
-      this.helper("clerk",w.desk2,[240,52],time,dt,"S","#2f5d8a");
-      if(w.desk2) text(g,"second desk open",240,128,"#7fb2ee",12);
-      if(w.queue) text(g,`${w.queue} in the queue`,300,160,"#dfe6ec",14);
-    }
+    g.strokeStyle=C.wall;g.lineWidth=6;g.beginPath();g.moveTo(80,510);g.lineTo(30,510);g.lineTo(30,30);g.lineTo(870,30);g.lineTo(870,510);g.lineTo(170,510);g.stroke();
+    text(g,this.layout==="lobby"?"front door":"door",125,500,C.label,12);
+    if(w.temp>24){g.fillStyle=`rgba(255,120,40,${Math.min(.2,(w.temp-24)*.07)})`;g.fillRect(30,30,840,480);}
+    if(w.temp<20.5){g.fillStyle=`rgba(74,139,194,${Math.min(.2,(20.5-w.temp)*.06)})`;g.fillRect(30,30,840,480);}
+    const haze=Math.max(0,Math.min(.4,(w.co2-750)/1300));if(haze>0){g.fillStyle=`rgba(170,165,150,${haze})`;g.fillRect(30,30,840,480);}
+    const waves=Math.round(w.sound*3),[sx,sy]=D.speaker;
+    for(let i=1;i<=waves;i++){g.beginPath();g.arc(sx,sy,14+i*16,Math.PI*.55,Math.PI*1.0);g.strokeStyle=`rgba(226,160,71,${.7-i*.15+.1*Math.sin(time/200+i)})`;g.lineWidth=3;g.stroke();}
+    if(w.ventilating){for(let i=0;i<4;i++){const y=50+((time/12+i*30)%120);g.fillStyle="rgba(200,230,240,.5)";g.fillRect(360+i*55,y,4,14);}}
+    if(this.layout==="lobby"){drawPerson(g,130,52,"#4a8bc2","S");this.helper("clerk",w.desk2,[240,52],dt,"S","#4a8bc2");
+      if(w.desk2)text(g,"second desk open",240,128,"#e2a047",12);if(w.queue)text(g,`${w.queue} in the queue`,300,160,C.labelHi,14);}
     let worst=null;
     for(const [k,q] of this.pos){
-      this.life(q,time); const arrived=this.step(q,dt);
-      if(q.leaving&&arrived){ if(q.leaving===1){q.leaving=2;q.tx=q.route[1][0];q.ty=q.route[1][1];} else {this.pos.delete(k);continue;} }
-      const p=q.p, still=arrived&&!q.leaving;
-      const amp=still?Math.pow(p.stress,2.2)*7:0, x=q.x+amp*Math.sin(time/45+q.ph), y=q.y+amp*Math.cos(time/38+q.ph*1.3);
-      if(q.leaving===2){const a=q.route[0],b=q.route[1]; g.globalAlpha=Math.max(0,Math.hypot(b[0]-q.x,b[1]-q.y)/Math.max(1,Math.hypot(b[0]-a[0],b[1]-a[1])));}
-      if(p.distressed){g.beginPath();g.arc(x,y,23+2*Math.sin(time/150),0,7);g.strokeStyle="#e5615a";g.lineWidth=4;g.setLineDash([5,4]);g.stroke();g.setLineDash([]);}
-      g.beginPath(); g.arc(x,y,15,0,7); g.fillStyle=moodColor(p.mood); g.fill(); g.lineWidth=2; g.strokeStyle="rgba(10,15,25,.6)"; g.stroke();
-      if(p.wearable){g.beginPath();g.arc(x+11,y-11,4,0,7);g.fillStyle="#fff";g.fill();}
+      this.life(q,time);const arrived=this.step(q,dt);
+      if(q.leaving&&arrived){if(q.leaving===1){q.leaving=2;q.tx=q.route[1][0];q.ty=q.route[1][1];}else{this.pos.delete(k);continue;}}
+      const p=q.p,still=arrived&&!q.leaving,amp=still?Math.pow(p.stress,2.2)*7:0,x=q.x+amp*Math.sin(time/45+q.ph),y=q.y+amp*Math.cos(time/38+q.ph*1.3);
+      if(q.leaving===2){const a=q.route[0],b=q.route[1];g.globalAlpha=Math.max(0,Math.hypot(b[0]-q.x,b[1]-q.y)/Math.max(1,Math.hypot(b[0]-a[0],b[1]-a[1])));}
+      if(p.distressed){g.beginPath();g.arc(x,y,23+2*Math.sin(time/150),0,7);g.strokeStyle="#c25a78";g.lineWidth=4;g.setLineDash([5,4]);g.stroke();g.setLineDash([]);}
+      g.beginPath();g.arc(x,y,15,0,7);g.fillStyle=moodColor(p.mood);g.fill();g.lineWidth=2;g.strokeStyle="rgba(13,11,8,.7)";g.stroke();
+      if(p.wearable){g.beginPath();g.arc(x+11,y-11,4,0,7);g.fillStyle="#f2ecdf";g.fill();}
       g.globalAlpha=1;
-      if(!q.leaving&&(!worst||p.stress-p.mood>worst.s)) worst={x:q.tx,y:q.ty,s:p.stress-p.mood};
-    }
-    if(this.layout!=="lobby") this.helper("staff",w.staff_here,worst?[worst.x+30,worst.y+10]:[300,450],time,dt,"S","#2f5d8a");
-    this.helper("tech",w.repair_here,[D.ac[0],D.ac[1]+46],time,dt,"T","#6b5a2a");
-    device(g,D.ac[0],D.ac[1],"Air conditioner",w.ac_broken?"#e5615a":(w.cooling?"#7fb2ee":w.heating?"#e3a83b":"#6b7a88"),
-      w.ac_broken?"BROKEN":(w.cooling?"cooling":w.heating?"heating":"off"),120);
-    device(g,D.radar[0],D.radar[1],"Radar","#46c37f","",50);
-    device(g,D.speaker[0],D.speaker[1],"Speaker","#7fb2ee","",0);
-    device(g,D.air[0],D.air[1],"Air monitor","#46c37f","",0);
-    device(g,D.mic[0],D.mic[1],"Microphone",w.mic_dead?"#e5615a":"#46c37f",w.mic_dead?"DEAD":"",0);
-    device(g,D.door[0],D.door[1],"Door sensor","#46c37f","",0);
-    g.fillStyle=`rgba(4,8,16,${(1-w.light)*0.5})`; g.fillRect(30,30,840,480);
-    text(g,`${w.temp.toFixed(1)} °C   ·   CO2 ${w.co2} ppm   ·   ${w.people.length} ${w.people.length===1?"person":"people"}`,520,532,"#c9d3db",14);
+      if(!q.leaving&&(!worst||p.stress-p.mood>worst.s))worst={x:q.tx,y:q.ty,s:p.stress-p.mood};}
+    if(this.layout!=="lobby")this.helper("staff",w.staff_here,worst?[worst.x+30,worst.y+10]:[300,450],dt,"S","#4a8bc2");
+    this.helper("tech",w.repair_here,[D.ac[0],D.ac[1]+46],dt,"T","#8b7ce0");
+    device(g,D.ac[0],D.ac[1],"Air conditioner",w.ac_broken?C.bad:(w.cooling?C.cool:w.heating?C.heat:C.off),w.ac_broken?"BROKEN":(w.cooling?"cooling":w.heating?"heating":"off"),120);
+    device(g,D.radar[0],D.radar[1],"Radar",C.ok,"",50);device(g,D.speaker[0],D.speaker[1],"Speaker","#e2a047","",0);
+    device(g,D.air[0],D.air[1],"Air monitor",C.ok,"",0);device(g,D.mic[0],D.mic[1],"Sound level",w.mic_dead?C.bad:C.ok,w.mic_dead?"DEAD":"",0);
+    device(g,D.door[0],D.door[1],"Door sensor",C.ok,"",0);
+    g.fillStyle=`rgba(4,3,2,${(1-w.light)*0.32})`;g.fillRect(30,30,840,480);
+    text(g,`${w.temp.toFixed(1)} °C   ·   CO2 ${w.co2} ppm   ·   ${w.people.length} ${w.people.length===1?"person":"people"}`,520,532,C.labelHi,14);
   }
 }
 function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
-function text(g,s,x,y,c,size){g.fillStyle=c;g.font=`${size}px Segoe UI, sans-serif`;g.textAlign="center";g.fillText(s,x,y);}
-function device(g,x,y,label,color,status,width,small){
-  if(width){g.fillStyle="#1d2b3c";roundRect(g,x-width/2,y-12,width,24,5);g.fill();g.strokeStyle=color;g.lineWidth=3;g.stroke();if(status)text(g,status,x,y+5,color,13);}
-  else{g.beginPath();g.arc(x,y,8,0,7);g.fillStyle=color;g.fill();g.strokeStyle="#0b121b";g.lineWidth=2;g.stroke();if(status)text(g,status,x,y-14,color,12);}
-  text(g,label,x,y+(width?30:24),"#dfe6ec",12);
+function text(g,s,x,y,c,size){g.fillStyle=c;g.font=`${size}px Inter, Segoe UI, sans-serif`;g.textAlign="center";g.fillText(s,x,y);}
+function device(g,x,y,label,color,status,width){
+  if(width){g.fillStyle="#201a12";roundRect(g,x-width/2,y-12,width,24,5);g.fill();g.strokeStyle=color;g.lineWidth=3;g.stroke();if(status)text(g,status,x,y+5,color,13);}
+  else{g.beginPath();g.arc(x,y,8,0,7);g.fillStyle=color;g.fill();g.strokeStyle="#0d0b08";g.lineWidth=2;g.stroke();if(status)text(g,status,x,y-14,color,12);}
+  text(g,label,x,y+(width?30:24),"#d8cfbf",12);
 }
-function drawPerson(g,x,y,color,letter){g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=color;g.fill();g.strokeStyle="#fff";g.lineWidth=2;g.stroke();text(g,letter,x,y+5,"#fff",13);}
+function drawPerson(g,x,y,color,letter){g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=color;g.fill();g.strokeStyle="#f2ecdf";g.lineWidth=2;g.stroke();text(g,letter,x,y+5,"#f2ecdf",13);}
+const main=new Room($("room")),minis=[new Room($("mini0")),new Room($("mini1")),new Room($("mini2"))];
+function paint(t){main.draw(t);minis.forEach(m=>m.draw(t));}
+function frame(t){paint(t);requestAnimationFrame(frame);}requestAnimationFrame(frame);
+setInterval(()=>{if(document.hidden)paint(performance.now());},250);
 
-const main=new Room($("room")), minis=[new Room($("mini0")),new Room($("mini1")),new Room($("mini2"))];
-function frame(t){main.draw(t);minis.forEach(m=>m.draw(t));requestAnimationFrame(frame);} requestAnimationFrame(frame);
-// browsers pause animation frames in background tabs; keep the room moving there at a slower rate
-setInterval(()=>{if(document.hidden){const t=performance.now();main.draw(t);minis.forEach(m=>m.draw(t));}},250);
-
-/* ---------------------------------------------------------------- plain words */
-function topState(dist){let k=null,v=-1;for(const [s,p] of Object.entries(dist)) if(p>v){k=s;v=p;} return [k,v];}
+/* ------------------------------------------------------------------ plain words */
+function topState(d){let k=null,v=-1;for(const [s,p] of Object.entries(d))if(p>v){k=s;v=p;}return [k,v];}
 const pct=p=>Math.round(p*100)+"%";
+const ACT={do_nothing:"Hold, change nothing",dim_lights:"Dim the lights",raise_lights:"Raise the lights",lower_sound:"Lower the music",raise_sound:"Raise the music",cool_air:"Cool the room",warm_air:"Warm the room",ventilate:"Bring in fresh air",staff_alert:"Send a person",maintenance_ticket:"Call maintenance",setback:"Power down the empty room"};
+const actLabel=(a,intent)=>intent==="service"&&a==="staff_alert"?"Open a second desk":(ACT[a]||a);
 function sees(r,s){
-  if(!r) return ["Nothing yet.",""];
+  if(!r)return ["Nothing yet.",""];
   const loud=r.db<45?"quiet":r.db<58?"some noise":"loud";
-  const parts=[`${r.count} ${r.count===1?"person":"people"} on the radar`, `${loud} (${r.db} dB)`, `${r.temp} °C`, `CO2 ${r.co2} ppm`, r.hr==null?"no wearable connected":`heart rate ${r.hr}`];
-  const sub=s.flags.includes("sound_level")?"It has stopped trusting the microphone: the reading has not moved at all, which real sensors never do.":
-            s.flags.length?`Watching these channels closely: ${s.flags.join(", ").replaceAll("_"," ")}.`:"";
-  return [parts.join(" · ")+".", sub];
+  const parts=[`${r.count} on the radar`,`movement ${r.motion}`,`${loud} (${r.db} dB)`,`${r.temp} °C`,`CO2 ${r.co2}`,r.hr==null?"no wearable":`heart rate ${r.hr}`];
+  if(s.layout==="lobby"&&s.queue_forecast!=null)parts.push(`queue zone ${s.worlds.sentient.queue??"–"}`);
+  const sub=s.flags.includes("sound_level")?"It no longer trusts the sound sensor: its reading has not changed at all, which a working sensor never does.":s.flags.length?`Watching closely: ${s.flags.join(", ").replaceAll("_"," ")}.`:"";
+  return [parts.join(" · ")+".",sub];
 }
 function thinks(b){
-  if(!b) return "–";
-  const out=[]; const [occ,po]=topState(b.occupancy);
-  if(occ==="empty"){out.push(`The room looks empty (${pct(po)} sure).`);}
-  else{
-    const [ar,pa]=topState(b.arousal), [va,pv]=topState(b.valence);
-    out.push(`People seem ${ {calm:"calm",elevated:"a bit tense",stressed:"stressed"}[ar]} (${pct(pa)} sure), mood ${ {negative:"low",neutral:"neutral",positive:"good"}[va]} (${pct(pv)}).`);
-  }
-  const [th,pt]=topState(b.thermal); if(th!=="comfortable") out.push(`The room feels ${th} (${pct(pt)}).`);
-  if(b.air.stale>0.5) out.push(`The air is getting stale (${pct(b.air.stale)}).`);
-  if(b.hvac.degraded>0.3) out.push(`The air conditioner may be broken (${pct(b.hvac.degraded)} sure).`);
+  if(!b)return "–";const out=[],[occ,po]=topState(b.occupancy);
+  if(occ==="empty")out.push(`Room looks empty (${pct(po)}).`);
+  else{const [ar,pa]=topState(b.arousal),[va,pv]=topState(b.valence);
+    out.push(`People ${ {calm:"calm",elevated:"a bit tense",stressed:"stressed"}[ar]} (${pct(pa)}), mood ${ {negative:"low",neutral:"neutral",positive:"good"}[va]} (${pct(pv)}).`);}
+  const [th,pt]=topState(b.thermal);if(th!=="comfortable")out.push(`Feels ${th} (${pct(pt)}).`);
+  if(b.air.stale>0.5)out.push(`Air going stale (${pct(b.air.stale)}).`);
+  if(b.hvac.degraded>0.3)out.push(`A/C may be broken (${pct(b.hvac.degraded)}).`);
   return out.join(" ");
 }
-const ACT={do_nothing:"Hold, change nothing",dim_lights:"Dim the lights",raise_lights:"Raise the lights",lower_sound:"Lower the music",raise_sound:"Raise the music",cool_air:"Cool the room",warm_air:"Warm the room",ventilate:"Bring in fresh air",staff_alert:"Send a person",maintenance_ticket:"Call maintenance",setback:"Power down the empty room"};
 function why(s){
-  const a=s.rec.raw, w=s.worlds.sentient, b=s.beliefs, it={restore:"rest",work:"work",elevated:"a lively evening",service:"a lobby"}[s.intent];
+  const a=s.rec.raw,w=s.worlds.sentient,b=s.beliefs,it=INTENT_SHORT[s.intent];
   switch(a){
-    case "do_nothing":{
-      if(b.hvac.degraded>0.5) return "It has already called maintenance. Cooling will not work until the unit is fixed, so it waits rather than sending more commands.";
-      if(s.gated) return "Something might help, but it is not sure enough yet, so it holds. Doing nothing is its default.";
-      const [th]=topState(b.thermal); if(th!=="comfortable"||b.air.stale>0.5) return "The room is not ideal, but what would fix it is already running or already at its limit, so it holds.";
-      return `The room matches what it is for (${it}). Nothing to change.`;}
-    case "dim_lights": return `This room is for ${it} and it is bright. Dimming should help people settle.`;
-    case "raise_lights": return `This room is for ${it} and it is too dark for that.`;
-    case "lower_sound": return `It is louder than a room for ${it} should be.`;
-    case "raise_sound": return `The evening is meant to be lively and the room has gone flat.`;
-    case "cool_air": return `The room is warm (${w.temp.toFixed(1)} °C).`;
-    case "warm_air": return `The room is cold (${w.temp.toFixed(1)} °C).`;
-    case "ventilate": return `The air is going stale (CO2 ${w.co2} ppm).`;
-    case "staff_alert": return s.intent==="service"?"The lobby is getting busy. A second person at the desk keeps the check-in queue moving. It sees how many people are here, not where they stand, so it cannot yet tell a queue from a crowd at the bar.":"Someone looks stressed and unhappy, and nothing in the room would fix that. A person would.";
-    case "maintenance_ticket": return `It turned the cooling on, but the room did not cool. It concludes the unit is broken (${pct(b.hvac.degraded)} sure) and calls a technician instead of trying again.`;
-    case "setback": return "Nobody has been here for a while, by the radar and the door sensor. Lights and climate can go down.";
-  }
-  return "";
+    case "do_nothing":{if(b.hvac.degraded>0.5)return "Maintenance is already called; cooling will not work until the unit is fixed, so it waits.";
+      if(s.gated)return "Something might help, but it is not sure enough, so it holds. Doing nothing is the default.";
+      const [th]=topState(b.thermal);if(th!=="comfortable"||b.air.stale>0.5)return "Not ideal, but what would fix it is already running or at its limit.";
+      return `The room matches what it is for (${it}).`;}
+    case "dim_lights":return `Set for ${it} and bright; dimming should help people settle.`;
+    case "raise_lights":return `Too dark for ${it}.`;
+    case "lower_sound":return `Louder than a room for ${it} should be.`;
+    case "raise_sound":return "Meant to be lively and it has gone flat.";
+    case "cool_air":return `Warm (${w.temp.toFixed(1)} °C).`;
+    case "warm_air":return `Cold (${w.temp.toFixed(1)} °C).`;
+    case "ventilate":return `Air going stale (CO2 ${w.co2} ppm).`;
+    case "staff_alert":return s.intent==="service"?(s.queue_forecast!=null?`The queue zone reads ${w.queue}, and at the current inflow it expects about ${Math.round(s.queue_forecast)} in six minutes. A second desk keeps it moving.`:"The lobby is busy. It counts people, not where they stand."):"Movement and heart rate read as stress, and the room is already set right, so it suggests a person. Staff decide.";
+    case "maintenance_ticket":return `It turned cooling on and the room did not cool, so it believes the unit is broken (${pct(b.hvac.degraded)}) and suggests a technician instead of more commands.`;
+    case "setback":return "Radar and door sensor both say nobody has been here for a while.";
+  }return "";
 }
 
-/* ---------------------------------------------------------------- render */
+/* ------------------------------------------------------------------ render */
+function stat(v,l){const d=document.createElement("div");d.className="stat";const a=document.createElement("div");a.className="v";a.textContent=v;const b=document.createElement("div");b.className="l";b.textContent=l;d.append(a,b);return d;}
 function render(s){
-  S=s; $("intent").value=s.intent;
-  $("clock").textContent=`${s.clock} · ${s.minutes} minutes in`;
-  main.set(s.worlds.sentient,s.layout); ["sentient","rules","preset"].forEach((k,i)=>{minis[i].set(s.worlds[k],s.layout);
-    const w=s.worlds[k], st=$("stats"+i); st.replaceChildren();
-    [[w.mood==null?"–":w.mood.toFixed(2),"how guests feel"],[w.energy.toFixed(0),"energy so far"],[k==="preset"?"–":w.staff_calls,"staff visits"],[k==="preset"?"–":w.wasted,"ignored calls"]].forEach(([v,l])=>{
-      const d=document.createElement("div");d.className="stat";d.innerHTML=`<div class="v"></div><div class="l"></div>`;d.children[0].textContent=v;d.children[1].textContent=l;st.append(d);});});
-  const [a,b]=sees(s.reading,s); $("sees").textContent=a; $("seesSub").textContent=b;
-  $("thinks").textContent=thinks(s.beliefs);
-  if(s.rec){
-    $("act").textContent=(s.intent==="service"&&s.rec.raw==="staff_alert")?"Open a second desk":(ACT[s.rec.raw]||s.rec.action); $("why").textContent=why(s);
-    $("predict").textContent=s.rec.raw==="do_nothing"?`It predicts ${s.rec.forecast}, and will check.`:`It predicts ${s.rec.forecast}. That prediction is now sealed and will be scored.`;
-    $("suggestBox").classList.toggle("hold",s.rec.raw==="do_nothing");
-    $("rawReason").textContent=s.rec.reason;
-  }
+  S=s;$("intent").value=s.intent;$("clock").textContent=`${s.clock} · ${s.minutes} min`;
+  $("who").textContent=s.staff==="you"?"you decide":"staff simulated";
+  main.set(s.worlds.sentient,s.layout);
+  ["sentient","rules","preset"].forEach((k,i)=>{minis[i].set(s.worlds[k],s.layout);const w=s.worlds[k],st=$("stats"+i);st.replaceChildren(
+    stat(w.mood==null?"–":w.mood.toFixed(2),"modelled mood"),stat(w.energy.toFixed(0),"energy"),
+    stat(k==="preset"?"–":w.staff_calls,"staff visits"),stat(s.layout==="lobby"?(w.queue??"–"):(k==="preset"?"–":w.wasted),s.layout==="lobby"?"in queue":"ignored"));});
+  const [a,b]=sees(s.reading,s);$("sees").textContent=a;$("seesSub").textContent=b;$("thinks").textContent=thinks(s.beliefs);
+  if(s.rec){$("act").textContent=actLabel(s.rec.raw,s.intent);$("why").textContent=why(s);
+    $("predict").textContent=s.rec.raw==="do_nothing"?"":`Sealed prediction: ${s.rec.forecast}.`;
+    $("suggestBox").classList.toggle("hold",s.rec.raw==="do_nothing");$("rawReason").textContent=s.rec.reason;}
   $("decide").classList.toggle("hidden",!s.awaiting);
-  const last=s.events.find(e=>e.includes("Sentient:"));
-  $("lastAct").textContent=(s.rec&&s.rec.raw==="do_nothing"&&last)?"Last thing it did: "+last.replace("Sentient: ",""):"";
-  $("events").textContent=s.events.slice(0,4).join("   ·   ");
-  const F=s.forecasts; $("fcS").textContent=F.scored?pct(F.hits/F.scored):"–"; $("fcP").textContent=F.scored?pct(F.same_as_now/F.scored):"–";
-  $("flags").textContent=F.scored?`${F.scored} predictions scored so far.`:"";
-  lineChart($("c1"),s.history,[["true_arousal","#d5dbe0","5 4"],["est_arousal","#4a90e8",""]],false);
-  lineChart($("c2"),s.history,[["p_ac_broken","#e8743c",""]],true);
-  ledger(s); beliefs(s);
+  const last=s.events.find(e=>e.includes("Sentient:"));$("lastAct").textContent=(s.rec&&s.rec.raw==="do_nothing"&&last)?"Last: "+last.replace("Sentient: ",""):"";
+  renderTrace(s.trace,s.intent);drawChart();ledger(s);beliefs(s);
 }
-
-function lineChart(svg,h,series,shadeBroken){
-  svg.replaceChildren(); const NS="http://www.w3.org/2000/svg";
-  const W=500,H=200,L=34,R=8,T=10,B=26,pw=W-L-R,ph=H-T-B,n=Math.max(h.length,30);
-  const x=i=>L+pw*i/(n-1), y=v=>T+ph*(1-v);
+function cell(label,html){const d=document.createElement("div");d.className="tc";const l=document.createElement("span");l.className="lbl";l.textContent=label;d.append(l);const c=document.createElement("div");c.innerHTML=html;d.append(c);return d;}
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function renderTrace(t,intent){
+  const T=$("trace");if(!t)return;T.replaceChildren();$("traceId").textContent=`sealed ${t.sealed_at} · ${t.hash}`;
+  const inp=Object.entries(t.inputs).map(([k,v])=>`${esc(k)} <b>${esc(v)}</b>`).join("<br>");
+  const bel=Object.entries(t.beliefs).map(([k,[st,p]])=>`${ {occupancy:"people",arousal:"stress",valence:"mood",thermal:"temp",hvac:"A/C"}[k]} <b>${esc(st)}</b> ${Math.round(p*100)}%`).join("<br>");
+  const also=Object.entries(t.also_sealed||{}).map(([k,v])=>`${ {hr:"heart rate",motion:"movement",sound_level:"sound"}[k]} <b>${esc(v)}</b>`).join("<br>");
+  const f=t.forecast;
+  T.append(cell(`1 · inputs at ${t.time}`,inp),cell("2 · inferred",bel),
+    cell("3 · recommended, sealed",`<b>${esc(actLabel(t.action,intent))}</b><br>${esc(f.channel.replace("_"," "))} <b>${esc(f.predicted)}</b> by ${esc(f.due)} (${Math.round(f.probability*100)}%)${also?"<br>"+also:""}`),
+    cell("4 · staff",`<b class="${t.decision==="accepted"?"ok-t":"no-t"}">${esc(t.decision)}</b><br>by ${esc(t.decided_by)}`));
+  const o=t.outcome;let out;
+  if(!o)out=`not due yet<br>scored at ${esc(f.due)}`;
+  else if(!o.scored)out="not scored: the action was dismissed, so its prediction no longer applies";
+  else{out=`${esc(f.channel.replace("_"," "))} read <b>${esc(o.actual)}</b>: <b class="${o.hit?"ok-t":"no-t"}">${o.hit?"came true":"missed"}</b><br>"nothing changes" ${o.same_as_now_hit?"also right":"was wrong"}`;
+    const al=Object.entries(o.also||{}).map(([k,[v,h]])=>`${ {hr:"heart rate",motion:"movement",sound_level:"sound"}[k]} ${esc(v)} <b class="${h?"ok-t":"no-t"}">${h?"✓":"✗"}</b>`).join("<br>");if(al)out+="<br>"+al;}
+  T.append(cell("5 · outcome",out));
+}
+function drawChart(){
+  const svg=$("chart");svg.replaceChildren();if(!S)return;const NS="http://www.w3.org/2000/svg",h=S.history;
+  const W=520,H=170,L=30,R=6,T=8,B=16,pw=W-L-R,ph=H-T-B,n=Math.max(h.length,30),x=i=>L+pw*i/(n-1);
   const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);svg.append(e);return e;};
-  if(shadeBroken) h.forEach((p,i)=>{if(p.ac_broken) el("rect",{x:x(i)-pw/(n-1)/2,y:T,width:pw/(n-1)+.5,height:ph,fill:"rgba(229,97,90,.28)"});});
-  [0,.5,1].forEach(v=>{el("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"#2a3b4d"});const t=el("text",{x:L-6,y:y(v)+4,"text-anchor":"end","font-size":11,fill:"#8696a3"});t.textContent=v===1?"100%":v===0?"0":"50%";});
-  series.forEach(([k,c,dash])=>{let d="",pen=false;h.forEach((p,i)=>{const v=p[k];if(v==null){pen=false;return;}d+=(pen?" L":" M")+x(i).toFixed(1)+","+y(v).toFixed(1);pen=true;});
-    if(d) el("path",{d,fill:"none",stroke:c,"stroke-width":2.4,"stroke-dasharray":dash,"stroke-linejoin":"round"});});
-  const t=el("text",{x:L,y:H-6,"font-size":11,fill:"#8696a3"}); t.textContent=h.length?`last ${h.length*2} minutes →`:"";
+  const legend=$("chartLegend"),note=$("chartNote");svg.classList.remove("hidden");
+  const lines=(series,ymax)=>{const y=v=>T+ph*(1-v/ymax);
+    [0,.5,1].forEach(f=>{el("line",{x1:L,x2:W-R,y1:y(f*ymax),y2:y(f*ymax),stroke:"rgba(226,160,71,.12)"});const t=el("text",{x:L-4,y:y(f*ymax)+4,"text-anchor":"end","font-size":10,fill:"#857a68","font-family":"JetBrains Mono, monospace"});t.textContent=ymax===1?(f*100)+"%":Math.round(f*ymax);});
+    series.forEach(([get,c,dash])=>{let d="",pen=false;h.forEach((p,i)=>{const v=get(p);if(v==null){pen=false;return;}d+=(pen?" L":" M")+x(i).toFixed(1)+","+y(v).toFixed(1);pen=true;});if(d)el("path",{d,fill:"none",stroke:c,"stroke-width":2.2,"stroke-dasharray":dash||"","vector-effect":"non-scaling-stroke"});});};
+  if(tab==="people"){lines([[p=>p.true_arousal,"#b9ae9c","5 4"],[p=>p.est_arousal,"#e2a047"]],1);
+    legend.innerHTML='<span><i style="background:#e2a047"></i>Sentient\'s estimate of stress</span><span><i style="background:#b9ae9c"></i>modelled true stress (hidden from it)</span>';
+    note.textContent="A test of inference in simulation, not a measurement of real feelings. The simulator's stress model was written by us.";}
+  else if(tab==="equip"){h.forEach((p,i)=>{if(p.ac_broken)el("rect",{x:x(i)-pw/(n-1)/2,y:T,width:pw/(n-1)+.5,height:ph,fill:"rgba(194,90,120,.28)"});});
+    lines([[p=>p.p_ac_broken,"#e2a047"]],1);legend.innerHTML='<span><i style="background:#e2a047"></i>belief the A/C is broken</span><span><i style="background:rgba(194,90,120,.5);border-radius:2px"></i>really broken</span>';
+    note.textContent="No sensor on the unit: the belief rises when commanded cooling fails to cool the room.";}
+  else if(tab==="queue"){const mx=Math.max(4,...h.map(p=>p.queues?Math.max(p.queues.preset||0,p.queues.rules||0,p.queues.sentient||0):0));
+    lines([[p=>p.queues&&p.queues.preset,"#857a68"],[p=>p.queues&&p.queues.rules,"#4a8bc2"],[p=>p.queues&&p.queues.sentient,"#e2a047"]],mx);
+    legend.innerHTML='<span><i style="background:#e2a047"></i>Sentient</span><span><i style="background:#4a8bc2"></i>rulebook</span><span><i style="background:#857a68"></i>today\'s preset</span>';
+    note.textContent="People queuing at check-in, same arrivals in all three rooms. Sentient and the rulebook both get the radar's queue-zone count.";}
+  else{svg.classList.add("hidden");const F=S.forecasts;
+    legend.innerHTML=`<div class="big2"><div><div class="v">${F.scored?pct(F.hits/F.scored):"–"}</div><div class="note">Sentient's sealed predictions that came true</div></div><div><div class="v" style="color:#857a68">${F.scored?pct(F.same_as_now/F.scored):"–"}</div><div class="note">"nothing changes" would have been right</div></div></div>`;
+    note.textContent=`${F.scored} scored so far, this session. A prediction is one category (for example sound "quiet") six minutes ahead; it counts only if the sensor reads exactly that category.`;}
 }
-
 function ledger(s){
-  const T=$("ledger"); T.replaceChildren(); const hr=document.createElement("tr");
-  ["Time","Decision","Prediction","Came true?","Fingerprint",""].forEach(h=>{const th=document.createElement("th");th.textContent=h;hr.append(th);}); T.append(hr);
-  s.ledger.forEach(e=>{const tr=document.createElement("tr");
-    [e.time,e.action+(e.applied?"":" (dismissed)"),e.forecast].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td);});
-    const r=document.createElement("td");const sp=document.createElement("span");sp.className="pill "+(e.result||"");sp.textContent=e.result?(e.result==="hit"?"yes":"no"):"not yet";r.append(sp);tr.append(r);
+  const T=$("ledger");T.replaceChildren();const hr=document.createElement("tr");["Time","Decision","Prediction","Came true?","Hash",""].forEach(h=>{const th=document.createElement("th");th.textContent=h;hr.append(th);});T.append(hr);
+  s.ledger.forEach(e=>{const tr=document.createElement("tr");[e.time,e.action+(e.applied?"":" (dismissed)"),e.forecast].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td);});
+    const r=document.createElement("td"),sp=document.createElement("span");sp.className="pill";sp.textContent=e.result?(e.result==="hit"?"yes":"no"):"not yet";r.append(sp);tr.append(r);
     const hd=document.createElement("td");hd.className="mono";hd.textContent=e.hash;tr.append(hd);
-    const act=document.createElement("td");const v=document.createElement("button");v.textContent="Verify";v.onclick=()=>verify(e.id);
-    const tp=document.createElement("button");tp.textContent="Tamper";tp.onclick=()=>tamper(e.id);
-    [v,tp].forEach(x=>{x.style.fontSize="12px";x.style.padding="3px 7px";x.style.marginRight="4px";act.append(x);});tr.append(act);
-    if(e.tampered) tr.style.background="rgba(229,97,90,.15)"; T.append(tr);});
+    const act=document.createElement("td");const v=document.createElement("button");v.textContent="Verify";v.onclick=()=>verify(e.id);const tp=document.createElement("button");tp.textContent="Tamper";tp.onclick=()=>tamper(e.id);
+    [v,tp].forEach(x=>{x.style.fontSize="11px";x.style.padding="2px 6px";x.style.marginRight="3px";act.append(x);});tr.append(act);if(e.tampered)tr.style.background="rgba(194,90,120,.15)";T.append(tr);});
 }
-async function verify(id){const r=await api("/api/verify/"+id);const m=$("verifyMsg");m.textContent=r.intact?`${id}: fingerprint matches. Untouched since it was sealed.`:`${id}: FINGERPRINT MISMATCH. This record was changed after it was sealed.`;m.style.color=r.intact?"var(--good)":"var(--bad)";}
-async function tamper(id){await api("/api/tamper/"+id,{});const m=$("verifyMsg");m.textContent=`${id}: edited after sealing (confidence raised). Now press Verify on it.`;m.style.color="var(--warn)";render(await api("/api/state"));}
+async function verify(id){const r=await api("/api/verify/"+id);const m=$("verifyMsg");m.textContent=r.intact?`${id}: hash matches the stored record.`:`${id}: HASH MISMATCH, the record was changed after it was sealed.`;m.style.color=r.intact?"#3aa88d":"#c25a78";}
+async function tamper(id){await api("/api/tamper/"+id,{});const m=$("verifyMsg");m.textContent=`${id}: edited after sealing. Press Verify on it.`;m.style.color="#e2a047";render(await api("/api/state"));}
+function beliefs(s){const B=$("beliefs");B.replaceChildren();if(!s.beliefs)return;const SH=["#b18a41","#e2a047","#ecd7a8","#f6ead0"];
+  Object.entries(s.beliefs).forEach(([f,d])=>{const n=document.createElement("div");n.className="note";n.textContent=f;B.append(n);const bar=document.createElement("div");bar.className="bar";
+    s.states[f].forEach((st,i)=>{const p=d[st],c=document.createElement("div");c.style.width=(p*100)+"%";c.style.background=SH[i%4];c.textContent=p>.14?`${st} ${pct(p)}`:"";c.title=`${st}: ${pct(p)}`;bar.append(c);});B.append(bar);});}
 
-function beliefs(s){
-  const B=$("beliefs"); B.replaceChildren(); if(!s.beliefs) return;
-  const NAME={arousal:"Stress",valence:"Mood",occupancy:"People",thermal:"Temperature",air:"Air",hvac:"Air conditioner",lighting:"Lighting"};
-  const SH=["#5e8fc8","#7fb0e6","#a9cdf2","#d4e7fa"];
-  Object.entries(s.beliefs).forEach(([f,dist])=>{const n=document.createElement("div");n.className="small";n.textContent=NAME[f]||f;B.append(n);
-    const bar=document.createElement("div");bar.className="bar";
-    s.states[f].forEach((st,i)=>{const p=dist[st];const d=document.createElement("div");d.style.width=(p*100)+"%";d.style.background=SH[i%4];d.textContent=p>.12?`${st} ${pct(p)}`:"";d.title=`${st}: ${pct(p)}`;bar.append(d);});
-    B.append(bar);});
-}
-
-/* ---------------------------------------------------------------- controls */
-async function loop(){
-  while(running){
-    try{const s=await api("/api/step",{n:1});render(s);if(s.awaiting){setRunning(false);break;}}
-    catch(e){setRunning(false);$("verifyMsg").textContent=e.message;break;}
-    await new Promise(r=>setTimeout(r,+$("speed").value));
-  }
-}
+/* ------------------------------------------------------------------ controls */
+async function loop(){while(running){try{const s=await api("/api/step",{n:1});render(s);if(s.awaiting){setRunning(false);break;}}catch(e){setRunning(false);$("verifyMsg").textContent=e.message;break;}await new Promise(r=>setTimeout(r,+$("speed").value));}}
 function setRunning(v){running=v;$("run").textContent=v?"Pause":"Play";$("run").classList.toggle("on",v);if(v)loop();}
-
-async function init(){
-  // wire the controls first, so a click that lands before the scenario list arrives still works
+function init(){
   Object.entries(NAMES).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;$("scenario").append(o);});
   Object.entries(INTENTS).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;$("intent").append(o);});
   $("start").onclick=async()=>{setRunning(false);[main,...minis].forEach(r=>r.clear());$("start").textContent="Starting…";const st=$("staffYou").classList.contains("on")?"you":"auto";
     try{render(await api("/api/reset",{scenario:$("scenario").value,seed:+$("seed").value,staff:st}));setRunning(true);}finally{$("start").textContent="Restart";}};
-  $("run").onclick=()=>{if(!S)return;setRunning(!running);};
-  $("stepBtn").onclick=async()=>{if(!S||S.awaiting)return;render(await api("/api/step",{n:1}));};
-  $("accept").onclick=async()=>{render(await api("/api/step",{decision:"accept"}));};
-  $("dismiss").onclick=async()=>{render(await api("/api/step",{decision:"dismiss"}));};
-  document.querySelectorAll("[data-inject]").forEach(b=>b.onclick=async()=>{if(!S)return;render(await api("/api/inject/"+b.dataset.inject,{}));});
-  $("intent").onchange=async()=>{if(!S)return;render(await api("/api/intent/"+$("intent").value,{}));};
+  $("run").onclick=()=>{if(S)setRunning(!running);};
+  $("stepBtn").onclick=async()=>{if(S&&!S.awaiting)render(await api("/api/step",{n:1}));};
+  $("accept").onclick=async()=>{render(await api("/api/step",{decision:"accept"}));if(!running)setRunning(true);};
+  $("dismiss").onclick=async()=>{render(await api("/api/step",{decision:"dismiss"}));if(!running)setRunning(true);};
+  document.querySelectorAll("[data-inject]").forEach(b=>b.onclick=async()=>{if(S)render(await api("/api/inject/"+b.dataset.inject,{}));});
+  $("intent").onchange=async()=>{if(S)render(await api("/api/intent/"+$("intent").value,{}));};
   const staff=async m=>{$("staffAuto").classList.toggle("on",m==="auto");$("staffYou").classList.toggle("on",m==="you");if(S)render(await api("/api/staff/"+m,{}));};
-  $("staffAuto").onclick=()=>staff("auto"); $("staffYou").onclick=()=>staff("you");
+  $("staffAuto").onclick=()=>staff("auto");$("staffYou").onclick=()=>staff("you");
+  document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));drawChart();});
+  $("openDrawer").onclick=()=>$("drawer").classList.add("open");$("closeDrawer").onclick=()=>$("drawer").classList.remove("open");
+  const queueTab=document.querySelector('#tabs [data-tab="queue"]');
+  $("scenario").onchange=()=>queueTab.classList.toggle("hidden",$("scenario").value!=="hotel_lobby");queueTab.classList.add("hidden");
 }
 init();
 </script>
