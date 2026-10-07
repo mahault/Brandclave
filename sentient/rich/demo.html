@@ -204,14 +204,17 @@ const DOOR=[[125,528],[125,585]], LIFTS=[[770,62],[770,0]], SPEED=0.12;
 // Walking routes: a 15 px grid over the floor, furniture and walls blocked, shortest path around them,
 // then smoothed so people walk in straight lines where they can.
 const NAV={G:15,cols:60,rows:36,blocked:{},
-  rects:{lounge:[[388,258,124,124],[622,377,206,62],[762,142,94,196]],
-         lobby:[[62,62,246,52],[782,187,76,196],[505,222,40,40]]}};
+  // seats inside the sofa and the waiting bench stay reachable: walkers stop at the nearest free
+  // cell and step in to sit, but nobody walks across them
+  rects:{lounge:[[388,258,124,124],[622,377,206,62],[762,142,94,196],[56,191,198,138]],
+         lobby:[[62,62,246,52],[782,187,76,196],[505,222,40,40],[416,426,248,78]]}};
 function navGrid(layout){
   if(NAV.blocked[layout])return NAV.blocked[layout];
   const b=new Uint8Array(NAV.cols*NAV.rows);
   for(let j=0;j<NAV.rows;j++)for(let i=0;i<NAV.cols;i++){const x=(i+.5)*NAV.G,y=(j+.5)*NAV.G;
-    let bad=x<40||x>860||y<40||(y>500&&!(x>82&&x<168));
-    for(const [rx,ry,rw,rh] of NAV.rects[layout]||[])if(x>rx&&x<rx+rw&&y>ry&&y<ry+rh)bad=true;
+    const M=16;   // keep a body's width (people are drawn 15 px wide) clear of walls and furniture
+    let bad=x<30+M||x>870-M||y<30+M||(y>510-M&&!(x>80+M&&x<170-M));
+    for(const [rx,ry,rw,rh] of NAV.rects[layout]||[])if(x>rx-M&&x<rx+rw+M&&y>ry-M&&y<ry+rh+M)bad=true;
     b[j*NAV.cols+i]=bad?1:0;}
   return NAV.blocked[layout]=b;
 }
