@@ -155,3 +155,32 @@ def test_numbers_and_calibration_reported(results):
         a = r["agent"]
         assert a["predictions_scored"] > 0, name
         assert a["calibration"]["ece"] is not None
+
+
+# ------------------------------------------------------------------ one guest, their own watch
+def test_personal_reader_flags_a_distressed_watch_and_not_a_calm_one():
+    agent = RichAgent(intent="restore")
+    reader = agent.personal
+    for t in range(6):
+        reader.update(t, [(7, 96.0, 29.0), (8, 70.0, 62.0)])
+    assert reader.due(7)
+    assert not reader.due(8)
+    reader.dismissed(7)                     # staff said no: wait for a longer run of the same reading
+    assert not reader.due(7)
+
+
+def test_upset_guest_in_a_busy_lounge_gets_a_person():
+    from sentient.rich.run import run_agent
+    m = run_agent("busy_lounge_distress", 30, 0, None)
+    assert m["outcomes"]["staff_alerts"] >= 1
+    assert m["outcomes"]["distress_steps"] < 15
+
+
+def test_targeted_visit_helps_that_guest_only():
+    space = SCENARIOS["busy_lounge_distress"](0)
+    upset = next(o for o in space.occupants if o.mood_anchor is not None)
+    space.staff_target = upset.pid
+    space.apply("staff_alert")
+    space.step()
+    assert upset.mood_anchor is None
+    assert space.staff_target is None

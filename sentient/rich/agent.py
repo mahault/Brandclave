@@ -49,6 +49,55 @@ except ImportError as exc:  # pragma: no cover
     logger.warning("pymdp unavailable (%s)", exc)
 
 
+class PersonalReader:
+    """One small filter per paired wearable. A watch belongs to one guest, so its heart rate and
+    HRV say how that guest is, not how the room is; averaged into the room channel, one distressed
+    guest disappears in a busy lounge. Joint belief over that guest's arousal and valence, with the
+    same likelihoods the room model uses for these two channels."""
+
+    AROUSAL_B = np.array([[.92, .07, .01], [.08, .84, .08], [.02, .10, .88]]).T   # [next, prev]
+    VALENCE_B = np.array([[.90, .09, .01], [.05, .90, .05], [.01, .09, .90]]).T
+
+    def __init__(self, A_hr: np.ndarray, A_hrv: np.ndarray):
+        # an occupied room, known readings only
+        hr = np.asarray(A_hr)[1:, 1, :]                # [normal/elevated, arousal]
+        hrv = np.asarray(A_hrv)[1:, 1, :, :]           # [low/high, arousal, valence]
+        self.L_hr = hr / hr.sum(0, keepdims=True)
+        self.L_hrv = hrv / hrv.sum(0, keepdims=True)
+        self.post: dict[int, np.ndarray] = {}          # pid -> [arousal, valence]
+        self.need: dict[int, int] = {}                 # pid -> reads required; raised by a dismissal
+        self.seen: dict[int, int] = {}
+        self.streak: dict[int, int] = {}
+
+    def update(self, t: int, wearers) -> None:
+        for pid, hr, hrv in wearers or []:
+            prior = self.post.get(pid, np.full((3, 3), 1 / 9))
+            prior = self.AROUSAL_B @ prior @ self.VALENCE_B.T
+            post = prior * self.L_hr[0 if hr < 85 else 1][:, None] * self.L_hrv[0 if hrv < 45 else 1]
+            self.post[pid] = post / post.sum()
+            self.seen[pid] = t
+            p_stressed, p_low = self.summary(pid)
+            self.streak[pid] = self.streak.get(pid, 0) + 1 if (p_stressed > 0.6 and p_low > 0.5) else 0
+        for pid in [k for k, s in self.seen.items() if t - s > 10]:   # left, or took the watch off
+            for d in (self.post, self.seen, self.streak, self.need):
+                d.pop(pid, None)
+
+    def dismissed(self, pid: int) -> None:
+        """Staff went over and said no: the guest was fine (excitement, exercise, a phone call), or not
+        now. Wait longer, and ask for a longer run of the same reading, before calling about them again.
+        The bar itself stays where it is: a watch says little about mood, so a higher bar would mean
+        never calling again."""
+        self.need[pid] = min(8, self.need.get(pid, 2) + 2)
+        self.streak[pid] = 0
+
+    def due(self, pid: int) -> bool:
+        return self.streak.get(pid, 0) >= self.need.get(pid, 2)
+
+    def summary(self, pid: int) -> tuple[float, float]:
+        p = self.post[pid]
+        return float(p[2].sum()), float(p[:, 0].sum())
+
+
 class RichAgent:
     def __init__(self, intent: str, margin: float = 0.06, horizon: int = 3, gamma: float = 8.0,
                  hvac_threshold: float = 0.6):
@@ -116,6 +165,11 @@ class RichAgent:
         # same A and B, and fed back in as the hvac prior.
         self._hvac_post = self.D[FACTOR_NAMES.index("hvac")].copy()
         self._thermal_prev: np.ndarray | None = None
+        # Rule 4: a paired guest whose own watch reads stressed and low two reads running gets a person
+        self.personal = PersonalReader(self.A[MODALITY_NAMES.index("hr")], self.A[MODALITY_NAMES.index("hrv")])
+        self._person_called: dict[int, int] = {}       # pid -> step of the last call or dismissal
+        self._person_p = (0.0, 0.0)
+        self.person_wait = 15
 
     # ------------------------------------------------------------------ helpers
     @staticmethod
@@ -146,6 +200,9 @@ class RichAgent:
         if rule == "queue":
             return (f"{state}; {self._q_prev} in the queue, about {self.queue_forecast:.0f} expected in "
                     f"{self.horizon * 2} min at the current inflow; open a second desk")
+        if rule == "person":
+            return (f"{state}; a paired guest's own watch reads stressed ({self._person_p[0]:.2f}) and low "
+                    f"({self._person_p[1]:.2f}) two reads running, whatever the room is doing; send a person to them")
         if rule == "maintenance":
             return f"{state}; cooling commanded but temperature not responding, HVAC likely degraded, ticket instead of another command"
         if action == "do_nothing":
@@ -193,6 +250,7 @@ class RichAgent:
         obs_idx = dict(raw_obs)
         observations = [jnp.array([obs_idx[m]]) for m in MODALITY_NAMES]
         self._update_hvac(obs_idx["temp"])
+        self.personal.update(self._t, reading.wearers)
         qs = self.agent.infer_states(observations=observations, empirical_prior=self.empirical_prior)
         self._qs = qs
         beliefs = self._beliefs_from_qs(qs)
@@ -266,6 +324,17 @@ class RichAgent:
                 and (not levers or levers.get("maintenance_ticket", True))):
             action, chosen, rule = "maintenance_ticket", ACT["maintenance_ticket"], "maintenance"
 
+        # Rule 4: one paired guest in distress, read from their own watch
+        person = None
+        if action != "maintenance_ticket" and (not levers or levers.get("staff_alert", True)):
+            due = [pid for pid in self.personal.streak
+                   if self.personal.due(pid) and self._t - self._person_called.get(pid, -100) >= self.person_wait]
+            if due:
+                person = max(due, key=lambda pid: self.personal.summary(pid)[0])
+                self._person_p = self.personal.summary(person)
+                action, chosen, rule = "staff_alert", ACT["staff_alert"], "person"
+                self._person_called[person] = self._t
+
         target = self._target_modality(action if action != "setback" else "do_nothing", reading)
         future = propagate(self.B, beliefs, chosen if action != "setback" else DO_NOTHING, self.horizon)
         p_obs = expected_observation(self.A, future, target)
@@ -291,6 +360,7 @@ class RichAgent:
             masked=masked,
             forecasts=forecasts,
         )
+        rec.target = person                  # the paired guest a staff call is for; None means the room
         self.last = rec
         self._last_beliefs = beliefs
         preds = {m: v[0] for m, v in forecasts.items()}
@@ -338,6 +408,9 @@ class RichAgent:
             self._ticket_dismissed_at = self._t - 1
         if rec.action == "staff_alert" and not accepted:
             self._desk_called_at = -100              # the second desk was not opened
+            if getattr(rec, "target", None) is not None:
+                self._person_called[rec.target] = self._t - 1 + self.person_wait   # staff said no: wait twice as long
+                self.personal.dismissed(rec.target)
         if rec.action == "setback":
             if not accepted:
                 # someone pressed dismiss: the space is not empty

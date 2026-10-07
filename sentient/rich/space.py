@@ -44,6 +44,7 @@ class Occupant:
     arrived_at: int
     dwell_steps: float
     mood_anchor: float | None = None   # a mood the room cannot fix; a person can
+    pid: int | None = None             # pairing id of their wearable, if they opted in
 
 
 @dataclass
@@ -105,10 +106,15 @@ class Space:
     arrivals_total: int = 0
     departures_total: int = 0
     tickets: int = 0
+    staff_target: int | None = None   # set by the caller for a call aimed at one paired guest
+    attending: Occupant | None = None
+    attend_timer: int = 0
+    _next_pid: int = 0
 
     def __post_init__(self):
         self.rng = np.random.default_rng(self.cfg.seed)
         self._lux_rng = np.random.default_rng(self.cfg.seed + 55_555)   # own stream: the world is unchanged
+        self._wear_rng = np.random.default_rng(self.cfg.seed + 77_777)  # per-watch noise, own stream too
         self.light = self.cfg.light
         self.sound_setting = self.cfg.sound_setting
         self.cooling = self.cfg.cooling
@@ -142,7 +148,7 @@ class Space:
         def s():
             return float(np.clip(rng.normal(1.0, 0.3), 0.2, 2.0))
 
-        return Occupant(
+        o = Occupant(
             purpose=purpose, activity=act,
             arousal=float(np.clip(arousal if arousal is not None else base + rng.normal(0, 0.1), 0, 1)),
             baseline=base,
@@ -155,6 +161,9 @@ class Space:
             arrived_at=self.t if self.t > 0 else -int(rng.integers(2, max(3, int(min(self.cfg.dwell_steps, 40))))),
             dwell_steps=float(max(3.0, rng.normal(self.cfg.dwell_steps, self.cfg.dwell_steps * 0.4))),
         )
+        if o.wearable:
+            o.pid, self._next_pid = self._next_pid, self._next_pid + 1
+        return o
 
     def _arrivals_and_departures(self) -> None:
         cfg, rng = self.cfg, self.rng
@@ -206,6 +215,12 @@ class Space:
             self.heating, self.cooling = True, False
         elif action == "ventilate":
             self.ventilating = 10
+        elif action == "staff_alert" and self.target_present():
+            # a call aimed at one paired guest: someone goes to that guest, not to the room
+            self.alert_cooldown = 8
+            self.attending = self.target_present()
+            self.attend_timer = int(rng.integers(4, 8))
+            self.staff_target = None
         elif action == "staff_alert":
             self.alert_cooldown = 8
             if self.n > 3:
@@ -224,6 +239,11 @@ class Space:
             pass
         else:
             raise ValueError(f"unknown action {action!r}")
+
+    def target_present(self) -> Occupant | None:
+        if self.staff_target is None:
+            return None
+        return next((o for o in self.occupants if o.pid == self.staff_target), None)
 
     def preset(self, light: float, sound_setting: float, cooling: bool) -> None:
         self.light, self.sound_setting, self.cooling = light, sound_setting, cooling
@@ -312,6 +332,13 @@ class Space:
                         vt = 0.3 * vt + 0.7 * o.mood_anchor
                 o.valence += 0.15 * (vt - o.valence) + rng.normal(0, 0.03)
                 o.valence = float(np.clip(o.valence, 0.0, 1.0))
+        o = self.attending
+        if self.attend_timer > 0 and o in self.occupants:
+            o.mood_anchor = None                                  # they were helped
+            o.valence = float(min(1.0, o.valence + 0.15 * 0.25))  # the lift a visit gives, to them alone
+            if o.arousal > 0.6:
+                o.arousal += 0.25 * (0.35 - o.arousal)
+            self.attend_timer -= 1
         self.t += 1
 
     # ------------------------------------------------------------------ sensing
@@ -369,13 +396,20 @@ class Space:
             hr = float(np.mean([60.0 + 40.0 * o.arousal + o.hr_offset for o in wearers]) + rng.normal(0, 2.5))
             hrv = float(np.mean([75.0 - 45.0 * o.arousal + 15.0 * (o.valence - 0.5) for o in wearers]) + rng.normal(0, 4))
 
+        wr = self._wear_rng
+        personal = []
+        for o in wearers:
+            if wr.random() > cfg.wearable_gap:
+                personal.append((o.pid, float(60.0 + 40.0 * o.arousal + o.hr_offset + wr.normal(0, 2.5)),
+                                 float(75.0 - 45.0 * o.arousal + 15.0 * (o.valence - 0.5) + wr.normal(0, 4))))
+
         dwell = float(np.mean([(self.t - o.arrived_at) * STEP_MINUTES for o in self.occupants])) if self.occupants else 0.0
 
         reading = Reading(
             count=int(detected), entries=int(entries),
             motion_level=float(np.clip(motion, 0.0, 1.0)), db=float(db), burstiness=burstiness,
             temp_c=float(self.temp + rng.normal(0, 0.2)), co2_ppm=float(self.co2 + rng.normal(0, 15)),
-            hr=hr, hrv=hrv, mean_dwell_min=dwell,
+            hr=hr, hrv=hrv, mean_dwell_min=dwell, wearers=personal or None,
             lux=float(max(0.0, 600.0 * self.light + self._lux_rng.normal(0, 20))),
         )
         self._last_reading = reading

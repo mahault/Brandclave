@@ -14,8 +14,13 @@ class RuleController:
         self.intent = intent
         self.empty_reads = 0
         self.hot_while_cooling = 0
+        self.target = None          # the paired guest a staff call is for; None means the room
+        self.called: dict[int, int] = {}
+        self.t = 0
 
     def step(self, r: Reading, levers: dict[str, bool], cooling: bool, light: float) -> str:
+        self.t += 1
+        self.target = None
         self.empty_reads = self.empty_reads + 1 if r.count == 0 else 0
         self.hot_while_cooling = self.hot_while_cooling + 1 if (cooling and r.temp_c > 24.5) else 0
 
@@ -23,7 +28,12 @@ class RuleController:
             return "setback"
         if self.hot_while_cooling >= 8 and levers["maintenance_ticket"]:
             return "maintenance_ticket"
-        if r.hr is not None and r.hr > 90 and levers["staff_alert"]:
+        # per watch, the same data the model gets: a paired guest over 90 bpm gets a person
+        high = [(pid, hr) for pid, hr, _ in (r.wearers or [])
+                if hr > 90 and self.t - self.called.get(pid, -100) >= 15]
+        if high and levers["staff_alert"]:
+            self.target = max(high, key=lambda w: w[1])[0]
+            self.called[self.target] = self.t
             return "staff_alert"
         if self.intent == "service" and levers["staff_alert"] and (
                 (r.queue is not None and r.queue >= 4) or (r.queue is None and r.count >= 8)):

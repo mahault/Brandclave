@@ -121,6 +121,26 @@ def sensor_failure(seed: int = 0) -> Space:
     ))
 
 
+def busy_lounge_distress(seed: int = 0) -> Space:
+    """A busy hotel lounge in the afternoon: groups chatting, some guests wearing paired watches.
+    One guest among them is distressed, wearing a watch. The room as a whole is fine; one person
+    is not. A room-level reading cannot see them; their own watch can."""
+    def arrivals(hour):
+        return 0.12
+
+    space = Space(SpaceConfig(
+        name="busy_lounge_distress", intent="restore", purpose="social", n_occupants=8, capacity=14,
+        arrival_rate=arrivals, dwell_steps=40, wearable_rate=0.3, light=0.5, sound_setting=0.4,
+        cooling=True, arousal0=0.55, start_hour=15.5, seed=seed,
+    ))
+    o = space._new_occupant("restore", arousal=0.9, valence=0.15)
+    o.baseline, o.mood_anchor, o.motion_scale, o.dwell_steps = 0.8, 0.15, 0.7, 1e6
+    if o.pid is None:
+        o.wearable, o.pid, space._next_pid = True, space._next_pid, space._next_pid + 1
+    space.occupants.append(o)
+    return space
+
+
 SCENARIOS = {
     "restore_pod": restore_pod,
     "bar_9pm": bar_9pm,
@@ -133,6 +153,7 @@ SCENARIOS = {
     "cold_morning": cold_morning,
     "stressed_guest": stressed_guest,
     "sensor_failure": sensor_failure,
+    "busy_lounge_distress": busy_lounge_distress,
 }
 
 
@@ -149,6 +170,10 @@ def simulated_override(action: str, space: Space, rng: np.random.Generator) -> b
         p = 0.9
     elif intent in ("restore", "work") and arousing or calming and space.n >= 3 and space.mean_valence() > 0.7 and action != "cool_air":
         p = 0.85
+    elif action == "staff_alert" and space.target_present() is not None:
+        o = space.target_present()                  # staff walk up to that guest and see for themselves:
+        upset = o.mood_anchor is not None or (o.arousal > 0.6 and o.valence < 0.4)   # visibly upset
+        p = 0.05 if upset else 0.8
     elif action == "staff_alert" and space.n < 4:
         distressed = any(o.arousal > 0.7 and o.valence < 0.4 for o in space.occupants)
         p = 0.05 if distressed else 0.8

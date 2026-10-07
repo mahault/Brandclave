@@ -33,6 +33,7 @@ class Outcomes:
         self.recs = self.dismissed = self.staff_alerts = self.tickets = 0
         self.ticket_step = None
         self.false_tickets = 0
+        self.distress_steps = 0   # steps with a distressed guest present and not yet helped
 
     def record(self, space, t: int, action: str, overridden: bool) -> None:
         if action != "do_nothing":
@@ -50,6 +51,7 @@ class Outcomes:
 
     def after_step(self, space) -> None:
         self.energy += space.energy()
+        self.distress_steps += int(any(o.mood_anchor is not None for o in space.occupants))
         if space.n > 0:
             self.occupied += 1
             self.valence.append(space.mean_valence())
@@ -71,6 +73,7 @@ class Outcomes:
             "tickets": self.tickets,
             "false_tickets": self.false_tickets,
             "ticket_step": self.ticket_step,
+            "distress_steps": self.distress_steps,
         }
 
 
@@ -112,6 +115,7 @@ def run_agent(name: str, steps: int, seed: int, out_dir: Path | None) -> dict:
             p_negative.append(rec.beliefs["valence"]["negative"])
         if hvac_flag_step is None and agent.hvac_belief_trace[-1] > agent.hvac_threshold:
             hvac_flag_step = t
+        space.staff_target = getattr(rec, "target", None) if rec.action == "staff_alert" else None
         overridden = simulated_override(rec.action, space, rng)
         applied = "do_nothing" if overridden else rec.action
         if applied == "maintenance_ticket" and ticket_step is None:

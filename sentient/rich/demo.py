@@ -41,27 +41,14 @@ class LoungeSpace(Space):
     right for one guest alone and too generous for a lounge of ten; and a call to a busy room thins
     it, which models a desk.)"""
 
-    attending: object = None
-    attend_timer: int = 0
-
     def apply(self, action: str) -> None:
-        if action == "staff_alert":
+        if action == "staff_alert" and self.target_present() is None:
             self.alert_cooldown = 8
             if self.occupants:
                 self.attending = max(self.occupants, key=lambda o: o.arousal - o.valence)
                 self.attend_timer = int(self.rng.integers(4, 8))
             return
         super().apply(action)
-
-    def step(self) -> None:
-        super().step()
-        o = self.attending
-        if self.attend_timer > 0 and o in self.occupants:
-            o.mood_anchor = None                                  # they were helped
-            o.valence = float(min(1.0, o.valence + 0.15 * 0.25))  # the same lift a visit gives, to them
-            if o.arousal > 0.6:
-                o.arousal += 0.25 * (0.35 - o.arousal)
-            self.attend_timer -= 1
 
 
 def lounge_afternoon(seed: int = 0) -> Space:
@@ -154,6 +141,7 @@ class Session:
         # people are created once, from their own stream, and copied into every room
         self._maker = build(seed)
         self._maker.rng = np.random.default_rng(seed + 777)
+        self._maker._next_pid = 1000          # arrivals' watch ids never collide with those already in the room
         self._meet_id = 0
         self._partners: list[tuple[int, int]] = []
         self.world = {k: build(seed) for k in ("sentient", "rules", "preset")}
@@ -197,6 +185,7 @@ class Session:
         self.pending = still
         self._obs = obs
         self.rec = self.agent.step(self.reading, space.levers())
+        space.staff_target = self.rec.target if self.rec.action == "staff_alert" else None
         if self.rec.action != "do_nothing" and self.staff == "you":
             self.awaiting = True
             return
@@ -240,6 +229,7 @@ class Session:
 
         rw = self.world["rules"]
         action = self.rules.step(rw.read(), rw.levers(), rw.cooling, rw.light)
+        rw.staff_target = self.rules.target if action == "staff_alert" else None
         ov = simulated_override(action, rw, self.staff_rng["rules"])
         self.score["rules"].record(rw, self.t, action, ov)
         rw.apply("do_nothing" if ov else action)
@@ -346,6 +336,8 @@ class Session:
         if kind == "stressed_guest":
             o = self._person("restore", arousal=0.9, valence=0.15)
             o.baseline, o.mood_anchor, o.wearable, o.motion_scale = 0.8, 0.15, True, 0.7
+            if o.pid is None:                                    # they paired a watch at check-in
+                o.pid, self._maker._next_pid = self._maker._next_pid, self._maker._next_pid + 1
             self._arrive_everywhere([o])
         elif kind == "group":
             leave = self.t + 20

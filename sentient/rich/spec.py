@@ -114,6 +114,9 @@ class Reading:
     mean_dwell_min: float = 0.0
     lux: float | None = None     # ambient light level; None when no light sensor reports
     queue: int | None = None     # people in a queue zone, where the radar reports zones; None otherwise
+    # one entry per paired wearable: (pairing id, heart rate, HRV). A watch is paired to one guest,
+    # so unlike the room channels this one is personal. None where nobody has opted in.
+    wearers: list[tuple[int, float, float]] | None = None
 
 
 def discretize(r: Reading) -> dict[str, int]:

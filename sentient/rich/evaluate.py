@@ -35,6 +35,7 @@ def run_rules(name: str, steps: int, seed: int) -> dict:
     for t in range(steps):
         reading = space.read()
         action = ctrl.step(reading, space.levers(), space.cooling, space.light)
+        space.staff_target = ctrl.target if action == "staff_alert" else None
         overridden = simulated_override(action, space, rng)
         o.record(space, t, action, overridden)
         space.apply("do_nothing" if overridden else action)
@@ -89,7 +90,7 @@ def _pluck(runs: list[dict], *keys: str) -> list:
     out = []
     for r in runs:
         for k in keys:
-            r = r[k]
+            r = r.get(k) if isinstance(r, dict) else None
         out.append(r)
     return out
 
@@ -122,7 +123,8 @@ def summarize(out: Path = OUT) -> dict:
         for who, path in (("agent", ("agent", "outcomes")), ("rules", ("rules",)), ("preset", ("preset",))):
             summary[name][who] = {k: _mean_ci(_pluck(rs, *path, k)) for k in (
                 "energy", "mood_mean", "arousal_mean", "comfort_frac", "stale_frac",
-                "recommendations", "dismissed", "staff_alerts", "tickets", "false_tickets", "ticket_step")}
+                "recommendations", "dismissed", "staff_alerts", "tickets", "false_tickets", "ticket_step",
+                "distress_steps")}
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary
 
