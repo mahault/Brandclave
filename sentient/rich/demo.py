@@ -62,7 +62,54 @@ def lounge_afternoon(seed: int = 0) -> Space:
     return space
 
 
-DEMO_SCENARIOS = {"lounge_afternoon": lounge_afternoon}
+class LobbySpace(Space):
+    """A hotel lobby. Guests checking in queue at the desk and are served one every two steps (about
+    four minutes each); each step in the queue makes them a little more tense. A staff call opens a
+    second desk for eight steps, so the queue moves twice as fast. Served guests head for the lifts."""
+
+    desk2: int = 0
+
+    def apply(self, action: str) -> None:
+        if action == "staff_alert":
+            self.alert_cooldown = 8
+            self.desk2 = 8
+            return
+        super().apply(action)
+
+    def queue(self) -> list:
+        q = [o for o in self.occupants if getattr(o, "role", "") == "checkin" and not getattr(o, "served", False)]
+        return sorted(q, key=lambda o: (o.arrived_at, getattr(o, "order", 0)))
+
+    def step(self) -> None:
+        q = self.queue()
+        serve = (1 if self.t % 2 == 0 else 0) + (1 if self.desk2 > 0 and self.t % 2 == 1 else 0)
+        for o in q[:serve]:
+            o.served = True
+            o.leave_at = self.t + 1
+        for o in q[serve:]:
+            o.baseline = min(0.9, o.baseline + 0.02)   # waiting wears on people
+        if self.desk2 > 0:
+            self.desk2 -= 1
+        super().step()
+
+
+def hotel_lobby(seed: int = 0) -> Space:
+    """A hotel lobby from three in the afternoon, with a check-in rush around 15:20 to 15:50.
+    Demo only: not in the evaluated set."""
+    space = LobbySpace(SpaceConfig(
+        name="hotel_lobby", intent="service", purpose="transit", n_occupants=0, capacity=40,
+        arrival_rate=None, dwell_steps=1e6, wearable_rate=0.25, light=0.8, sound_setting=0.35,
+        cooling=True, outdoor_temp=29.0, start_hour=15.0, seed=seed,
+    ))
+    for role, purpose in (("waiting", "restore"), ("waiting", "restore"), ("bar", "social")):
+        o = space._new_occupant(purpose)
+        o.role, o.leave_at = role, 12 + int(space.rng.integers(0, 8))
+        space.occupants.append(o)
+    return space
+
+
+DEMO_SCENARIOS = {"lounge_afternoon": lounge_afternoon, "hotel_lobby": hotel_lobby}
+ROLE_PURPOSE = {"checkin": "transit", "pass": "transit", "waiting": "restore", "meetup": "social", "bar": "social"}
 # step -> injection, applied to all three rooms at the same moment
 SCRIPTS = {"lounge_afternoon": {10: "ac_fail", 26: "group"}}
 # walk-in visitors: (groups per step, mean stay in steps). Drawn once and copied into all three
@@ -83,6 +130,8 @@ class Session:
         # people are created once, from their own stream, and copied into every room
         self._maker = build(seed)
         self._maker.rng = np.random.default_rng(seed + 777)
+        self._meet_id = 0
+        self._partners: list[tuple[int, int]] = []
         self.world = {k: build(seed) for k in ("sentient", "rules", "preset")}
         FixedPresetController().install(self.world["preset"])
         intent = self.world["sentient"].cfg.intent
@@ -180,6 +229,9 @@ class Session:
             if leaving:
                 w.occupants = [o for o in w.occupants if o not in leaving]
                 w.departures_total += len(leaving)
+        if self.scenario == "hotel_lobby":
+            self._lobby_arrivals()
+            return
         if not self.visitors:
             return
         rate, stay = self.visitors
@@ -190,6 +242,44 @@ class Session:
             leave = self.t + max(4, int(rng.normal(stay, stay * 0.4)))
             group = [self._person("social", leave_at=leave) for _ in range(size)]
             self._arrive_everywhere(group)
+
+    def _lobby_arrivals(self) -> None:
+        rng, t = self._maker.rng, self.t
+        rush = max(0.0, 1.0 - abs(t - 18) / 10)           # check-in rush around 15:20-15:50
+        for _ in range(rng.poisson(0.22 + 0.75 * rush)):  # arriving guests, alone or as a couple
+            size = 1 if rng.random() < 0.6 else 2
+            group = [self._role("checkin") for _ in range(size)]
+            for i, o in enumerate(group):
+                o.order = i
+            self._arrive_everywhere(group)
+        for _ in range(rng.poisson(0.3)):                  # walking through to the lifts
+            self._arrive_everywhere([self._role("pass", leave_at=t + 1)])
+        if rng.random() < 0.08:                            # waiting for a taxi or a friend
+            self._arrive_everywhere([self._role("waiting", leave_at=t + int(rng.integers(5, 13)))])
+        if rng.random() < 0.06:                            # a small group for a drink
+            leave = t + int(rng.integers(10, 18))
+            self._arrive_everywhere([self._role("bar", leave_at=leave) for _ in range(int(rng.integers(2, 4)))])
+        if rng.random() < 0.06:                            # meeting someone: they wait, the friend comes later
+            self._meet_id += 1
+            first = self._role("meetup")
+            first.meet = self._meet_id
+            self._arrive_everywhere([first])
+            self._partners.append((t + int(rng.integers(3, 8)), self._meet_id))
+        for when, mid in [x for x in self._partners if x[0] <= t]:
+            self._partners.remove((when, mid))
+            leave = t + int(rng.integers(8, 15))
+            second = self._role("meetup", leave_at=leave)
+            second.meet = mid
+            self._arrive_everywhere([second])
+            for w in self.world.values():
+                for o in w.occupants:
+                    if getattr(o, "meet", None) == mid:
+                        o.leave_at = leave
+
+    def _role(self, role: str, leave_at: float = 1e9):
+        o = self._person(ROLE_PURPOSE[role], leave_at=leave_at)
+        o.role = role
+        return o
 
     def _person(self, purpose: str, leave_at: float = 1e9, **kw):
         self._maker.t = self.t
@@ -308,7 +398,7 @@ class Session:
             },
             "flags": sorted(self.agent.flagged),
             "worlds": {k: self._world_view(k) for k in self.world},
-            "purpose": w.cfg.purpose, "gated": None if rec is None else rec.gated,
+            "purpose": w.cfg.purpose, "layout": "lobby" if self.scenario == "hotel_lobby" else "lounge", "gated": None if rec is None else rec.gated,
             "scores": scores,
             "forecasts": {"scored": len(outs), "hits": sum(o["hit"] for o in outs),
                           "same_as_now": sum(o["persistence_hit"] for o in outs)},
@@ -322,7 +412,11 @@ class Session:
         return {
             "people": [{"id": id(o), "mood": round(o.valence, 2), "stress": round(o.arousal, 2),
                         "activity": ["rest", "work", "social", "transit"][o.activity],
-                        "wearable": o.wearable, "distressed": o.mood_anchor is not None}
+                        "wearable": o.wearable, "distressed": o.mood_anchor is not None,
+                        "role": getattr(o, "role", None), "served": getattr(o, "served", False),
+                        "meet": getattr(o, "meet", None),
+                        "queue": next((i for i, x in enumerate(w.queue()) if x is o), None)
+                        if hasattr(w, "queue") else None}
                        for o in w.occupants],
             "light": round(w.light, 2), "sound": round(w.sound_setting, 2), "temp": round(w.temp, 1),
             "co2": round(w.co2), "cooling": w.cooling, "heating": w.heating,
@@ -330,6 +424,8 @@ class Session:
             "staff_here": w.comfort_timer > 0 or w.relief_timer > 0, "repair_here": w.repair_timer > 0,
             "mood": s["mood_mean"], "energy": s["energy"], "wasted": s["dismissed"],
             "staff_calls": s["staff_alerts"], "tickets": s["tickets"],
+            "desk2": getattr(w, "desk2", 0) > 0,
+            "queue": len(w.queue()) if hasattr(w, "queue") else None,
         }
 
     def _clock_at(self, t: int) -> str:
