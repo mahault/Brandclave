@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sentient Live</title>
+<style>
+/* Operator console: controls across the top, three working columns, timeline and record below. */
+:root{
+  --bg:#0f1820; --panel:#16222c; --panel-2:#1d2b37; --line:#2a3a47;
+  --ink:#eef2f0; --ink-2:#b4c0c8; --muted:#7f8e99;
+  --model:#4a90e8; --rules:#e8743c; --preset:#8e9592; --truth:#c9d1d6;
+  --good:#3fbf6a; --bad:#e66767; --warn:#e0a63a;
+  --font:"Segoe UI",system-ui,-apple-system,sans-serif; --mono:Consolas,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:18px;margin:0 16px 0 0;font-weight:650;letter-spacing:.2px}
+header h1 span{color:var(--model)}
+select,input,button{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+input[type=number]{width:70px}
+button{cursor:pointer}
+button:hover{border-color:var(--ink-2)}
+button.primary{background:var(--model);border-color:var(--model);color:#08121b;font-weight:650}
+button.on{background:#25405a;border-color:var(--model)}
+.sep{width:1px;height:26px;background:var(--line)}
+main{display:grid;grid-template-columns:300px 1fr 360px;gap:14px;padding:14px 20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel h2{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+.big{font-size:30px;font-weight:650;line-height:1.1}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-variant-numeric:tabular-nums}
+.kv div:nth-child(odd){color:var(--ink-2)}
+.kv .flag{color:var(--bad)}
+.injects{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.injects button{font-size:13px;text-align:left;padding:7px 9px}
+.rec{background:var(--panel-2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px;border-left:5px solid var(--muted)}
+.rec.act{border-left-color:var(--model)}
+.rec .action{font-size:28px;font-weight:650}
+.rec .why{color:var(--ink-2);font-size:13px;line-height:1.45}
+.rec .fc{font-family:var(--mono);font-size:13px;color:var(--ink-2)}
+.decide{display:flex;gap:10px}
+.decide button{flex:1;font-size:16px;padding:10px}
+.decide .ok{background:var(--good);border-color:var(--good);color:#06150b;font-weight:650}
+.decide .no{background:var(--bad);border-color:var(--bad);color:#1a0606;font-weight:650}
+.beliefs{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;align-items:center}
+.beliefs .name{color:var(--ink-2);font-size:13px}
+.bar{display:flex;height:22px;border-radius:5px;overflow:hidden;position:relative;background:var(--panel-2)}
+.bar div{display:flex;align-items:center;justify-content:center;font-size:11px;color:#0b1520;white-space:nowrap;overflow:hidden;border-right:1px solid var(--panel)}
+.bar .truth{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--truth);border:none;border-radius:2px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.8px;text-transform:uppercase}
+td.n,th.n{text-align:right}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.events{font-family:var(--mono);font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px}
+.bottom{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;padding:0 20px 20px}
+svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.pill{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:999px;background:var(--panel-2)}
+.pill.hit{color:var(--good)} .pill.miss{color:var(--bad)} .pill.bad{background:var(--bad);color:#1a0606}
+.mono{font-family:var(--mono);font-size:12px}
+.small{font-size:12px;color:var(--muted)}
+.hidden{display:none}
+.toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+@media (max-width:1200px){main{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Sentient</span> · live engine</h1>
+  <select id="scenario"></select>
+  <label class="small">seed <input id="seed" type="number" value="11"></label>
+  <button id="start" class="primary">Start</button>
+  <div class="sep"></div>
+  <button id="run">Run</button>
+  <button id="stepBtn">Step</button>
+  <select id="speed"><option value="900">Slow</option><option value="350" selected>Normal</option><option value="60">Fast</option></select>
+  <div class="sep"></div>
+  <button id="staffAuto" class="on">Simulated staff</button>
+  <button id="staffYou">You are the staff</button>
+  <div class="sep"></div>
+  <label class="small">Room is for <select id="intent"></select></label>
+  <label class="toggle"><input id="truth" type="checkbox"> Show what the model cannot see</label>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>The room</h2>
+    <div class="big" id="clock">--:--</div>
+    <div class="kv" id="room"></div>
+    <h2>What the sensors read</h2>
+    <div class="kv" id="reading"></div>
+    <h2>Change the room</h2>
+    <div class="injects">
+      <button data-inject="stressed_guest">Distressed guest walks in</button>
+      <button data-inject="group">Group of four arrives</button>
+      <button data-inject="ac_fail">Air conditioner fails</button>
+      <button data-inject="ac_fix">Repair it</button>
+      <button data-inject="mic_dead">Microphone dies</button>
+      <button data-inject="mic_fix">Fix microphone</button>
+      <button data-inject="everyone_leaves">Everyone leaves</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Recommendation</h2>
+    <div class="rec" id="rec"><div class="action">Press Start</div><div class="why">Pick a room and press Start. Run plays it; Step advances two minutes.</div></div>
+    <div class="decide hidden" id="decide"><button class="ok" id="accept">Accept</button><button class="no" id="dismiss">Dismiss</button></div>
+    <h2>What it believes, right now</h2>
+    <div class="beliefs" id="beliefs"></div>
+    <div class="small" id="truthNote"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Same room, three ways, live</h2>
+    <table id="scores"></table>
+    <div class="small">Mood: average of the people present, 0 to 1. Energy: lighting, heating, cooling and fresh air. Wasted: suggestions staff dismissed.</div>
+    <h2>Its forecasts, scored</h2>
+    <div id="fc" class="kv"></div>
+    <h2>Sensor health</h2>
+    <div id="flags" class="small">All channels trusted.</div>
+    <h2>What happened</h2>
+    <div class="events" id="events"></div>
+  </section>
+</main>
+
+<div class="bottom">
+  <section class="panel">
+    <h2>Timeline</h2>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--model)"></i>Belief someone is stressed</span>
+      <span><i class="dot" style="background:var(--rules)"></i>Belief the air conditioner is broken</span>
+      <span class="truthOnly hidden"><i class="dot" style="background:var(--truth)"></i>True stress (hidden from the model)</span>
+      <span><i class="dot" style="background:var(--good)"></i>Action taken</span>
+      <span><i class="dot" style="background:var(--bad)"></i>Dismissed</span>
+    </div>
+    <svg id="chart" viewBox="0 0 1000 230" role="img" aria-label="Timeline of beliefs and actions"></svg>
+  </section>
+  <section class="panel">
+    <h2>The sealed record</h2>
+    <div class="small">Every decision is hashed when made. Verify recomputes the hash; Tamper edits a record after the fact to show it is caught.</div>
+    <table id="ledger"></table>
+    <div id="verifyMsg" class="mono"></div>
+  </section>
+</div>
+
+<script>
+const NAMES={restore_pod:"Restore pod, noisy and bright",bar_9pm:"Bar at 9pm, meant to be lively",flat_bar:"Flat bar, music off",ambiguous_hr:"Calm guest, high heart rate",lobby_peak:"Lobby check-in rush",happy_group:"Happy group in a quiet lounge",stale_meeting:"Stuffy meeting room",hvac_failure:"Air conditioner fails",cold_morning:"Cold morning, work room",stressed_guest:"Distressed guest",sensor_failure:"Dead microphone"};
+const INTENTS={restore:"Rest",work:"Work",elevated:"A lively evening",service:"Service, a lobby"};
+const FACTOR={arousal:"Stress",valence:"Mood",occupancy:"People",thermal:"Temperature",air:"Air",hvac:"Air conditioner",lighting:"Lighting"};
+const STATE={degraded:"broken",ok:"working",elevated:"tense",positive:"good",negative:"low"};
+const SHADE=["#5e8fc8","#7fb0e6","#a9cdf2","#d4e7fa"];
+const $=id=>document.getElementById(id);
+let S=null, running=false;
+
+async function api(path, body){
+  const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
+  const j=await r.json(); if(!r.ok) throw new Error(j.detail||r.status); return j;
+}
+function kv(el,rows){el.replaceChildren();rows.forEach(([k,v,cls])=>{const a=document.createElement("div");a.textContent=k;const b=document.createElement("div");b.textContent=v;if(cls)b.className=cls;el.append(a,b);});}
+function txt(tag,t,cls){const e=document.createElement(tag);e.textContent=t;if(cls)e.className=cls;return e;}
+
+function render(s){
+  S=s; const R=s.room, r=s.reading;
+  $("clock").textContent=`${s.clock}  ·  ${s.minutes} min`;
+  $("intent").value=s.intent;
+  kv($("room"),[["People in the room",R.people],["Temperature",R.temp+" °C"],["CO2",R.co2+" ppm"],["Music",R.sound],["Lights",R.light],
+    ["Climate",R.cooling?"cooling":R.heating?"heating":"off"],["Air conditioner",R.ac_broken?"BROKEN (silently)":"working",R.ac_broken?"flag":""],["Microphone",R.mic_dead?"DEAD":"working",R.mic_dead?"flag":""]]);
+  const fl=new Set(s.flags.map(f=>({sound_level:"db",temp:"temp",co2:"co2",motion:"motion",lux:"lux",hr:"hr",hrv:"hrv",count:"count"}[f])));
+  if(r) kv($("reading"),[["Radar count",r.count,fl.has("count")?"flag":""],["Sound",r.db+" dB",fl.has("db")?"flag":""],["Temperature",r.temp+" °C"],["CO2",r.co2+" ppm"],
+    ["Heart rate",r.hr==null?"no wearable":r.hr+" bpm",fl.has("hr")?"flag":""],["HRV",r.hrv==null?"–":r.hrv+" ms"],["Motion",r.motion],["Light",r.lux==null?"–":r.lux+" lux"]]);
+  // recommendation
+  const rec=$("rec"); rec.replaceChildren();
+  if(s.rec){rec.className="rec"+(s.rec.raw!=="do_nothing"?" act":"");
+    rec.append(txt("div",s.rec.action,"action"));
+    rec.append(txt("div",`Confidence ${Math.round(s.rec.confidence*100)}%`,"small"));
+    rec.append(txt("div",s.rec.reason,"why"));
+    rec.append(txt("div","Sealed forecast: "+s.rec.forecast,"fc"));}
+  $("decide").classList.toggle("hidden",!s.awaiting);
+  // beliefs
+  const B=$("beliefs"); B.replaceChildren(); const showT=$("truth").checked;
+  if(s.beliefs) Object.entries(s.beliefs).forEach(([f,dist])=>{
+    B.append(txt("div",FACTOR[f]||f,"name")); const bar=document.createElement("div"); bar.className="bar";
+    s.states[f].forEach((st,i)=>{const p=dist[st]; const d=document.createElement("div"); d.style.width=(p*100)+"%"; d.style.background=SHADE[i%4];
+      if(f==="hvac"&&st==="degraded")d.style.background="var(--rules)"; if(f==="arousal"&&st==="stressed")d.style.background="var(--model)";
+      d.textContent=p>0.12?`${STATE[st]||st} ${Math.round(p*100)}%`:""; d.title=`${STATE[st]||st}: ${Math.round(p*100)}%`; bar.append(d);});
+    if(showT&&f==="arousal"&&R.true_arousal!=null){const m=document.createElement("div");m.className="truth";m.style.left=`calc(${R.true_arousal*100}% - 1px)`;m.title="true stress";bar.append(m);}
+    if(showT&&f==="valence"&&R.true_mood!=null){const m=document.createElement("div");m.className="truth";m.style.left=`calc(${R.true_mood*100}% - 1px)`;m.title="true mood";bar.append(m);}
+    B.append(bar);});
+  $("truthNote").textContent=showT&&R.true_arousal!=null?`Hidden truth: stress ${R.true_arousal}, mood ${R.true_mood}. White ticks mark it on the bars. The model never sees these.`:"";
+  // scores
+  const T=$("scores"); T.replaceChildren();
+  const hr=document.createElement("tr"); ["","Mood","Energy","Wasted","Staff calls"].forEach((h,i)=>hr.append(txt("th",h,i?"n":""))); T.append(hr);
+  [["sentient","Sentient","var(--model)"],["rules","Rulebook","var(--rules)"],["preset","Today's preset","var(--preset)"]].forEach(([k,lab,c])=>{
+    const x=s.scores[k]; const tr=document.createElement("tr"); const td=document.createElement("td"); const d=document.createElement("i"); d.className="dot"; d.style.background=c; td.append(d,document.createTextNode(lab)); tr.append(td);
+    [x.mood==null?"–":x.mood.toFixed(2),x.energy.toFixed(0),k==="preset"?"–":x.wasted,k==="preset"?"–":x.staff_calls].forEach(v=>tr.append(txt("td",v,"n"))); T.append(tr);});
+  const F=s.forecasts; kv($("fc"),[["Forecasts scored",F.scored],["Sentient right",F.scored?`${F.hits} (${Math.round(100*F.hits/F.scored)}%)`:"–"],["\"Same as now\" right",F.scored?`${F.same_as_now} (${Math.round(100*F.same_as_now/F.scored)}%)`:"–"]]);
+  $("flags").textContent=s.flags.length?"Not trusted, no actions taken through: "+s.flags.join(", ").replaceAll("_"," "):"All channels trusted.";
+  $("flags").style.color=s.flags.length?"var(--warn)":"";
+  const E=$("events"); E.replaceChildren(); s.events.forEach(e=>E.append(txt("div",e)));
+  drawChart(s); drawLedger(s);
+}
+
+function drawChart(s){
+  const svg=$("chart"); svg.replaceChildren(); const NS="http://www.w3.org/2000/svg";
+  const W=1000,H=230,L=40,Rr=10,T=12,Bt=40,pw=W-L-Rr,ph=H-T-Bt, h=s.history, n=Math.max(h.length,30);
+  const x=i=>L+pw*i/(n-1), y=v=>T+ph*(1-v);
+  const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);svg.append(e);return e;};
+  [0,.5,1].forEach(v=>{el("line",{x1:L,x2:W-Rr,y1:y(v),y2:y(v),stroke:"#2a3a47"});const t=el("text",{x:L-8,y:y(v)+4,"text-anchor":"end","font-size":11,fill:"#7f8e99"});t.textContent=v;});
+  const path=(key,color,dash)=>{let d="",pen=false;h.forEach((p,i)=>{const v=p[key];if(v==null){pen=false;return;}d+=(pen?" L":" M")+x(i)+","+y(v);pen=true;});if(d)el("path",{d,fill:"none",stroke:color,"stroke-width":2.2,"stroke-dasharray":dash||"","stroke-linejoin":"round"});};
+  if($("truth").checked) path("true_arousal","#c9d1d6","5 4");
+  path("p_stressed","#4a90e8"); path("p_ac_broken","#e8743c");
+  h.forEach((p,i)=>{if(p.action){el("circle",{cx:x(i),cy:H-Bt+16,r:5,fill:p.dismissed?"#e66767":"#3fbf6a"});}});
+  const lab=el("text",{x:L,y:H-4,"font-size":11,fill:"#7f8e99"}); lab.textContent=h.length?`last ${h.length*2} minutes`:"";
+}
+
+function drawLedger(s){
+  const T=$("ledger"); T.replaceChildren(); const hr=document.createElement("tr");
+  ["Time","Decision","Forecast","Result","Hash",""].forEach(h=>hr.append(txt("th",h))); T.append(hr);
+  s.ledger.forEach(e=>{const tr=document.createElement("tr");
+    tr.append(txt("td",e.time,"mono"),txt("td",e.action+(e.applied?"":" (dismissed)")),txt("td",e.forecast));
+    const res=document.createElement("td"); res.append(e.result?txt("span",e.result,"pill "+e.result):txt("span","pending","pill")); tr.append(res);
+    tr.append(txt("td",e.hash,"mono"));
+    const act=document.createElement("td"); const v=txt("button","Verify"); v.onclick=()=>doVerify(e.id); const tp=txt("button","Tamper"); tp.onclick=()=>doTamper(e.id);
+    v.style.fontSize=tp.style.fontSize="12px"; v.style.padding=tp.style.padding="3px 7px"; act.append(v,document.createTextNode(" "),tp); tr.append(act);
+    if(e.tampered) tr.style.background="rgba(230,103,103,.15)"; T.append(tr);});
+}
+async function doVerify(id){const r=await api("/api/verify/"+id);const m=$("verifyMsg");m.textContent=r.intact?`${id}: hash matches, record untouched.`:`${id}: HASH MISMATCH, this record was changed after it was sealed.`;m.style.color=r.intact?"var(--good)":"var(--bad)";}
+async function doTamper(id){await api("/api/tamper/"+id,{});const m=$("verifyMsg");m.textContent=`${id}: confidence edited after sealing. Now press Verify.`;m.style.color="var(--warn)";render(await api("/api/state"));}
+
+async function loop(){
+  while(running){
+    try{const s=await api("/api/step",{n:1});render(s);if(s.awaiting){setRunning(false);break;}}
+    catch(e){setRunning(false);alertBox(e.message);break;}
+    await new Promise(r=>setTimeout(r,+$("speed").value));
+  }
+}
+function setRunning(v){running=v;$("run").textContent=v?"Pause":"Run";$("run").classList.toggle("on",v);if(v)loop();}
+function alertBox(m){$("verifyMsg").textContent=m;$("verifyMsg").style.color="var(--bad)";}
+
+async function init(){
+  const d=await api("/api/scenarios");
+  d.scenarios.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=NAMES[k]||k;$("scenario").append(o);});
+  d.intents.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=INTENTS[k]||k;$("intent").append(o);});
+  $("start").onclick=async()=>{setRunning(false);$("start").textContent="Starting…";const st=$("staffYou").classList.contains("on")?"you":"auto";
+    render(await api("/api/reset",{scenario:$("scenario").value,seed:+$("seed").value,staff:st}));$("start").textContent="Restart";};
+  $("run").onclick=()=>{if(!S)return;setRunning(!running);};
+  $("stepBtn").onclick=async()=>{if(!S||S.awaiting)return;render(await api("/api/step",{n:1}));};
+  $("accept").onclick=async()=>{render(await api("/api/step",{decision:"accept"}));};
+  $("dismiss").onclick=async()=>{render(await api("/api/step",{decision:"dismiss"}));};
+  document.querySelectorAll("[data-inject]").forEach(b=>b.onclick=async()=>{if(!S)return;render(await api("/api/inject/"+b.dataset.inject,{}));});
+  $("intent").onchange=async()=>{if(!S)return;render(await api("/api/intent/"+$("intent").value,{}));};
+  const staff=async m=>{$("staffAuto").classList.toggle("on",m==="auto");$("staffYou").classList.toggle("on",m==="you");if(S)render(await api("/api/staff/"+m,{}));};
+  $("staffAuto").onclick=()=>staff("auto"); $("staffYou").onclick=()=>staff("you");
+  $("truth").onchange=()=>{document.querySelectorAll(".truthOnly").forEach(e=>e.classList.toggle("hidden",!$("truth").checked));if(S)render(S);};
+}
+init();
+</script>
+</body>
+</html>
