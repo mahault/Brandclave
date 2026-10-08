@@ -128,7 +128,7 @@ def main() -> None:
         "spa_evening": lambda: record_spa(
             "A thermal spa, one cold evening",
             "Guests move between the hot pool, the sauna, the cold plunge and a quiet terrace with heaters. "
-            "The air cools after sunset, a coach group arrives, a heater fails, a loud group drifts into the "
+            "The air cools after sunset, a coach group arrives, the terrace heating fails, a loud group drifts into the "
             "quiet zone, and one guest is having a hard evening."),
         "lounge_ac": lambda: record_session(
             "lounge_afternoon", 50, None, "A hotel lounge, one hot afternoon",

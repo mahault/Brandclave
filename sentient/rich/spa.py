@@ -152,11 +152,30 @@ class SpaEvening:
         self.next_gid = 0
         self.worlds = {k: World(k, _terrace(seed), _firepit(seed)) for k in ("sentient", "rules", "team")}
         self.agents = {"terrace": RichAgent(intent="restore"), "sauna": RichAgent(intent="service")}
+        # deployment setting for a zone guests pass through all evening: wait 16 minutes of empty,
+        # not 4, before powering the heaters down (the same setting a lobby gets, doubled outdoors)
+        self.agents["terrace"].setback_streak_required = 8
         self.rules = {"terrace": SpaRules("restore"), "sauna": RuleController("service")}
         self.staff_rng = {k: np.random.default_rng(seed + 1000) for k in self.worlds}
         self.events: list[tuple[int, str]] = []
         self.last_rec = None
         self._entered: list[int] = []
+        self._seed_afternoon(14)
+
+    def _seed_afternoon(self, n: int) -> None:
+        """The spa has been open since the afternoon: at five, guests are already part-way round."""
+        r = self.rng
+        for _ in range(n):
+            o = self._guest()
+            o.leg = int(r.integers(1, len(o.plan)))
+            zone, dur = o.plan[o.leg]
+            if zone == "sauna":
+                zone, o.plan[o.leg] = "hot_pool", ("hot_pool", dur)
+            until = int(r.integers(1, dur + 1))
+            for w in self.worlds.values():
+                c = copy.deepcopy(o)
+                w.guests.append(c)
+                self._place(w, c, zone, until)
 
     # ----------------------------------------------------------------- guests
     def _guest(self, purpose: str = "restore", **kw) -> Occupant:
@@ -188,11 +207,11 @@ class SpaEvening:
     def _arrivals(self) -> None:
         r, t = self.rng, self.t
         self._entered.append(0)
-        for _ in range(r.poisson(0.55)):
+        for _ in range(r.poisson(0.4)):
             self._arrive([self._guest()])
         if t == COACH_AT:
-            self._arrive([self._guest() for _ in range(12)])
-            self.events.append((t, "A coach group of twelve arrives and heads for the circuit."))
+            self._arrive([self._guest() for _ in range(10)])
+            self.events.append((t, "A coach group of ten arrives and heads for the circuit."))
         if self.distressed and t == DISTRESSED_AT:
             o = self._guest(arousal=0.9, valence=0.15)
             o.baseline, o.mood_anchor, o.motion_scale = 0.8, 0.15, 0.7
@@ -362,7 +381,7 @@ class SpaEvening:
         if t == HEATER_FAILS_AT:
             for w in self.worlds.values():
                 w.terrace.hvac_degraded = True
-            self.events.append((t, "One terrace heater fails. It stays switched on, and gives no heat."))
+            self.events.append((t, "The terrace heating fails. It stays switched on, and gives no heat."))
         for w in self.worlds.values():
             # outdoors, bodies do not warm the air: unheated, the terrace feels about 4 C above the air
             # outside (shelter, warm stone); the base room formula is solved for that

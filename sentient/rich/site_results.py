@@ -77,7 +77,7 @@ def spa(path: Path) -> dict:
         ("Cold on the terrace", "guest-minutes under 20.5 °C", "cold_guest_minutes"),
         ("Rest spoiled by noise", "resting guest-minutes in a loud quiet zone", "noise_guest_minutes"),
         ("Upset guest left alone", "minutes before someone came", "distress_minutes"),
-        ("Failed heater reported", "minutes after it failed", "heater_ticket_minutes"),
+        ("Failed heating reported", "minutes after it failed", "heater_ticket_minutes"),
         ("Energy", "heaters, lights, second sauna (units)", "energy"),
         ("Simulated mood", "0–1, higher is better", "mood"),
     ]
@@ -103,7 +103,7 @@ def main() -> None:
     hs, ht = m("sentient", "heater_ticket_minutes"), m("team", "heater_ticket_minutes")
     if hs is not None and ht is not None:
         hero.append({"v": f"{hs:.0f}<small> min vs {ht:.0f}</small>",
-                     "t": "Failed spa heater reported, Sentient against a good team by eye (unseen evenings)."})
+                     "t": "Minutes to report failed spa heating, Sentient against a good team by eye, over unseen evenings."})
     qs, qt = m("sentient", "queue_minutes"), m("team", "queue_minutes")
     if qs is not None and qt:
         hero.append({"v": f"{100 * (1 - qs / qt):.0f}%<small> less</small>",
@@ -114,7 +114,7 @@ def main() -> None:
                      "t": "An upset guest in a busy lounge left alone, Sentient against today's setup."})
     mv = extra["mood_vs_preset"]
     hero.append({"v": f"{mv['ahead']}<small> of {extra['n_rooms']}</small>",
-                 "t": f"Kinds of room where simulated guests did better than with today's setup. Lower in {mv['behind']}."})
+                 "t": f"Kinds of room where simulated guests did better than with today's setup. " + ("Never lower." if mv["behind"] == 0 else f"Lower in {mv['behind']}.") + ""})
     res = {"hero": hero, "spa": sp, "rooms": table}
     Path(args.out).write_text(json.dumps(res, indent=1), encoding="utf-8")
     print(json.dumps(res, indent=1)[:3000])

@@ -75,7 +75,10 @@ def test_happy_group_is_read_as_happy_and_mostly_left_alone(results):
     # under a restore intent a loud room is wrong, so it will try; staff dismiss it and it learns
     hushing = a["action_counts"].get("lower_sound", 0) + a["action_counts"].get("dim_lights", 0)
     assert hushing <= 10, a["action_counts"]
-    assert a["by_time_third"][2]["recommendations"] <= 2, a["by_time_third"]
+    # by the last third it has mostly learned to leave them be; one more is allowed since a paired
+    # watch on an excited guest can look like distress until staff say no (then it backs off)
+    assert a["by_time_third"][2]["recommendations"] <= 3, a["by_time_third"]
+    assert a["by_time_third"][2]["recommendations"] < a["by_time_third"][0]["recommendations"]
     assert a["final_margins"]["lower_sound"] > 0.2 or a["final_margins"]["dim_lights"] > 0.2
 
 
