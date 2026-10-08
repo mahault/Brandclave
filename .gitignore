@@ -72,3 +72,6 @@ htmlcov/
 
 # Claude Code session artifacts
 tmpclaude-*
+
+# the public Sentient page ships its recorded runs
+!web/sentient/data/

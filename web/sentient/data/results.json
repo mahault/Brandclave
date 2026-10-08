@@ -1,0 +1,201 @@
+{
+ "hero": [
+  {
+   "v": "8<small> min vs 24</small>",
+   "t": "Minutes to report failed spa heating, Sentient against a good team by eye, over unseen evenings."
+  },
+  {
+   "v": "63%<small> less</small>",
+   "t": "Waiting for the sauna on busy evenings, against a good team opening the second one by eye."
+  },
+  {
+   "v": "13<small> min vs 120</small>",
+   "t": "An upset guest in a busy lounge left alone, Sentient against today's setup."
+  },
+  {
+   "v": "9<small> of 12</small>",
+   "t": "Kinds of room where simulated guests did better than with today's setup. Never lower."
+  }
+ ],
+ "spa": {
+  "n": 10,
+  "note": "10 unseen evenings. Lower is better on every row except mood. Bars are averages; the thin line is the 95% range of the average.",
+  "rows": [
+   {
+    "label": "Waiting for the sauna",
+    "unit": "guest-minutes in the queue",
+    "key": "queue_minutes",
+    "v": {
+     "sentient": {
+      "mean": 33.0,
+      "ci": 7.043,
+      "n": 10
+     },
+     "rules": {
+      "mean": 54.0,
+      "ci": 10.404,
+      "n": 10
+     },
+     "team": {
+      "mean": 90.0,
+      "ci": 25.732,
+      "n": 10
+     }
+    }
+   },
+   {
+    "label": "Cold on the terrace",
+    "unit": "guest-minutes under 20.5 \u00b0C",
+    "key": "cold_guest_minutes",
+    "v": {
+     "sentient": {
+      "mean": 449.2,
+      "ci": 61.553,
+      "n": 10
+     },
+     "rules": {
+      "mean": 496.8,
+      "ci": 65.841,
+      "n": 10
+     },
+     "team": {
+      "mean": 1260.8,
+      "ci": 70.488,
+      "n": 10
+     }
+    }
+   },
+   {
+    "label": "Rest spoiled by noise",
+    "unit": "resting guest-minutes in a loud quiet zone",
+    "key": "noise_guest_minutes",
+    "v": {
+     "sentient": {
+      "mean": 113.4,
+      "ci": 16.775,
+      "n": 10
+     },
+     "rules": {
+      "mean": 385.2,
+      "ci": 75.101,
+      "n": 10
+     },
+     "team": {
+      "mean": 267.0,
+      "ci": 53.784,
+      "n": 10
+     }
+    }
+   },
+   {
+    "label": "Upset guest left alone",
+    "unit": "minutes before someone came",
+    "key": "distress_minutes",
+    "v": {
+     "sentient": {
+      "mean": 25.6,
+      "ci": 16.721,
+      "n": 10
+     },
+     "rules": {
+      "mean": 10.2,
+      "ci": 10.639,
+      "n": 10
+     },
+     "team": {
+      "mean": 43.8,
+      "ci": 18.326,
+      "n": 10
+     }
+    }
+   },
+   {
+    "label": "Failed heating reported",
+    "unit": "minutes after it failed",
+    "key": "heater_ticket_minutes",
+    "v": {
+     "sentient": {
+      "mean": 7.8,
+      "ci": 0.392,
+      "n": 10
+     },
+     "rules": {
+      "mean": 18.4,
+      "ci": 0.523,
+      "n": 10
+     },
+     "team": {
+      "mean": 24.2,
+      "ci": 0.392,
+      "n": 10
+     }
+    }
+   },
+   {
+    "label": "Energy",
+    "unit": "heaters, lights, second sauna (units)",
+    "key": "energy",
+    "v": {
+     "sentient": {
+      "mean": 189.97,
+      "ci": 9.868,
+      "n": 10
+     },
+     "rules": {
+      "mean": 191.61,
+      "ci": 14.397,
+      "n": 10
+     },
+     "team": {
+      "mean": 132.75,
+      "ci": 12.211,
+      "n": 10
+     }
+    }
+   },
+   {
+    "label": "Simulated mood",
+    "unit": "0\u20131, higher is better",
+    "key": "mood",
+    "v": {
+     "sentient": {
+      "mean": 0.58,
+      "ci": 0.002,
+      "n": 10
+     },
+     "rules": {
+      "mean": 0.565,
+      "ci": 0.003,
+      "n": 10
+     },
+     "team": {
+      "mean": 0.545,
+      "ci": 0.005,
+      "n": 10
+     }
+    }
+   }
+  ]
+ },
+ "rooms": {
+  "note": "12 kinds of room, ten unseen runs each. Compared on simulated mood, energy and staff calls that staff turned down. \"Level\" means the gap is inside the 95% range.",
+  "rows": [
+   {
+    "against": "A good rulebook, same sensors",
+    "ahead": 10,
+    "level": 24,
+    "behind": 2
+   },
+   {
+    "against": "Today's fixed setup",
+    "ahead": 18,
+    "level": 5,
+    "behind": 1
+   }
+  ],
+  "notes": [
+   "Where the rulebook comes out ahead: Lobby rush: more dismissed calls; Stuffy meeting room: energy.",
+   "Simulated mood against today's setup: higher in 9 rooms, level in 3, lower in 0."
+  ]
+ }
+}

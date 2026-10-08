@@ -1183,9 +1183,14 @@ async def dashboard_v2():
         .align-row.gap .a-fill { background: var(--ink-3); }
         .align-row .a-val { text-align: right; font-family: var(--font-mono); color: var(--ink-2); font-size: 0.9em; }
         .fit-method { font-family: var(--font-mono); font-size: 0.64em; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+        .sentient-bar { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 9px 16px; background: linear-gradient(90deg, rgba(226,160,71,0.16), rgba(226,160,71,0.05)); border-bottom: 1px solid rgba(226,160,71,0.28); font-size: 0.86em; color: var(--ink-2); }
+        .sentient-bar .s-word { font-family: 'Montserrat', var(--font-display); font-weight: 400; letter-spacing: 0.32em; text-transform: uppercase; color: #e2a047; font-size: 0.92em; }
+        .sentient-bar a { color: #e2a047; font-weight: 600; text-decoration: none; border: 1px solid rgba(226,160,71,0.5); border-radius: 999px; padding: 4px 12px; }
+        .sentient-bar a:hover { background: #e2a047; color: #141008; }
     </style>
 </head>
 <body>
+    <div class="sentient-bar"><span class="s-word">Sentient</span><span>Spaces that notice before guests have to ask. Watch it run a spa evening.</span><a href="/sentient">See Sentient &rarr;</a></div>
     <div class="hero">
         <h1>BrandClave Intelligence</h1>
         <p>Hospitality Trends, Strategic Moves & Demand Signals</p>

@@ -206,6 +206,7 @@ from api.routes.signal_ledger import router as signal_ledger_router
 from api.routes.auth import router as auth_router
 from api.routes.projects import router as projects_router
 from api.routes.overview import router as overview_router
+from api.routes.sentient_site import router as sentient_site_router
 
 app.include_router(social_pulse_router, prefix="/api", tags=["Social Pulse"])
 app.include_router(hotelier_bets_router, prefix="/api", tags=["Hotelier Bets"])
@@ -220,6 +221,7 @@ app.include_router(signal_ledger_router, prefix="/api", tags=["Signal Ledger"])
 app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(projects_router, prefix="/api", tags=["Projects"])
 app.include_router(overview_router, prefix="/api", tags=["Overview"])
+app.include_router(sentient_site_router, tags=["Sentient"])
 
 
 if __name__ == "__main__":
