@@ -1,11 +1,6 @@
-# Render blueprint: managed Postgres + web API + scheduler worker.
-# Connect the repo in the Render dashboard and this provisions everything;
-# only MISTRAL_API_KEY needs to be pasted in manually (sync: false).
-
-databases:
-  - name: brandclave-db
-    plan: basic-256mb
-    postgresMajorVersion: "16"
+# Render blueprint: web API + scheduler worker. Postgres lives on Neon (free tier);
+# the Render free database expired Oct 2026. DATABASE_URL and MISTRAL_API_KEY
+# are pasted in the dashboard (sync: false).
 
 services:
   - type: web
@@ -20,9 +15,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: DATABASE_URL
-        fromDatabase:
-          name: brandclave-db
-          property: connectionString
+        sync: false # Neon Postgres connection string, pasted in the dashboard
       - key: JWT_SECRET
         generateValue: true
       - key: MISTRAL_API_KEY
@@ -46,9 +39,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: DATABASE_URL
-        fromDatabase:
-          name: brandclave-db
-          property: connectionString
+        sync: false # Neon Postgres connection string, pasted in the dashboard
       - key: MISTRAL_API_KEY
         sync: false
       - key: LOG_LEVEL
